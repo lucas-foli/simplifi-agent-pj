@@ -1,11 +1,12 @@
 import { useState } from "react";
+import InputMask from "react-input-mask";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Building2, DollarSign, Receipt, ArrowRight, ArrowLeft, Check } from "lucide-react";
+import { User, Building2, DollarSign, Receipt, ArrowRight, ArrowLeft, Check, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Onboarding = () => {
@@ -20,6 +21,52 @@ const Onboarding = () => {
     monthlyIncome: "",
     fixedCosts: [] as { name: string; value: string }[],
   });
+  const [emailError, setEmailError] = useState("");
+  const [cnpjError, setCnpjError] = useState("");
+
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validateCNPJ = (cnpj: string): boolean => {
+    const cleanCNPJ = cnpj.replace(/\D/g, "");
+    return cleanCNPJ.length === 14;
+  };
+
+  const handleEmailChange = (value: string) => {
+    setFormData({ ...formData, email: value });
+    if (value && !validateEmail(value)) {
+      setEmailError("Email inválido");
+    } else {
+      setEmailError("");
+    }
+  };
+
+  const handleCNPJChange = (value: string) => {
+    setFormData({ ...formData, cnpj: value });
+    if (value && !validateCNPJ(value)) {
+      setCnpjError("CNPJ deve conter 14 dígitos");
+    } else {
+      setCnpjError("");
+    }
+  };
+
+  const formatCurrencyInput = (value: string): string => {
+    const numbers = value.replace(/\D/g, "");
+    const amount = parseFloat(numbers) / 100;
+    return amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const parseCurrencyInput = (value: string): string => {
+    const numbers = value.replace(/\D/g, "");
+    return (parseFloat(numbers) / 100).toString();
+  };
+
+  const handleMonthlyIncomeChange = (value: string) => {
+    const formatted = formatCurrencyInput(value);
+    setFormData({ ...formData, monthlyIncome: parseCurrencyInput(value) });
+  };
 
   const addFixedCost = () => {
     setFormData(prev => ({
@@ -29,12 +76,22 @@ const Onboarding = () => {
   };
 
   const updateFixedCost = (index: number, field: "name" | "value", value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      fixedCosts: prev.fixedCosts.map((cost, i) => 
-        i === index ? { ...cost, [field]: value } : cost
-      )
-    }));
+    if (field === "value") {
+      const formatted = formatCurrencyInput(value);
+      setFormData(prev => ({
+        ...prev,
+        fixedCosts: prev.fixedCosts.map((cost, i) => 
+          i === index ? { ...cost, [field]: parseCurrencyInput(value) } : cost
+        )
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        fixedCosts: prev.fixedCosts.map((cost, i) => 
+          i === index ? { ...cost, [field]: value } : cost
+        )
+      }));
+    }
   };
 
   const removeFixedCost = (index: number) => {
@@ -175,9 +232,16 @@ const Onboarding = () => {
                       id="email"
                       type="email"
                       value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      onChange={(e) => handleEmailChange(e.target.value)}
                       placeholder="seu@email.com"
+                      className={emailError ? "border-danger" : ""}
                     />
+                    {emailError && (
+                      <div className="flex items-center gap-1 mt-1 text-danger text-xs">
+                        <AlertCircle className="h-3 w-3" />
+                        <span>{emailError}</span>
+                      </div>
+                    )}
                   </div>
 
                   {userType === "pj" && (
@@ -194,12 +258,27 @@ const Onboarding = () => {
 
                       <div>
                         <Label htmlFor="cnpj">CNPJ</Label>
-                        <Input
-                          id="cnpj"
+                        <InputMask
+                          mask="99.999.999/9999-99"
                           value={formData.cnpj}
-                          onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
-                          placeholder="00.000.000/0000-00"
-                        />
+                          onChange={(e) => handleCNPJChange(e.target.value)}
+                        >
+                          {/* @ts-ignore */}
+                          {(inputProps) => (
+                            <Input
+                              {...inputProps}
+                              id="cnpj"
+                              placeholder="00.000.000/0000-00"
+                              className={cnpjError ? "border-danger" : ""}
+                            />
+                          )}
+                        </InputMask>
+                        {cnpjError && (
+                          <div className="flex items-center gap-1 mt-1 text-danger text-xs">
+                            <AlertCircle className="h-3 w-3" />
+                            <span>{cnpjError}</span>
+                          </div>
+                        )}
                       </div>
                     </>
                   )}
@@ -210,7 +289,16 @@ const Onboarding = () => {
                     <ArrowLeft className="h-4 w-4" />
                     Voltar
                   </Button>
-                  <Button onClick={() => setStep(3)} className="gap-2" disabled={!formData.name || !formData.email}>
+                  <Button 
+                    onClick={() => setStep(3)} 
+                    className="gap-2" 
+                    disabled={
+                      !formData.name || 
+                      !formData.email || 
+                      !!emailError ||
+                      (userType === "pj" && (!formData.companyName || !formData.cnpj || !!cnpjError))
+                    }
+                  >
                     Continuar
                     <ArrowRight className="h-4 w-4" />
                   </Button>
@@ -238,18 +326,18 @@ const Onboarding = () => {
                   <div>
                     <Label htmlFor="monthlyIncome">Valor Mensal (R$)</Label>
                     <div className="relative">
-                      <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <span className="absolute left-3 top-3 text-sm text-muted-foreground">R$</span>
                       <Input
                         id="monthlyIncome"
-                        type="number"
-                        value={formData.monthlyIncome}
-                        onChange={(e) => setFormData({ ...formData, monthlyIncome: e.target.value })}
-                        placeholder="5000.00"
+                        type="text"
+                        value={formData.monthlyIncome ? formatCurrencyInput(formData.monthlyIncome + "00") : ""}
+                        onChange={(e) => handleMonthlyIncomeChange(e.target.value)}
+                        placeholder="5.000,00"
                         className="pl-10"
                       />
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
-                      Você poderá ajustar este valor depois
+                      Use vírgula para decimais (ex: 5.000,00)
                     </p>
                   </div>
                 </div>
@@ -283,7 +371,7 @@ const Onboarding = () => {
                     : "Adicione os custos fixos da empresa"}
                 </p>
                 
-                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 -mr-2 scrollbar-thin">
                   {formData.fixedCosts.map((cost, index) => (
                     <div key={index} className="flex gap-2">
                       <div className="flex-1">
@@ -295,10 +383,10 @@ const Onboarding = () => {
                       </div>
                       <div className="w-32">
                         <Input
-                          type="number"
-                          value={cost.value}
+                          type="text"
+                          value={cost.value ? formatCurrencyInput(cost.value + "00") : ""}
                           onChange={(e) => updateFixedCost(index, "value", e.target.value)}
-                          placeholder="Valor"
+                          placeholder="0,00"
                         />
                       </div>
                       <Button
@@ -327,7 +415,14 @@ const Onboarding = () => {
                     <ArrowLeft className="h-4 w-4" />
                     Voltar
                   </Button>
-                  <Button onClick={handleComplete} className="gap-2">
+                  <Button 
+                    onClick={handleComplete} 
+                    className="gap-2"
+                    disabled={
+                      formData.fixedCosts.length === 0 || 
+                      formData.fixedCosts.some(cost => !cost.name.trim() || !cost.value.trim())
+                    }
+                  >
                     Finalizar
                     <Check className="h-4 w-4" />
                   </Button>
