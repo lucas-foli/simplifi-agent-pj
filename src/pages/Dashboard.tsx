@@ -371,21 +371,41 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Floating Action Button */}
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ duration: 0.3, delay: 0.5 }}
-        className="fixed bottom-6 right-6"
-      >
-        <Button
-          size="lg"
-          className="h-14 w-14 rounded-full shadow-primary animate-pulse-subtle"
-          onClick={() => navigate('/transactions')}
+      {/* Floating Action Buttons */}
+      <div className="fixed bottom-6 right-6 flex flex-col gap-3">
+        {/* Chat Button */}
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.6 }}
         >
-          <Plus className="h-6 w-6" />
-        </Button>
-      </motion.div>
+          <Button
+            size="lg"
+            variant="secondary"
+            className="h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all"
+            onClick={() => navigate('/chat')}
+            title="Conversar com Assistente"
+          >
+            <MessageSquare className="h-6 w-6" />
+          </Button>
+        </motion.div>
+        
+        {/* Add Transaction Button */}
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.5 }}
+        >
+          <Button
+            size="lg"
+            className="h-14 w-14 rounded-full shadow-primary animate-pulse-subtle"
+            onClick={() => navigate('/transactions')}
+            title="Adicionar Despesa"
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
+        </motion.div>
+      </div>
     </div>
   );
 };
