@@ -8,6 +8,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, Building2, DollarSign, Receipt, ArrowRight, ArrowLeft, Check, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { useSetMonthlyIncome, useCreateFixedCost } from "@/hooks/useFinancialData";
+import { toast } from "sonner";
 
 const Onboarding = () => {
   const navigate = useNavigate();
@@ -16,6 +19,8 @@ const Onboarding = () => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    password: "",
+    confirmPassword: "",
     companyName: "",
     cnpj: "",
     monthlyIncome: "",
@@ -23,6 +28,11 @@ const Onboarding = () => {
   });
   const [emailError, setEmailError] = useState("");
   const [cnpjError, setCnpjError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { signUp } = useAuth();
+  const setMonthlyIncome = useSetMonthlyIncome();
+  const createFixedCost = useCreateFixedCost();
 
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -52,36 +62,46 @@ const Onboarding = () => {
     }
   };
 
+  // Format raw numbers (e.g., "12345") to display (e.g., "123,45")
   const formatCurrencyInput = (value: string): string => {
     const numbers = value.replace(/\D/g, "");
+    if (!numbers) return "";
     const amount = parseFloat(numbers) / 100;
     return amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  const parseCurrencyInput = (value: string): string => {
+  // Parse raw numbers to decimal string (e.g., "12345" -> "123.45")
+  const parseCurrencyToDecimal = (value: string): string => {
     const numbers = value.replace(/\D/g, "");
+    if (!numbers) return "0";
     return (parseFloat(numbers) / 100).toString();
   };
 
+  // Format decimal string to display (e.g., "123.45" -> "123,45")
+  const formatDecimalToDisplay = (decimal: string): string => {
+    if (!decimal || decimal === "0") return "";
+    const amount = parseFloat(decimal);
+    return amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
   const handleMonthlyIncomeChange = (value: string) => {
-    const formatted = formatCurrencyInput(value);
-    setFormData({ ...formData, monthlyIncome: parseCurrencyInput(value) });
+    setFormData({ ...formData, monthlyIncome: parseCurrencyToDecimal(value) });
   };
 
   const addFixedCost = () => {
     setFormData(prev => ({
       ...prev,
-      fixedCosts: [...prev.fixedCosts, { name: "", value: "" }]
+      fixedCosts: [...prev.fixedCosts, { name: "", value: "0" }]
     }));
   };
 
   const updateFixedCost = (index: number, field: "name" | "value", value: string) => {
     if (field === "value") {
-      const formatted = formatCurrencyInput(value);
+      // Store as decimal string (e.g., "123.45")
       setFormData(prev => ({
         ...prev,
         fixedCosts: prev.fixedCosts.map((cost, i) => 
-          i === index ? { ...cost, [field]: parseCurrencyInput(value) } : cost
+          i === index ? { ...cost, [field]: parseCurrencyToDecimal(value) } : cost
         )
       }));
     } else {
@@ -101,11 +121,78 @@ const Onboarding = () => {
     }));
   };
 
-  const handleComplete = () => {
-    // Save to localStorage for demo
-    localStorage.setItem("userType", userType);
-    localStorage.setItem("onboardingData", JSON.stringify(formData));
-    navigate("/dashboard");
+  const handleComplete = async () => {
+    setLoading(true);
+    try {
+      // Create user account
+      const { data } = await signUp(formData.email, formData.password, {
+        name: formData.name,
+        user_type: userType,
+        company_name: userType === 'pj' ? formData.companyName : undefined,
+        cnpj: userType === 'pj' ? formData.cnpj : undefined,
+      });
+
+      // Check if email confirmation is required
+      if (data?.user && !data.session) {
+        toast.success('Verifique seu email para confirmar a conta!');
+        navigate('/login');
+        return;
+      }
+
+      // Wait a bit for the session to be established
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Save monthly income
+      const now = new Date();
+      try {
+        await setMonthlyIncome.mutateAsync({
+          amount: parseFloat(formData.monthlyIncome),
+          month: now.getMonth() + 1,
+          year: now.getFullYear(),
+          company_id: null,
+        });
+
+        // Save fixed costs
+        for (const cost of formData.fixedCosts) {
+          if (cost.name && cost.value) {
+            await createFixedCost.mutateAsync({
+              name: cost.name,
+              amount: parseFloat(cost.value),
+              month: now.getMonth() + 1,
+              year: now.getFullYear(),
+              company_id: null,
+              recurrence: 'monthly',
+              replicate: false,
+            });
+          }
+        }
+      } catch (dataError: any) {
+        console.error('Erro ao salvar dados:', dataError);
+        // Continue anyway, user can add data later
+        toast.warning('Conta criada, mas alguns dados n\u00e3o foram salvos');
+      }
+
+      toast.success('Conta criada com sucesso!');
+      navigate("/dashboard");
+    } catch (error: any) {
+      console.error('Erro ao criar conta:', error);
+      toast.error(error.message || 'Erro ao criar conta');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const validatePassword = () => {
+    if (formData.password.length < 6) {
+      setPasswordError('A senha deve ter pelo menos 6 caracteres');
+      return false;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      setPasswordError('As senhas não coincidem');
+      return false;
+    }
+    setPasswordError('');
+    return true;
   };
 
   const steps = [
@@ -244,6 +331,36 @@ const Onboarding = () => {
                     )}
                   </div>
 
+                  <div>
+                    <Label htmlFor="password">Senha</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      placeholder="Mínimo 6 caracteres"
+                      className={passwordError ? "border-danger" : ""}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={formData.confirmPassword}
+                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                      placeholder="Digite a senha novamente"
+                      className={passwordError ? "border-danger" : ""}
+                    />
+                    {passwordError && (
+                      <div className="flex items-center gap-1 mt-1 text-danger text-xs">
+                        <AlertCircle className="h-3 w-3" />
+                        <span>{passwordError}</span>
+                      </div>
+                    )}
+                  </div>
+
                   {userType === "pj" && (
                     <>
                       <div>
@@ -290,11 +407,17 @@ const Onboarding = () => {
                     Voltar
                   </Button>
                   <Button 
-                    onClick={() => setStep(3)} 
+                    onClick={() => {
+                      if (validatePassword()) {
+                        setStep(3);
+                      }
+                    }} 
                     className="gap-2" 
                     disabled={
                       !formData.name || 
                       !formData.email || 
+                      !formData.password ||
+                      !formData.confirmPassword ||
                       !!emailError ||
                       (userType === "pj" && (!formData.companyName || !formData.cnpj || !!cnpjError))
                     }
@@ -325,15 +448,15 @@ const Onboarding = () => {
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="monthlyIncome">Valor Mensal (R$)</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-3 text-sm text-muted-foreground">R$</span>
+                    <div className="relative transition-transform duration-200 focus-within:scale-105">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none z-10">R$</span>
                       <Input
                         id="monthlyIncome"
                         type="text"
-                        value={formData.monthlyIncome ? formatCurrencyInput(formData.monthlyIncome + "00") : ""}
+                        value={formatDecimalToDisplay(formData.monthlyIncome)}
                         onChange={(e) => handleMonthlyIncomeChange(e.target.value)}
                         placeholder="5.000,00"
-                        className="pl-10"
+                        className="pl-10 focus-visible:scale-100"
                       />
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
@@ -384,7 +507,7 @@ const Onboarding = () => {
                       <div className="w-32">
                         <Input
                           type="text"
-                          value={cost.value ? formatCurrencyInput(cost.value + "00") : ""}
+                          value={formatDecimalToDisplay(cost.value)}
                           onChange={(e) => updateFixedCost(index, "value", e.target.value)}
                           placeholder="0,00"
                         />
@@ -419,12 +542,13 @@ const Onboarding = () => {
                     onClick={handleComplete} 
                     className="gap-2"
                     disabled={
+                      loading ||
                       formData.fixedCosts.length === 0 || 
-                      formData.fixedCosts.some(cost => !cost.name.trim() || !cost.value.trim())
+                      formData.fixedCosts.some(cost => !cost.name.trim() || parseFloat(cost.value) === 0)
                     }
                   >
-                    Finalizar
-                    <Check className="h-4 w-4" />
+                    {loading ? 'Criando conta...' : 'Finalizar'}
+                    {!loading && <Check className="h-4 w-4" />}
                   </Button>
                 </div>
               </motion.div>

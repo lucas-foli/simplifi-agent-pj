@@ -11,17 +11,34 @@ import {
   Plus,
   MessageSquare,
   Calendar,
-  Filter
-} from "lucide-react";
-import { Link } from "react-router-dom";
+  Filter,
+  LogOut
+} from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { useAuth } from "@/hooks/useAuth";
+import { useDashboardSummary } from "@/hooks/useFinancialData";
+import { useTransactions, useTransactionsByCategory } from "@/hooks/useTransactions";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+  const { user, profile, signOut } = useAuth();
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  
+  const { data: summary, isLoading: summaryLoading } = useDashboardSummary(currentMonth, currentYear);
+  const { data: transactions, isLoading: transactionsLoading } = useTransactions(currentMonth, currentYear);
+  const { data: categoryData, isLoading: categoryLoading } = useTransactionsByCategory(currentMonth, currentYear);
+  
   const [balanceValue, setBalanceValue] = useState(0);
-  const targetBalance = 2847.50;
+  const targetBalance = summary?.remaining ?? null;
 
   // Animate balance count-up
   useEffect(() => {
+    if (targetBalance === null || summaryLoading) return;
+    
     const duration = 1000;
     const steps = 60;
     const increment = targetBalance / steps;
@@ -38,53 +55,68 @@ const Dashboard = () => {
     }, duration / steps);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [targetBalance, summaryLoading]);
 
-  // Mock data
   const kpis = [
     {
       label: "Receita Mensal",
-      value: "5.000,00",
+      value: summary?.income.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) || "0,00",
       icon: DollarSign,
       color: "text-success",
       bgColor: "bg-success/10"
     },
     {
       label: "Custos Fixos",
-      value: "1.500,00",
+      value: summary?.fixedCosts.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) || "0,00",
       icon: Receipt,
       color: "text-warning",
       bgColor: "bg-warning/10"
     },
     {
       label: "Gastos do Mês",
-      value: "652,50",
+      value: summary?.expenses.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) || "0,00",
       icon: TrendingDown,
       color: "text-danger",
       bgColor: "bg-danger/10"
     },
     {
       label: "Meta de Economia",
-      value: "1.000,00",
+      value: "1.000,00", // TODO: Implementar metas
       icon: Target,
       color: "text-primary",
       bgColor: "bg-primary/10"
     }
   ];
 
-  const categoryData = [
-    { name: "Alimentação", value: 280, color: "#0B59A3" },
-    { name: "Transporte", value: 150, color: "#2ECC71" },
-    { name: "Lazer", value: 122.50, color: "#F39C12" },
-    { name: "Outros", value: 100, color: "#E74C3C" },
-  ];
+  const colors = ["#0B59A3", "#2ECC71", "#F39C12", "#E74C3C", "#9B59B6", "#1ABC9C", "#E67E22"];
+  
+  const chartData = categoryData?.map((cat, index) => ({
+    name: cat.category,
+    value: cat.amount,
+    color: colors[index % colors.length]
+  })) || [];
 
-  const recentTransactions = [
-    { id: 1, description: "Mercado Extra", category: "Alimentação", amount: -85.30, date: "Hoje, 14:32", type: "Pix" },
-    { id: 2, description: "Uber", category: "Transporte", amount: -23.50, date: "Hoje, 09:15", type: "Crédito" },
-    { id: 3, description: "Netflix", category: "Lazer", amount: -39.90, date: "Ontem, 18:20", type: "Débito" },
-    { id: 4, description: "Padaria", category: "Alimentação", amount: -12.50, date: "Ontem, 08:45", type: "Dinheiro" },
-  ];
+  const recentTransactions = transactions?.slice(0, 4).map(tx => ({
+    id: tx.id,
+    description: tx.description,
+    category: tx.category,
+    amount: -Number(tx.amount),
+    date: new Date(tx.date).toLocaleDateString('pt-BR'),
+    type: tx.payment_method || "N/A"
+  })) || [];
+
+  const monthName = new Date(currentYear, currentMonth - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+  if (summaryLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -98,12 +130,15 @@ const Dashboard = () => {
             <span className="text-xl font-bold text-foreground">SimplifiQA</span>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm">
+            <span className="text-sm text-muted-foreground mr-2 hidden md:inline">
+              Olá, {profile?.name || user?.email}
+            </span>
+            <Button variant="ghost" size="sm" className="hidden sm:flex">
               <Calendar className="h-4 w-4 mr-2" />
-              Maio 2025
+              {monthName}
             </Button>
-            <Button variant="outline" size="sm">
-              <MessageSquare className="h-4 w-4" />
+            <Button variant="outline" size="sm" onClick={signOut}>
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -116,31 +151,48 @@ const Dashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <Card className="p-8 mb-8 shadow-primary border-2 bg-gradient-to-br from-card via-card to-primary/5">
+          <Card className="p-4 sm:p-8 mb-8 shadow-primary border-2 bg-gradient-to-br from-card via-card to-primary/5">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div>
+              <div className="w-full md:w-auto">
                 <p className="text-sm text-muted-foreground mb-2">Saldo Restante do Mês</p>
                 <motion.div
-                  className="text-5xl md:text-6xl font-mono font-bold text-success mb-2"
+                  className="text-4xl sm:text-5xl md:text-6xl font-mono font-bold text-success mb-2"
                   animate={{ scale: [1, 1.02, 1] }}
                   transition={{ duration: 0.3 }}
                 >
-                  R$ {balanceValue.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {summaryLoading ? (
+                    <div className="animate-pulse">R$ ---.--</div>
+                  ) : (
+                    `R$ ${balanceValue.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  )}
                 </motion.div>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-success flex items-center gap-1">
-                    <TrendingUp className="h-4 w-4" />
-                    +5.2% vs mês anterior
-                  </span>
-                  <span className="text-muted-foreground">• 57% do orçamento</span>
-                </div>
+                {!summaryLoading && targetBalance !== null && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className={`${targetBalance >= 0 ? 'text-success' : 'text-danger'} flex items-center gap-1`}>
+                      {targetBalance >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                      {targetBalance >= 0 ? 'Positivo' : 'Negativo'}
+                    </span>
+                    {summary && summary.income > 0 && (
+                      <span className="text-muted-foreground">
+                        • {((summary.remaining / summary.income) * 100).toFixed(0)}% do orçamento
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="flex flex-col gap-2">
-                <Button className="gap-2 animate-pulse-subtle shadow-lg">
+              <div className="flex flex-col sm:flex-row md:flex-col gap-2 w-full md:w-auto">
+                <Button 
+                  className="gap-2 animate-pulse-subtle shadow-lg w-full sm:w-auto"
+                  onClick={() => navigate('/transactions')}
+                >
                   <Plus className="h-4 w-4" />
                   Adicionar Despesa
                 </Button>
-                <Button variant="outline" className="gap-2">
+                <Button 
+                  variant="outline" 
+                  className="gap-2 w-full sm:w-auto"
+                  onClick={() => toast.info('Relatórios em breve!')}
+                >
                   <Filter className="h-4 w-4" />
                   Ver Relatório
                 </Button>
@@ -174,30 +226,36 @@ const Dashboard = () => {
         </div>
 
         {/* Main Content Grid */}
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid lg:grid-cols-3 gap-4 lg:gap-8">
           {/* Chart Section */}
           <div className="lg:col-span-1">
             <Card className="p-6">
               <h3 className="font-semibold text-foreground mb-4">Gastos por Categoria</h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: number) => `R$ ${value.toFixed(2)}`} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => `R$ ${value.toFixed(2)}`} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+                  <p>Nenhuma transação ainda</p>
+                </div>
+              )}
             </Card>
           </div>
 
@@ -211,7 +269,7 @@ const Dashboard = () => {
                 </Link>
               </div>
               <div className="space-y-3">
-                {recentTransactions.map((transaction, index) => (
+                {recentTransactions.length > 0 ? recentTransactions.map((transaction, index) => (
                   <motion.div
                     key={transaction.id}
                     initial={{ opacity: 0, x: -20 }}
@@ -232,7 +290,12 @@ const Dashboard = () => {
                       <div className="text-xs text-muted-foreground">{transaction.date}</div>
                     </div>
                   </motion.div>
-                ))}
+                )) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>Nenhuma transação ainda</p>
+                    <p className="text-sm mt-2">Adicione sua primeira despesa</p>
+                  </div>
+                )}
               </div>
             </Card>
           </div>
@@ -276,6 +339,7 @@ const Dashboard = () => {
         <Button
           size="lg"
           className="h-14 w-14 rounded-full shadow-primary animate-pulse-subtle"
+          onClick={() => navigate('/transactions')}
         >
           <Plus className="h-6 w-6" />
         </Button>
