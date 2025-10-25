@@ -266,20 +266,9 @@ const Dashboard = () => {
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-foreground">Transações Recentes</h3>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => navigate('/chat')}
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                    Assistente
-                  </Button>
-                  <Link to="/transactions">
-                    <Button variant="ghost" size="sm">Ver todas</Button>
-                  </Link>
-                </div>
+                <Link to="/transactions">
+                  <Button variant="ghost" size="sm">Ver todas</Button>
+                </Link>
               </div>
               <div className="space-y-3">
                 {recentTransactions.length > 0 ? recentTransactions.map((transaction, index) => (
@@ -355,23 +344,23 @@ const Dashboard = () => {
                               {action.label}
                             </Button>
                           ))
-                        ) : (
-                          <>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => navigate('/chat')}
-                            >
-                              Conversar com Assistente
-                            </Button>
-                            <Button 
-                              size="sm"
-                              onClick={() => navigate('/transactions')}
-                            >
-                              Ver Transações
-                            </Button>
-                          </>
-                        )}
+                        ) : null}
+                        {/* Always show these action buttons */}
+                        <Button 
+                          size="sm"
+                          onClick={() => navigate('/transactions')}
+                        >
+                          Ver Transações
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="gap-2"
+                          onClick={() => navigate('/chat')}
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                          Assistente
+                        </Button>
                       </div>
                     </>
                   ) : null}
