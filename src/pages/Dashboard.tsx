@@ -266,9 +266,20 @@ const Dashboard = () => {
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-foreground">Transações Recentes</h3>
-                <Link to="/transactions">
-                  <Button variant="ghost" size="sm">Ver todas</Button>
-                </Link>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => navigate('/chat')}
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    Assistente
+                  </Button>
+                  <Link to="/transactions">
+                    <Button variant="ghost" size="sm">Ver todas</Button>
+                  </Link>
+                </div>
               </div>
               <div className="space-y-3">
                 {recentTransactions.length > 0 ? recentTransactions.map((transaction, index) => (
@@ -371,41 +382,22 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Floating Action Buttons */}
-      <div className="fixed bottom-6 right-6 flex flex-col gap-3">
-        {/* Chat Button */}
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: 0.3, delay: 0.6 }}
+      {/* Floating Action Button */}
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ duration: 0.3, delay: 0.5 }}
+        className="fixed bottom-6 right-6"
+      >
+        <Button
+          size="lg"
+          className="h-14 w-14 rounded-full shadow-primary animate-pulse-subtle"
+          onClick={() => navigate('/transactions')}
+          title="Adicionar Despesa"
         >
-          <Button
-            size="lg"
-            variant="secondary"
-            className="h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all"
-            onClick={() => navigate('/chat')}
-            title="Conversar com Assistente"
-          >
-            <MessageSquare className="h-6 w-6" />
-          </Button>
-        </motion.div>
-        
-        {/* Add Transaction Button */}
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: 0.3, delay: 0.5 }}
-        >
-          <Button
-            size="lg"
-            className="h-14 w-14 rounded-full shadow-primary animate-pulse-subtle"
-            onClick={() => navigate('/transactions')}
-            title="Adicionar Despesa"
-          >
-            <Plus className="h-6 w-6" />
-          </Button>
-        </motion.div>
-      </div>
+          <Plus className="h-6 w-6" />
+        </Button>
+      </motion.div>
     </div>
   );
 };

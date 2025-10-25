@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Send,
@@ -45,11 +45,20 @@ const Chat = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [input]);
 
   // Load chat history
   useEffect(() => {
@@ -343,26 +352,33 @@ const Chat = () => {
         {/* Input Area */}
         <div className="border-t border-border bg-card/50 backdrop-blur-sm p-4">
           <div className="container mx-auto max-w-4xl">
-            <div className="flex gap-2">
-              <Input
+            <div className="flex items-end gap-2">
+              <Textarea
+                ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
                 placeholder="Digite sua mensagem..."
                 disabled={isLoading}
-                className="flex-1"
+                className="flex-1 min-h-[44px] max-h-[200px] resize-none"
+                rows={1}
               />
               <Button
                 onClick={handleSendMessage}
                 disabled={isLoading || !input.trim()}
-                className="gap-2"
+                className="gap-2 h-[44px]"
               >
                 <Send className="h-4 w-4" />
                 <span className="hidden sm:inline">Enviar</span>
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-2 text-center">
-              🤖 Assistente com IA real! Configure OPENAI_API_KEY no Supabase para respostas inteligentes.
+              🤖 Assistente com IA real! Pressione Enter para enviar, Shift+Enter para quebrar linha.
             </p>
           </div>
         </div>
