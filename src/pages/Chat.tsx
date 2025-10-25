@@ -19,16 +19,24 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
+interface MessageAction {
+  label: string;
+  action: string;
+  data?: string;
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   message: string;
   created_at: string;
-  actions?: Array<{
-    label: string;
-    action: string;
-    data?: any;
-  }>;
+  actions?: MessageAction[];
+}
+
+interface AIResponse {
+  message: string;
+  metadata: Record<string, string>;
+  actions: MessageAction[];
 }
 
 const Chat = () => {
@@ -63,7 +71,7 @@ const Chat = () => {
     }
   };
 
-  const saveChatMessage = async (role: 'user' | 'assistant', message: string, metadata?: any) => {
+  const saveChatMessage = async (role: 'user' | 'assistant', message: string, metadata?: Record<string, string>) => {
     if (!user?.id) return;
     
     try {
@@ -106,7 +114,8 @@ const Chat = () => {
       if (assistantMsg) {
         setMessages((prev) => [...prev, { ...assistantMsg, actions: response.actions }]);
       }
-    } catch (error: any) {
+    } catch (error) {
+      console.error('Error processing message:', error);
       toast.error('Erro ao processar mensagem');
     } finally {
       setIsLoading(false);
@@ -114,7 +123,7 @@ const Chat = () => {
   };
 
   // Simulação de resposta da IA (substituir por webhook real)
-  const simulateAIResponse = async (userMessage: string): Promise<any> => {
+  const simulateAIResponse = async (userMessage: string): Promise<AIResponse> => {
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     const lowerMessage = userMessage.toLowerCase();
@@ -158,7 +167,7 @@ const Chat = () => {
     };
   };
 
-  const handleAction = (action: string, data?: any) => {
+  const handleAction = (action: string, data?: string) => {
     if (action === 'navigate' && data) {
       window.location.href = data;
     }

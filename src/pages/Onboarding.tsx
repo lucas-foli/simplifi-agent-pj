@@ -166,7 +166,7 @@ const Onboarding = () => {
             });
           }
         }
-      } catch (dataError: any) {
+      } catch (dataError) {
         console.error('Erro ao salvar dados:', dataError);
         // Continue anyway, user can add data later
         toast.warning('Conta criada, mas alguns dados n\u00e3o foram salvos');
@@ -174,9 +174,10 @@ const Onboarding = () => {
 
       toast.success('Conta criada com sucesso!');
       navigate("/dashboard");
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao criar conta:', error);
-      toast.error(error.message || 'Erro ao criar conta');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao criar conta';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -380,7 +381,7 @@ const Onboarding = () => {
                           value={formData.cnpj}
                           onChange={(e) => handleCNPJChange(e.target.value)}
                         >
-                          {/* @ts-ignore */}
+                          {/* @ts-expect-error - InputMask has incorrect types for render prop */}
                           {(inputProps) => (
                             <Input
                               {...inputProps}

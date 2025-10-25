@@ -89,7 +89,7 @@ const Debug = () => {
           <h2 className="font-bold mb-2">🔍 Auditoria (Últimas 10 ações)</h2>
           {auditLoading && <p>Carregando...</p>}
           <div className="space-y-2">
-            {auditLog?.map((log: any) => (
+            {auditLog?.map((log) => (
               <div key={log.id} className="text-xs border-l-2 border-primary pl-2 py-1">
                 <div className="font-bold">
                   {log.action} em {log.table_name}
