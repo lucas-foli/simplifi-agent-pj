@@ -115,37 +115,58 @@ async function fetchFinancialContext(supabase: any, userId: string): Promise<Fin
 }
 
 async function callOpenAI(apiKey: string, message: string, context: FinancialContext) {
-  // Prompt agora vem do arquivo prompt.ts - edite lá para customizar!
-  const systemPrompt = buildSystemPrompt(context);
+  try {
+    // Prompt agora vem do arquivo prompt.ts - edite lá para customizar!
+    const systemPrompt = buildSystemPrompt(context);
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: AI_CONFIG.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: message },
-      ],
-      temperature: AI_CONFIG.temperature,
-      max_tokens: AI_CONFIG.maxTokens,
-    }),
-  });
+    console.log('Calling OpenAI API...');
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: AI_CONFIG.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message },
+        ],
+        temperature: AI_CONFIG.temperature,
+        max_tokens: AI_CONFIG.maxTokens,
+      }),
+    });
 
-  const data = await response.json();
-  const aiMessage = data.choices[0]?.message?.content || 'Desculpe, não consegui processar sua mensagem.';
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('OpenAI API error:', errorData);
+      throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`);
+    }
 
-  // Detect if should suggest actions
-  const actions = detectActions(message, aiMessage);
+    const data = await response.json();
+    console.log('OpenAI response:', JSON.stringify(data));
 
-  return {
-    message: aiMessage,
-    metadata: { type: 'ai_response', model: AI_CONFIG.model },
-    actions,
-  };
+    // Check if response has expected structure
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.error('Unexpected OpenAI response structure:', data);
+      throw new Error('Invalid response from OpenAI API');
+    }
+
+    const aiMessage = data.choices[0].message.content || 'Desculpe, não consegui processar sua mensagem.';
+
+    // Detect if should suggest actions
+    const actions = detectActions(message, aiMessage);
+
+    return {
+      message: aiMessage,
+      metadata: { type: 'ai_response', model: AI_CONFIG.model },
+      actions,
+    };
+  } catch (error) {
+    console.error('Error in callOpenAI:', error);
+    // Fallback to simulated response if OpenAI fails
+    return generateSimulatedResponse(message, context);
+  }
 }
 
 function generateSimulatedResponse(message: string, context: FinancialContext) {
