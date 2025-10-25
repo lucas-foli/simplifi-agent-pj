@@ -95,19 +95,20 @@ async function fetchFinancialContext(supabase: any, userId: string): Promise<Fin
     .order('date', { ascending: false })
     .limit(10);
 
-  const monthlyIncome = incomeData?.amount || 0;
-  const fixedCosts = costsData?.reduce((sum: number, cost: any) => sum + cost.amount, 0) || 0;
-  const totalExpenses = transactionsData?.reduce((sum: number, tx: any) => sum + tx.amount, 0) || 0;
+  // Values are already stored as decimals (reais) in the database, not cents!
+  const monthlyIncome = incomeData?.amount ? Number(incomeData.amount) : 0;
+  const fixedCosts = costsData?.reduce((sum: number, cost: any) => sum + Number(cost.amount), 0) || 0;
+  const totalExpenses = transactionsData?.reduce((sum: number, tx: any) => sum + Number(tx.amount), 0) || 0;
   const balance = monthlyIncome - fixedCosts - totalExpenses;
 
   return {
-    monthlyIncome: monthlyIncome / 100, // Convert from cents
-    fixedCosts: fixedCosts / 100,
-    totalExpenses: totalExpenses / 100,
-    balance: balance / 100,
+    monthlyIncome,
+    fixedCosts,
+    totalExpenses,
+    balance,
     recentTransactions: transactionsData?.map((tx: any) => ({
       description: tx.description,
-      amount: tx.amount / 100,
+      amount: Number(tx.amount),
       category: tx.category,
       date: tx.date,
     })) || [],
