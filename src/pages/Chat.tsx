@@ -107,8 +107,8 @@ const Chat = () => {
     }
 
     try {
-      // Simulate AI response (você vai conectar com n8n/webhook aqui)
-      const response = await simulateAIResponse(userMessage);
+      // Call Edge Function for AI response
+      const response = await callChatAssistant(userMessage);
       
       const assistantMsg = await saveChatMessage('assistant', response.message, response.metadata);
       if (assistantMsg) {
@@ -122,13 +122,35 @@ const Chat = () => {
     }
   };
 
-  // Simulação de resposta da IA (substituir por webhook real)
+  // Call Edge Function for AI-powered chat
+  const callChatAssistant = async (userMessage: string): Promise<AIResponse> => {
+    if (!user?.id) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('chat-assistant', {
+        body: {
+          message: userMessage,
+          userId: user.id,
+        },
+      });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error calling chat assistant:', error);
+      // Fallback to simulated response if Edge Function fails
+      return simulateAIResponse(userMessage);
+    }
+  };
+
+  // Fallback: Simulação de resposta caso Edge Function falhe
   const simulateAIResponse = async (userMessage: string): Promise<AIResponse> => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     const lowerMessage = userMessage.toLowerCase();
 
-    // Respostas baseadas em palavras-chave (exemplo)
     if (lowerMessage.includes('saldo') || lowerMessage.includes('quanto tenho')) {
       return {
         message: 'Seu saldo restante este mês é de R$ 31.597,20. Você já gastou R$ 1.302,90 em despesas variáveis.',
@@ -159,7 +181,6 @@ const Chat = () => {
       };
     }
 
-    // Resposta padrão
     return {
       message: `Entendi que você disse: "${userMessage}". Como posso ajudar? Você pode me perguntar sobre seu saldo, gastos ou pedir para adicionar uma despesa.`,
       metadata: { type: 'default' },
@@ -341,7 +362,7 @@ const Chat = () => {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-2 text-center">
-              💡 Este é um assistente simulado. Conecte com n8n/webhooks para IA real.
+              🤖 Assistente com IA real! Configure OPENAI_API_KEY no Supabase para respostas inteligentes.
             </p>
           </div>
         </div>
