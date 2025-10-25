@@ -26,8 +26,10 @@ const Login = () => {
       await signIn(email, password);
       toast.success('Login realizado com sucesso!');
       navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Erro ao fazer login');
+    } catch (err) {
+      console.error('Login error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer login';
+      setError(errorMessage);
       toast.error('Erro ao fazer login');
     } finally {
       setLoading(false);

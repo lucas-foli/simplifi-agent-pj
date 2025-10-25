@@ -20,6 +20,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recha
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardSummary } from "@/hooks/useFinancialData";
 import { useTransactions, useTransactionsByCategory } from "@/hooks/useTransactions";
+import { useAIInsights } from "@/hooks/useAIInsights";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -31,6 +32,7 @@ const Dashboard = () => {
   const { data: summary, isLoading: summaryLoading } = useDashboardSummary(currentMonth, currentYear);
   const { data: transactions, isLoading: transactionsLoading } = useTransactions(currentMonth, currentYear);
   const { data: categoryData, isLoading: categoryLoading } = useTransactionsByCategory(currentMonth, currentYear);
+  const { data: aiInsight, isLoading: insightLoading } = useAIInsights();
   
   const [balanceValue, setBalanceValue] = useState(0);
   const targetBalance = summary?.remaining ?? null;
@@ -301,32 +303,73 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Suggestions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="mt-8"
-        >
-          <Card className="p-6 bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20">
-            <div className="flex items-start gap-4">
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <MessageSquare className="h-5 w-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-semibold text-foreground mb-2">Sugestão do Assistente</h4>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Você está gastando 12% a mais em alimentação comparado ao mês passado. 
-                  Que tal reduzir em 10% para economizar R$ 140?
-                </p>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline">Ver Detalhes</Button>
-                  <Button size="sm">Aplicar Sugestão</Button>
+        {/* AI Insights */}
+        {(aiInsight || insightLoading) && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="mt-8"
+          >
+            <Card className="p-6 bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20">
+              <div className="flex items-start gap-4">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <MessageSquare className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-foreground mb-2">Sugestão do Assistente</h4>
+                  {insightLoading ? (
+                    <div className="space-y-2">
+                      <div className="h-4 bg-muted animate-pulse rounded w-3/4"></div>
+                      <div className="h-4 bg-muted animate-pulse rounded w-1/2"></div>
+                    </div>
+                  ) : aiInsight ? (
+                    <>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        {aiInsight.message}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {aiInsight.actions && aiInsight.actions.length > 0 ? (
+                          aiInsight.actions.map((action, idx) => (
+                            <Button 
+                              key={idx}
+                              size="sm" 
+                              variant={idx === 0 ? "default" : "outline"}
+                              onClick={() => {
+                                if (action.action === 'navigate' && action.data) {
+                                  navigate(action.data);
+                                }
+                              }}
+                            >
+                              {action.label}
+                            </Button>
+                          ))
+                        ) : (
+                          <Button 
+                            size="sm"
+                            onClick={() => navigate('/transactions')}
+                          >
+                            Ver Transações
+                          </Button>
+                        )}
+                        {/* Always show Assistente button */}
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="gap-2"
+                          onClick={() => navigate('/chat')}
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                          Assistente
+                        </Button>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               </div>
-            </div>
-          </Card>
-        </motion.div>
+            </Card>
+          </motion.div>
+        )}
       </div>
 
       {/* Floating Action Button */}
@@ -340,6 +383,7 @@ const Dashboard = () => {
           size="lg"
           className="h-14 w-14 rounded-full shadow-primary animate-pulse-subtle"
           onClick={() => navigate('/transactions')}
+          title="Adicionar Despesa"
         >
           <Plus className="h-6 w-6" />
         </Button>

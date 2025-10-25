@@ -100,8 +100,9 @@ const Transactions = () => {
         date: format(new Date(), 'yyyy-MM-dd'),
         notes: '',
       });
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao adicionar transação');
+    } catch (error) {
+      console.error('Error adding transaction:', error);
+      toast.error('Erro ao adicionar transação');
     }
   };
 
@@ -111,8 +112,9 @@ const Transactions = () => {
     try {
       await deleteTransaction.mutateAsync(id);
       toast.success('Transação excluída!');
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao excluir transação');
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+      toast.error('Erro ao excluir transação');
     }
   };
 
