@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { buildSystemPrompt, AI_CONFIG, type FinancialContext } from './prompt.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,18 +12,7 @@ interface ChatRequest {
   userId: string;
 }
 
-interface FinancialContext {
-  monthlyIncome: number;
-  fixedCosts: number;
-  totalExpenses: number;
-  balance: number;
-  recentTransactions: Array<{
-    description: string;
-    amount: number;
-    category: string;
-    date: string;
-  }>;
-}
+// FinancialContext agora vem de prompt.ts
 
 serve(async (req) => {
   // Handle CORS
@@ -125,18 +115,8 @@ async function fetchFinancialContext(supabase: any, userId: string): Promise<Fin
 }
 
 async function callOpenAI(apiKey: string, message: string, context: FinancialContext) {
-  const systemPrompt = `Você é o assistente financeiro SimplifiQA. Ajude o usuário com suas finanças pessoais.
-
-Contexto financeiro do usuário (mês atual):
-- Receita mensal: R$ ${context.monthlyIncome.toFixed(2)}
-- Custos fixos: R$ ${context.fixedCosts.toFixed(2)}
-- Gastos variáveis: R$ ${context.totalExpenses.toFixed(2)}
-- Saldo restante: R$ ${context.balance.toFixed(2)}
-
-Últimas transações:
-${context.recentTransactions.map(tx => `- ${tx.description}: R$ ${tx.amount.toFixed(2)} (${tx.category})`).join('\n')}
-
-Seja objetivo, prestativo e forneça insights financeiros relevantes. Se apropriado, sugira ações específicas.`;
+  // Prompt agora vem do arquivo prompt.ts - edite lá para customizar!
+  const systemPrompt = buildSystemPrompt(context);
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -145,13 +125,13 @@ Seja objetivo, prestativo e forneça insights financeiros relevantes. Se apropri
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: AI_CONFIG.model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message },
       ],
-      temperature: 0.7,
-      max_tokens: 500,
+      temperature: AI_CONFIG.temperature,
+      max_tokens: AI_CONFIG.maxTokens,
     }),
   });
 
@@ -163,7 +143,7 @@ Seja objetivo, prestativo e forneça insights financeiros relevantes. Se apropri
 
   return {
     message: aiMessage,
-    metadata: { type: 'ai_response', model: 'gpt-4o-mini' },
+    metadata: { type: 'ai_response', model: AI_CONFIG.model },
     actions,
   };
 }
