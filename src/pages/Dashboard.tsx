@@ -344,23 +344,25 @@ const Dashboard = () => {
                               {action.label}
                             </Button>
                           ))
-                        ) : null}
-                        {/* Always show these action buttons */}
-                        <Button 
-                          size="sm"
-                          onClick={() => navigate('/transactions')}
-                        >
-                          Ver Transações
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          className="gap-2"
-                          onClick={() => navigate('/chat')}
-                        >
-                          <MessageSquare className="h-4 w-4" />
-                          Assistente
-                        </Button>
+                        ) : (
+                          <>
+                            <Button 
+                              size="sm"
+                              onClick={() => navigate('/transactions')}
+                            >
+                              Ver Transações
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="gap-2"
+                              onClick={() => navigate('/chat')}
+                            >
+                              <MessageSquare className="h-4 w-4" />
+                              Assistente
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </>
                   ) : null}
