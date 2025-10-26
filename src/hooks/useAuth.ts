@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
 
-type UserProfile = Database['public']['Tables']['users']['Row'];
+type UserProfile = Database['public']['Tables']['profiles']['Row'];
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -42,7 +42,7 @@ export const useAuth = () => {
   const fetchProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
@@ -81,10 +81,10 @@ export const useAuth = () => {
 
       // Update profile with complete data
       const { error: updateError } = await supabase
-        .from('users')
+        .from('profiles')
         .update({
-          name: userData.name,
-          user_type: userData.user_type,
+          full_name: userData.name,
+          user_type: userData.user_type === 'pf' ? 'pessoa_fisica' : 'pessoa_juridica',
           company_name: userData.company_name,
           cnpj: userData.cnpj,
         })
@@ -119,7 +119,7 @@ export const useAuth = () => {
     if (!user) throw new Error('No user logged in');
 
     const { data, error } = await supabase
-      .from('users')
+      .from('profiles')
       .update(updates)
       .eq('id', user.id)
       .select()
