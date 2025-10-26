@@ -83,12 +83,10 @@ const Transactions = () => {
       await createTransaction.mutateAsync({
         description: newTransaction.description,
         amount: parseFloat(newTransaction.amount),
-        category: newTransaction.category,
-        payment_method: newTransaction.payment_method || null,
-        date: newTransaction.date,
-        notes: newTransaction.notes || null,
-        company_id: null,
-      });
+        type: 'despesa', // Default to expense
+        transaction_date: newTransaction.date,
+        user_id: '', // Will be set by the mutation hook
+      } as any);
 
       toast.success('Transação adicionada!');
       setIsAddOpen(false);
@@ -120,8 +118,8 @@ const Transactions = () => {
 
   const filteredTransactions = transactions?.filter((tx) => {
     const matchesSearch = tx.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === 'all' || tx.category === filterCategory;
-    return matchesSearch && matchesCategory;
+    const matchesType = filterCategory === 'all' || tx.type === filterCategory;
+    return matchesSearch && matchesType;
   }) || [];
 
   return (
@@ -339,13 +337,10 @@ const Transactions = () => {
                       {transaction.description}
                     </div>
                     <div className="text-xs sm:text-sm text-muted-foreground">
-                      {transaction.category}
-                      <span className="hidden sm:inline">
-                        {transaction.payment_method && ` • ${transaction.payment_method}`}
-                      </span>
+                      {transaction.type === 'despesa' ? 'Despesa' : 'Receita'}
                       {' • '}
-                      <span className="hidden sm:inline">{format(new Date(transaction.date), 'dd/MM/yyyy')}</span>
-                      <span className="sm:hidden">{format(new Date(transaction.date), 'dd/MM')}</span>
+                      <span className="hidden sm:inline">{format(new Date(transaction.transaction_date), 'dd/MM/yyyy')}</span>
+                      <span className="sm:hidden">{format(new Date(transaction.transaction_date), 'dd/MM')}</span>
                     </div>
                   </div>
 

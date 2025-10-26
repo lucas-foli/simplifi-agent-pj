@@ -92,19 +92,19 @@ const Dashboard = () => {
 
   const colors = ["#0B59A3", "#2ECC71", "#F39C12", "#E74C3C", "#9B59B6", "#1ABC9C", "#E67E22"];
   
-  const chartData = categoryData?.map((cat, index) => ({
+  const chartData = categoryData?.map((cat: any, index: number) => ({
     name: cat.category,
-    value: cat.amount,
+    value: cat.total,
     color: colors[index % colors.length]
   })) || [];
 
   const recentTransactions = transactions?.slice(0, 4).map(tx => ({
     id: tx.id,
     description: tx.description,
-    category: tx.category,
+    category: 'N/A', // category_id exists, need to join with categories table
     amount: -Number(tx.amount),
-    date: new Date(tx.date).toLocaleDateString('pt-BR'),
-    type: tx.payment_method || "N/A"
+    date: new Date(tx.transaction_date).toLocaleDateString('pt-BR'),
+    type: tx.type === 'despesa' ? 'Despesa' : 'Receita'
   })) || [];
 
   const monthName = new Date(currentYear, currentMonth - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
@@ -133,7 +133,7 @@ const Dashboard = () => {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground mr-2 hidden md:inline">
-              Olá, {profile?.name || user?.email}
+              Olá, {profile?.full_name || user?.email}
             </span>
             <Button variant="ghost" size="sm" className="hidden sm:flex">
               <Calendar className="h-4 w-4 mr-2" />

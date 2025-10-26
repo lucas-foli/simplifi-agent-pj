@@ -12,24 +12,13 @@ const Debug = () => {
   const currentYear = now.getFullYear();
 
   const { data: summary, isLoading: summaryLoading, error: summaryError } = useDashboardSummary(currentMonth, currentYear);
-  const { data: income, isLoading: incomeLoading, error: incomeError } = useMonthlyIncome(currentMonth, currentYear);
+  const { data: income, isLoading: incomeLoading, error: incomeError } = useMonthlyIncome();
   const { data: fixedCosts, isLoading: costsLoading, error: costsError } = useFixedCosts(currentMonth, currentYear);
   const { data: transactions, isLoading: txLoading, error: txError } = useTransactions(currentMonth, currentYear);
 
-  // Audit log
-  const { data: auditLog, isLoading: auditLoading } = useQuery({
-    queryKey: ['audit-log'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('audit_log')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
-      
-      if (error) throw error;
-      return data;
-    },
-  });
+  // Note: audit_log table doesn't exist in current schema
+  const auditLog = null;
+  const auditLoading = false;
 
   return (
     <div className="container mx-auto p-8">
@@ -89,24 +78,28 @@ const Debug = () => {
           <h2 className="font-bold mb-2">🔍 Auditoria (Últimas 10 ações)</h2>
           {auditLoading && <p>Carregando...</p>}
           <div className="space-y-2">
-            {auditLog?.map((log) => (
-              <div key={log.id} className="text-xs border-l-2 border-primary pl-2 py-1">
-                <div className="font-bold">
-                  {log.action} em {log.table_name}
+            {auditLog && auditLog.length > 0 ? (
+              auditLog.map((log: any) => (
+                <div key={log.id} className="text-xs border-l-2 border-primary pl-2 py-1">
+                  <div className="font-bold">
+                    {log.action} em {log.table_name}
+                  </div>
+                  <div className="text-muted-foreground">
+                    {new Date(log.created_at).toLocaleString('pt-BR')}
+                  </div>
+                  {log.new_values && (
+                    <details className="mt-1">
+                      <summary className="cursor-pointer hover:text-primary">Ver dados</summary>
+                      <pre className="mt-1 bg-muted p-2 rounded">
+                        {JSON.stringify(log.new_values, null, 2)}
+                      </pre>
+                    </details>
+                  )}
                 </div>
-                <div className="text-muted-foreground">
-                  {new Date(log.created_at).toLocaleString('pt-BR')}
-                </div>
-                {log.new_values && (
-                  <details className="mt-1">
-                    <summary className="cursor-pointer hover:text-primary">Ver dados</summary>
-                    <pre className="mt-1 bg-muted p-2 rounded">
-                      {JSON.stringify(log.new_values, null, 2)}
-                    </pre>
-                  </details>
-                )}
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">Tabela audit_log não existe no esquema atual</p>
+            )}
           </div>
         </Card>
       </div>

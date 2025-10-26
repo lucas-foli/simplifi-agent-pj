@@ -125,7 +125,7 @@ const Onboarding = () => {
     setLoading(true);
     try {
       // Create user account
-      const { data } = await signUp(formData.email, formData.password, {
+      const result = await signUp(formData.email, formData.password, {
         name: formData.name,
         user_type: userType,
         company_name: userType === 'pj' ? formData.companyName : undefined,
@@ -133,7 +133,7 @@ const Onboarding = () => {
       });
 
       // Check if email confirmation is required
-      if (data?.user && !data.session) {
+      if (!result) {
         toast.success('Verifique seu email para confirmar a conta!');
         navigate('/login');
         return;
@@ -142,28 +142,18 @@ const Onboarding = () => {
       // Wait a bit for the session to be established
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Save monthly income
-      const now = new Date();
+      // Save monthly income to profile
       try {
-        await setMonthlyIncome.mutateAsync({
-          amount: parseFloat(formData.monthlyIncome),
-          month: now.getMonth() + 1,
-          year: now.getFullYear(),
-          company_id: null,
-        });
+        await setMonthlyIncome.mutateAsync(parseFloat(formData.monthlyIncome));
 
         // Save fixed costs
         for (const cost of formData.fixedCosts) {
           if (cost.name && cost.value) {
             await createFixedCost.mutateAsync({
-              name: cost.name,
+              description: cost.name,
               amount: parseFloat(cost.value),
-              month: now.getMonth() + 1,
-              year: now.getFullYear(),
-              company_id: null,
-              recurrence: 'monthly',
-              replicate: false,
-            });
+              user_id: '', // Will be set by the mutation hook
+            } as any);
           }
         }
       } catch (dataError) {
@@ -381,8 +371,7 @@ const Onboarding = () => {
                           value={formData.cnpj}
                           onChange={(e) => handleCNPJChange(e.target.value)}
                         >
-                          {/* @ts-expect-error - InputMask has incorrect types for render prop */}
-                          {(inputProps) => (
+                          {(inputProps: any) => (
                             <Input
                               {...inputProps}
                               id="cnpj"

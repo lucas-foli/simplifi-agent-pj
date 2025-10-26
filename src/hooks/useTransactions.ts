@@ -17,12 +17,14 @@ export const useTransactions = (month?: number, year?: number) => {
         .from('transactions')
         .select('*')
         .eq('user_id', user.id)
-        .order('date', { ascending: false });
+        .order('transaction_date', { ascending: false });
 
       if (month && year) {
-        const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
-        const endDate = new Date(year, month, 0).toISOString().split('T')[0];
-        query = query.gte('date', startDate).lte('date', endDate);
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0);
+        query = query
+          .gte('transaction_date', startDate.toISOString().split('T')[0])
+          .lte('transaction_date', endDate.toISOString().split('T')[0]);
       }
 
       const { data, error } = await query;
@@ -54,16 +56,15 @@ export const useCreateTransaction = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (transaction: Omit<TransactionInsert, 'user_id' | 'created_by'>) => {
+    mutationFn: async (newTransaction: TransactionInsert) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
         .from('transactions')
         .insert({
-          ...transaction,
+          ...newTransaction,
           user_id: user.id,
-          created_by: user.id,
         })
         .select()
         .single();
@@ -120,6 +121,7 @@ export const useDeleteTransaction = () => {
   });
 };
 
+// Group transactions by category
 export const useTransactionsByCategory = (month?: number, year?: number) => {
   return useQuery({
     queryKey: ['transactions-by-category', month, year],
@@ -129,13 +131,15 @@ export const useTransactionsByCategory = (month?: number, year?: number) => {
 
       let query = supabase
         .from('transactions')
-        .select('category, amount')
+        .select('*, categories(*)')
         .eq('user_id', user.id);
 
       if (month && year) {
-        const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
-        const endDate = new Date(year, month, 0).toISOString().split('T')[0];
-        query = query.gte('date', startDate).lte('date', endDate);
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0);
+        query = query
+          .gte('transaction_date', startDate.toISOString().split('T')[0])
+          .lte('transaction_date', endDate.toISOString().split('T')[0]);
       }
 
       const { data, error } = await query;
@@ -143,15 +147,21 @@ export const useTransactionsByCategory = (month?: number, year?: number) => {
       if (error) throw error;
 
       // Group by category
-      const grouped = data.reduce((acc: Record<string, number>, curr) => {
-        acc[curr.category] = (acc[curr.category] || 0) + Number(curr.amount);
+      const grouped = data.reduce((acc: any, transaction: any) => {
+        const categoryName = transaction.categories?.name || 'Sem categoria';
+        if (!acc[categoryName]) {
+          acc[categoryName] = {
+            category: categoryName,
+            total: 0,
+            count: 0,
+          };
+        }
+        acc[categoryName].total += Number(transaction.amount);
+        acc[categoryName].count += 1;
         return acc;
       }, {});
 
-      return Object.entries(grouped).map(([category, amount]) => ({
-        category,
-        amount,
-      }));
+      return Object.values(grouped);
     },
   });
 };

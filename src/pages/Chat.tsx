@@ -67,14 +67,35 @@ const Chat = () => {
 
   const loadChatHistory = async () => {
     try {
-      const { data, error } = await supabase
-        .from('chat_history')
-        .select('*')
-        .order('created_at', { ascending: true })
-        .limit(50);
+      // Use conversations and messages tables
+      const { data: conversationsData, error: convError } = await supabase
+        .from('conversations')
+        .select('id')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (error) throw error;
-      if (data) setMessages(data);
+      if (convError) throw convError;
+
+      if (conversationsData) {
+        const { data: messagesData, error: msgError } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('conversation_id', conversationsData.id)
+          .order('created_at', { ascending: true });
+
+        if (msgError) throw msgError;
+        
+        if (messagesData) {
+          const formattedMessages: Message[] = messagesData.map(msg => ({
+            id: msg.id,
+            role: msg.role as 'user' | 'assistant',
+            message: msg.content,
+            created_at: msg.created_at,
+          }));
+          setMessages(formattedMessages);
+        }
+      }
     } catch (error) {
       console.error('Error loading chat history:', error);
     }
@@ -84,13 +105,34 @@ const Chat = () => {
     if (!user?.id) return;
     
     try {
+      // Get or create conversation
+      let conversationId;
+      const { data: conversationsData } = await supabase
+        .from('conversations')
+        .select('id')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (conversationsData) {
+        conversationId = conversationsData.id;
+      } else {
+        const { data: newConv, error: convError } = await supabase
+          .from('conversations')
+          .insert({ user_id: user.id, title: 'Nova Conversa' })
+          .select('id')
+          .single();
+        
+        if (convError) throw convError;
+        conversationId = newConv.id;
+      }
+
       const { data, error } = await supabase
-        .from('chat_history')
+        .from('messages')
         .insert({
-          user_id: user.id,
+          conversation_id: conversationId,
           role,
-          message,
-          metadata,
+          content: message,
         })
         .select()
         .single();
@@ -112,7 +154,12 @@ const Chat = () => {
     // Add user message to UI
     const userMsg = await saveChatMessage('user', userMessage);
     if (userMsg) {
-      setMessages((prev) => [...prev, userMsg]);
+      setMessages((prev) => [...prev, {
+        id: userMsg.id,
+        role: userMsg.role as 'user' | 'assistant',
+        message: userMsg.content,
+        created_at: userMsg.created_at,
+      }]);
     }
 
     try {
@@ -121,7 +168,13 @@ const Chat = () => {
       
       const assistantMsg = await saveChatMessage('assistant', response.message, response.metadata);
       if (assistantMsg) {
-        setMessages((prev) => [...prev, { ...assistantMsg, actions: response.actions }]);
+        setMessages((prev) => [...prev, {
+          id: assistantMsg.id,
+          role: assistantMsg.role as 'user' | 'assistant',
+          message: assistantMsg.content,
+          created_at: assistantMsg.created_at,
+          actions: response.actions,
+        }]);
       }
     } catch (error) {
       console.error('Error processing message:', error);

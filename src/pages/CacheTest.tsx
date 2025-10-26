@@ -124,7 +124,7 @@ const CacheTest = () => {
                 >
                   <div>
                     <div className="font-medium">{tx.description}</div>
-                    <div className="text-sm text-muted-foreground">{tx.category}</div>
+                    <div className="text-sm text-muted-foreground">{tx.type === 'despesa' ? 'Despesa' : 'Receita'}</div>
                   </div>
                   <div className="font-bold">
                     R$ {Number(tx.amount).toFixed(2)}
