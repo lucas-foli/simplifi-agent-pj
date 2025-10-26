@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
-import type { Database } from '@/types/supabase';
+import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 
 type FixedCost = Database['public']['Tables']['fixed_costs']['Row'];
 type FixedCostInsert = Database['public']['Tables']['fixed_costs']['Insert'];
@@ -220,6 +220,6 @@ export const useDashboardSummary = (month: number, year: number) => {
       };
     },
     staleTime: 30000, // Cache por 30s
-    cacheTime: 300000, // Manter cache por 5min
+    gcTime: 300000, // Manter cache por 5min
   });
 };

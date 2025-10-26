@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AIInsight {
   message: string;
@@ -41,7 +41,7 @@ export const useAIInsights = () => {
       }
     },
     staleTime: 300000, // Cache por 5 minutos
-    cacheTime: 600000, // Manter cache por 10 minutos
+    gcTime: 600000, // Manter cache por 10 minutos
     retry: false, // Não retentar se falhar
   });
 };

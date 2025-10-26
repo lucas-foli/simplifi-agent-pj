@@ -2,7 +2,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useDashboardSummary, useFixedCosts, useMonthlyIncome } from '@/hooks/useFinancialData';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 
 const Debug = () => {
