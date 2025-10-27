@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 
-type UserProfile = Database['public']['Tables']['users']['Row'];
+type UserProfile = Database['public']['Tables']['profiles']['Row'];
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -42,7 +42,7 @@ export const useAuth = () => {
   const fetchProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('users_decrypted')
+        .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
@@ -95,7 +95,7 @@ export const useAuth = () => {
       }
 
       const { error: updateError } = await supabase
-        .from('users')
+        .from('profiles')
         .update(updateData)
         .eq('id', data.user.id);
 
@@ -138,15 +138,15 @@ export const useAuth = () => {
     }
 
     const { data, error } = await supabase
-      .from('users')
+      .from('profiles')
       .update(updateData)
       .eq('id', user.id);
 
     if (error) throw error;
 
-    // Fetch updated profile from decrypted view
+    // Fetch updated profile
     const { data: updatedProfile } = await supabase
-      .from('users_decrypted')
+      .from('profiles')
       .select('*')
       .eq('id', user.id)
       .single();

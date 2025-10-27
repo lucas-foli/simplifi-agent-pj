@@ -88,41 +88,34 @@ serve(async (req) => {
 
 async function fetchAllUserData(supabase: any, userId: string) {
   // Fetch from all tables containing user data
-  // Use decrypted views for users and companies
   const [
     profile,
-    companies,
     transactions,
     fixedCosts,
     categories,
     classificationRules,
     conversations,
     messages,
-    transactionPatterns,
   ] = await Promise.all([
-    supabase.from('users_decrypted').select('*').eq('id', userId).single(),
-    supabase.from('companies_decrypted').select('*').eq('user_id', userId),
+    supabase.from('profiles').select('*').eq('id', userId).single(),
     supabase.from('transactions').select('*').eq('user_id', userId),
     supabase.from('fixed_costs').select('*').eq('user_id', userId),
     supabase.from('categories').select('*').eq('user_id', userId),
     supabase.from('classification_rules').select('*').eq('user_id', userId),
     supabase.from('conversations').select('*').eq('user_id', userId),
     supabase.from('messages').select('messages.*, conversations!inner(user_id)').eq('conversations.user_id', userId),
-    supabase.from('transaction_patterns').select('*').eq('user_id', userId),
   ]);
 
   return {
     export_date: new Date().toISOString(),
     user_id: userId,
     profile: profile.data,
-    companies: companies.data || [],
     transactions: transactions.data || [],
     fixed_costs: fixedCosts.data || [],
     categories: categories.data || [],
     classification_rules: classificationRules.data || [],
     conversations: conversations.data || [],
     messages: messages.data || [],
-    transaction_patterns: transactionPatterns.data || [],
     _metadata: {
       total_records: {
         transactions: transactions.data?.length || 0,
@@ -131,7 +124,6 @@ async function fetchAllUserData(supabase: any, userId: string) {
         classification_rules: classificationRules.data?.length || 0,
         conversations: conversations.data?.length || 0,
         messages: messages.data?.length || 0,
-        transaction_patterns: transactionPatterns.data?.length || 0,
       },
       export_format: 'LGPD/GDPR compliant data export',
       rights: {
