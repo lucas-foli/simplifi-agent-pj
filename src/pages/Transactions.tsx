@@ -110,6 +110,22 @@ const Transactions = () => {
         }
       }
 
+      // Save pattern for learning (silent - don't show errors to user)
+      if (user?.id) {
+        try {
+          await supabase.functions.invoke('save-transaction-pattern', {
+            body: {
+              description: newTransaction.description,
+              category: newTransaction.category,
+              userId: user.id,
+            },
+          });
+        } catch (patternError) {
+          console.error('Error saving pattern:', patternError);
+          // Don't show error to user - learning is a background operation
+        }
+      }
+
       toast.success('Transação adicionada!');
       setIsAddOpen(false);
       setNewTransaction({
