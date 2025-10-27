@@ -107,7 +107,7 @@ const Dashboard = () => {
     description: tx.description,
     category: 'N/A', // category_id exists, need to join with categories table
     amount: -Number(tx.amount),
-    date: new Date(tx.transaction_date).toLocaleDateString('pt-BR'),
+    date: new Date(tx.date).toLocaleDateString('pt-BR'),
     type: tx.type === 'despesa' ? 'Despesa' : 'Receita'
   })) || [];
 

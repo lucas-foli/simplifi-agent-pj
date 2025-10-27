@@ -170,8 +170,8 @@ export const useDashboardSummary = (month: number, year: number) => {
         .from('transactions')
         .select('amount, type')
         .eq('user_id', user.id)
-        .gte('transaction_date', startDate.toISOString().split('T')[0])
-        .lte('transaction_date', endDate.toISOString().split('T')[0]);
+        .gte('date', startDate.toISOString().split('T')[0])
+        .lte('date', endDate.toISOString().split('T')[0]);
 
       const expenses = transactionsData
         ?.filter(t => t.type === 'despesa')

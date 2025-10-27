@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
-import type { Database } from '@/types/supabase';
+import type { Database } from '@/integrations/supabase/types';
 
 type UserProfile = Database['public']['Tables']['profiles']['Row'];
 
@@ -44,7 +44,7 @@ export const useAuth = () => {
   const fetchProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('users_decrypted')
+        .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
@@ -146,9 +146,9 @@ export const useAuth = () => {
 
     if (error) throw error;
 
-    // Fetch updated profile with decrypted data
+    // Fetch updated profile
     const { data: updatedProfile } = await supabase
-      .from('users_decrypted')
+      .from('profiles')
       .select('*')
       .eq('id', user.id)
       .single();

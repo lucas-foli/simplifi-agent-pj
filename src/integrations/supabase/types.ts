@@ -241,11 +241,11 @@ export type Database = {
           amount: number
           category_id: string | null
           created_at: string
+          date: string
           description: string
           fixed_cost_id: string | null
           id: string
           is_fixed_cost: boolean
-          transaction_date: string
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at: string
           user_id: string
@@ -254,11 +254,11 @@ export type Database = {
           amount: number
           category_id?: string | null
           created_at?: string
+          date?: string
           description: string
           fixed_cost_id?: string | null
           id?: string
           is_fixed_cost?: boolean
-          transaction_date?: string
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
           user_id: string
@@ -267,11 +267,11 @@ export type Database = {
           amount?: number
           category_id?: string | null
           created_at?: string
+          date?: string
           description?: string
           fixed_cost_id?: string | null
           id?: string
           is_fixed_cost?: boolean
-          transaction_date?: string
           type?: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
           user_id?: string

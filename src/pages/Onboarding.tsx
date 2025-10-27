@@ -148,12 +148,11 @@ const Onboarding = () => {
 
         // Save fixed costs
         for (const cost of formData.fixedCosts) {
-          if (cost.name && cost.value) {
+          if (cost.name && cost.value && parseFloat(cost.value) > 0) {
             await createFixedCost.mutateAsync({
               description: cost.name,
               amount: parseFloat(cost.value),
-              user_id: '', // Will be set by the mutation hook
-            } as any);
+            });
           }
         }
       } catch (dataError) {

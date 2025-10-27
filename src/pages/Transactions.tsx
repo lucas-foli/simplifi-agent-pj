@@ -90,7 +90,7 @@ const Transactions = () => {
         description: newTransaction.description,
         amount: parseFloat(newTransaction.amount),
         type: 'despesa', // Default to expense
-        transaction_date: newTransaction.date,
+        date: newTransaction.date,
         user_id: '', // Will be set by the mutation hook
       } as any);
 
@@ -430,8 +430,8 @@ const Transactions = () => {
                     <div className="text-xs sm:text-sm text-muted-foreground">
                       {transaction.type === 'despesa' ? 'Despesa' : 'Receita'}
                       {' • '}
-                      <span className="hidden sm:inline">{format(new Date(transaction.transaction_date), 'dd/MM/yyyy')}</span>
-                      <span className="sm:hidden">{format(new Date(transaction.transaction_date), 'dd/MM')}</span>
+                      <span className="hidden sm:inline">{format(new Date(transaction.date), 'dd/MM/yyyy')}</span>
+                      <span className="sm:hidden">{format(new Date(transaction.date), 'dd/MM')}</span>
                     </div>
                   </div>
 

@@ -17,14 +17,14 @@ export const useTransactions = (month?: number, year?: number) => {
         .from('transactions')
         .select('*')
         .eq('user_id', user.id)
-        .order('transaction_date', { ascending: false });
+        .order('date', { ascending: false });
 
       if (month && year) {
         const startDate = new Date(year, month - 1, 1);
         const endDate = new Date(year, month, 0);
         query = query
-          .gte('transaction_date', startDate.toISOString().split('T')[0])
-          .lte('transaction_date', endDate.toISOString().split('T')[0]);
+          .gte('date', startDate.toISOString().split('T')[0])
+          .lte('date', endDate.toISOString().split('T')[0]);
       }
 
       const { data, error } = await query;
@@ -131,24 +131,36 @@ export const useTransactionsByCategory = (month?: number, year?: number) => {
 
       let query = supabase
         .from('transactions')
-        .select('*, categories(*)')
+        .select('*')
         .eq('user_id', user.id);
 
       if (month && year) {
         const startDate = new Date(year, month - 1, 1);
         const endDate = new Date(year, month, 0);
         query = query
-          .gte('transaction_date', startDate.toISOString().split('T')[0])
-          .lte('transaction_date', endDate.toISOString().split('T')[0]);
+          .gte('date', startDate.toISOString().split('T')[0])
+          .lte('date', endDate.toISOString().split('T')[0]);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
+      // Get categories to map IDs to names
+      const { data: categoriesData } = await supabase
+        .from('categories')
+        .select('id, name')
+        .eq('user_id', user.id);
+
+      const categoryMap = new Map(
+        categoriesData?.map(cat => [cat.id, cat.name]) || []
+      );
+
       // Group by category
       const grouped = data.reduce((acc: any, transaction: any) => {
-        const categoryName = transaction.categories?.name || 'Sem categoria';
+        const categoryName = transaction.category_id 
+          ? categoryMap.get(transaction.category_id) || 'Sem categoria'
+          : 'Sem categoria';
         if (!acc[categoryName]) {
           acc[categoryName] = {
             category: categoryName,
