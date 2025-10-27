@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { checkRateLimit } from '../_shared/rate-limit.ts';
+import { checkRateLimit } from '../_shared/validation.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +29,7 @@ serve(async (req) => {
     }
 
     // Rate limiting: 10 uploads per hour per user
-    await checkRateLimit(userId, 'upload', 10, 3600);
+    checkRateLimit(userId, { maxRequests: 10, windowMs: 3600000 }); // 1 hour
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
