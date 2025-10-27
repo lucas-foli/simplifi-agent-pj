@@ -12,7 +12,8 @@ import {
   MessageSquare,
   Calendar,
   Filter,
-  LogOut
+  LogOut,
+  Upload
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -21,6 +22,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDashboardSummary } from "@/hooks/useFinancialData";
 import { useTransactions, useTransactionsByCategory } from "@/hooks/useTransactions";
 import { useAIInsights } from "@/hooks/useAIInsights";
+import { FileUpload } from "@/components/FileUpload";
+import { TransactionReview } from "@/components/TransactionReview";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -35,6 +38,7 @@ const Dashboard = () => {
   const { data: aiInsight, isLoading: insightLoading } = useAIInsights();
   
   const [balanceValue, setBalanceValue] = useState(0);
+  const [extractedTransactions, setExtractedTransactions] = useState<any[]>([]);
   const targetBalance = summary?.remaining ?? null;
 
   // Animate balance count-up
@@ -193,10 +197,13 @@ const Dashboard = () => {
                 <Button 
                   variant="outline" 
                   className="gap-2 w-full sm:w-auto"
-                  onClick={() => toast.info('Relatórios em breve!')}
+                  onClick={() => {
+                    const importSection = document.getElementById('import-section');
+                    importSection?.scrollIntoView({ behavior: 'smooth' });
+                  }}
                 >
-                  <Filter className="h-4 w-4" />
-                  Ver Relatório
+                  <Upload className="h-4 w-4" />
+                  Importar Arquivo
                 </Button>
               </div>
             </div>
@@ -226,6 +233,51 @@ const Dashboard = () => {
             </motion.div>
           ))}
         </div>
+
+        {/* Import Section */}
+        <motion.div
+          id="import-section"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="mb-8"
+        >
+          <Card className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Upload className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Importar Transações</h3>
+                <p className="text-sm text-muted-foreground">Envie faturas, extratos ou planilhas</p>
+              </div>
+            </div>
+            <FileUpload
+              onTransactionsExtracted={(transactions) => {
+                setExtractedTransactions(transactions);
+              }}
+            />
+          </Card>
+        </motion.div>
+
+        {/* Transaction Review */}
+        {extractedTransactions.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-8"
+          >
+            <TransactionReview
+              transactions={extractedTransactions}
+              onSave={() => {
+                setExtractedTransactions([]);
+                // React Query will automatically refetch data
+              }}
+              onCancel={() => setExtractedTransactions([])}
+            />
+          </motion.div>
+        )}
 
         {/* Main Content Grid */}
         <div className="grid lg:grid-cols-3 gap-4 lg:gap-8">

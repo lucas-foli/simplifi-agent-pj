@@ -1,16 +1,17 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildSystemPrompt, AI_CONFIG, type FinancialContext } from './prompt.ts';
+import {
+  validateRequest,
+  checkRateLimit,
+  createErrorResponse,
+  ChatRequestSchema,
+} from '../_shared/validation.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-interface ChatRequest {
-  message: string;
-  userId: string;
-}
 
 // FinancialContext agora vem de prompt.ts
 
@@ -21,11 +22,12 @@ serve(async (req) => {
   }
 
   try {
-    const { message, userId }: ChatRequest = await req.json();
+    // Validate and parse request
+    const requestData = await req.json();
+    const { message, userId } = validateRequest(ChatRequestSchema, requestData);
 
-    if (!message || !userId) {
-      throw new Error('Missing required fields: message and userId');
-    }
+    // Check rate limit (20 requests per minute per user)
+    checkRateLimit(userId);
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -35,15 +37,11 @@ serve(async (req) => {
     // Fetch user's financial context
     const context = await fetchFinancialContext(supabase, userId);
 
-    // Call OpenAI API (você pode trocar por Anthropic ou outra IA)
+    // Call OpenAI API - require key to be configured
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     
     if (!openaiApiKey) {
-      // Fallback para resposta simulada se não tiver API key
-      const response = generateSimulatedResponse(message, context);
-      return new Response(JSON.stringify(response), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new Error('AI service temporarily unavailable');
     }
 
     // Generate AI response with financial context
@@ -53,14 +51,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error in chat-assistant:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return createErrorResponse(error, corsHeaders);
   }
 });
 
@@ -141,16 +132,15 @@ async function callOpenAI(apiKey: string, message: string, context: FinancialCon
     if (!response.ok) {
       const errorData = await response.json();
       console.error('OpenAI API error:', errorData);
-      throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`);
+      throw new Error('AI service error');
     }
 
     const data = await response.json();
-    console.log('OpenAI response:', JSON.stringify(data));
 
     // Check if response has expected structure
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      console.error('Unexpected OpenAI response structure:', data);
-      throw new Error('Invalid response from OpenAI API');
+      console.error('Unexpected AI response structure');
+      throw new Error('Invalid AI response');
     }
 
     const aiMessage = data.choices[0].message.content || 'Desculpe, não consegui processar sua mensagem.';
@@ -165,8 +155,7 @@ async function callOpenAI(apiKey: string, message: string, context: FinancialCon
     };
   } catch (error) {
     console.error('Error in callOpenAI:', error);
-    // Fallback to simulated response if OpenAI fails
-    return generateSimulatedResponse(message, context);
+    throw error; // Propagate error instead of silent fallback
   }
 }
 

@@ -26,6 +26,7 @@ import {
   Trash2,
   Calendar,
   ArrowLeft,
+  Sparkles,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -36,14 +37,19 @@ import {
 } from '@/hooks/useTransactions';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 
 const Transactions = () => {
+  const { user } = useAuth();
   const now = new Date();
   const [currentMonth] = useState(now.getMonth() + 1);
   const [currentYear] = useState(now.getFullYear());
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isClassifying, setIsClassifying] = useState(false);
+  const [suggestedCategory, setSuggestedCategory] = useState<{category: string; confidence: number; source: string} | null>(null);
   
   const { data: transactions, isLoading } = useTransactions(currentMonth, currentYear);
   const createTransaction = useCreateTransaction();
@@ -88,6 +94,22 @@ const Transactions = () => {
         user_id: '', // Will be set by the mutation hook
       } as any);
 
+      // Save pattern for learning (silent - don't show errors to user)
+      if (user?.id) {
+        try {
+          await supabase.functions.invoke('save-transaction-pattern', {
+            body: {
+              description: newTransaction.description,
+              category: newTransaction.category,
+              userId: user.id,
+            },
+          });
+        } catch (patternError) {
+          console.error('Error saving pattern:', patternError);
+          // Don't show error to user - learning is a background operation
+        }
+      }
+
       toast.success('Transação adicionada!');
       setIsAddOpen(false);
       setNewTransaction({
@@ -98,6 +120,7 @@ const Transactions = () => {
         date: format(new Date(), 'yyyy-MM-dd'),
         notes: '',
       });
+      setSuggestedCategory(null);
     } catch (error) {
       console.error('Error adding transaction:', error);
       toast.error('Erro ao adicionar transação');
@@ -113,6 +136,37 @@ const Transactions = () => {
     } catch (error) {
       console.error('Error deleting transaction:', error);
       toast.error('Erro ao excluir transação');
+    }
+  };
+
+  const handleClassifyTransaction = async () => {
+    if (!newTransaction.description || !user?.id) {
+      toast.error('Digite uma descrição primeiro');
+      return;
+    }
+
+    setIsClassifying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('classify-transaction', {
+        body: {
+          description: newTransaction.description,
+          userId: user.id,
+          amount: newTransaction.amount ? parseFloat(newTransaction.amount) : undefined,
+        },
+      });
+
+      if (error) throw error;
+
+      setSuggestedCategory(data);
+      setNewTransaction({ ...newTransaction, category: data.category });
+      
+      const confidencePercent = Math.round(data.confidence * 100);
+      toast.success(`Categoria sugerida: ${data.category} (${confidencePercent}% de confiança)`);
+    } catch (error) {
+      console.error('Error classifying transaction:', error);
+      toast.error('Erro ao classificar transação');
+    } finally {
+      setIsClassifying(false);
     }
   };
 
@@ -176,12 +230,26 @@ const Transactions = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="category">Categoria *</Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label htmlFor="category">Categoria *</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="gap-2 h-7 text-xs"
+                      onClick={handleClassifyTransaction}
+                      disabled={!newTransaction.description || isClassifying}
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {isClassifying ? 'Classificando...' : 'Sugerir Categoria'}
+                    </Button>
+                  </div>
                   <Select
                     value={newTransaction.category}
-                    onValueChange={(value) =>
-                      setNewTransaction({ ...newTransaction, category: value })
-                    }
+                    onValueChange={(value) => {
+                      setNewTransaction({ ...newTransaction, category: value });
+                      setSuggestedCategory(null);
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione..." />
@@ -194,6 +262,13 @@ const Transactions = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {suggestedCategory && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Sugestão: {suggestedCategory.category} ({Math.round(suggestedCategory.confidence * 100)}% de confiança)
+                      {suggestedCategory.source === 'history' && ' - baseado no seu histórico'}
+                      {suggestedCategory.source === 'ai' && ' - sugerido por IA'}
+                    </p>
+                  )}
                 </div>
 
                 <div>
