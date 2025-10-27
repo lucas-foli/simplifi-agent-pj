@@ -37,7 +37,6 @@ serve(async (req) => {
     // Fetch user's financial context
     const context = await fetchFinancialContext(supabase, userId);
 
-    // Call OpenAI API - require key to be configured
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     
     if (!openaiApiKey) {
@@ -107,7 +106,6 @@ async function callOpenAI(apiKey: string, message: string, context: FinancialCon
     // Prompt agora vem do arquivo prompt.ts - edite lá para customizar!
     const systemPrompt = buildSystemPrompt(context);
 
-    console.log('Calling OpenAI API...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -127,7 +125,7 @@ async function callOpenAI(apiKey: string, message: string, context: FinancialCon
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('OpenAI API error:', errorData);
+      console.error('API error:', errorData);
       throw new Error('AI service error');
     }
 
@@ -150,7 +148,7 @@ async function callOpenAI(apiKey: string, message: string, context: FinancialCon
       actions,
     };
   } catch (error) {
-    console.error('Error in callOpenAI:', error);
+    console.error('Error in request:', error);
     throw error; // Propagate error instead of silent fallback
   }
 }

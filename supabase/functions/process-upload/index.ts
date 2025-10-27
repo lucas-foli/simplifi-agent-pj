@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { checkRateLimit } from '../_shared/validation.ts';
+import { checkRateLimit } from "../_shared/validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,7 +54,7 @@ serve(async (req) => {
     } else if (fileType.includes("ofx") || fileType.includes("x-ofx")) {
       transactions = await parseOFX(fileData);
     } else if (fileType.includes("image")) {
-      // Use OpenAI Vision for images
+
       const openaiKey = Deno.env.get("OPENAI_API_KEY");
       if (openaiKey) {
         transactions = await extractWithAI(fileData, fileType, openaiKey);
@@ -62,7 +62,6 @@ serve(async (req) => {
         throw new Error("Document processing temporarily unavailable");
       }
     } else if (fileType.includes("pdf")) {
-      // Use Anthropic Claude for PDFs (native support)
       const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
       if (anthropicKey) {
         transactions = await extractPDFWithClaude(fileData, anthropicKey);
@@ -91,19 +90,19 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("Error processing upload:", error);
-    
+
     // Generic error message for users (don't expose implementation details)
-    const userMessage = error.message?.includes('Rate limit') 
-      ? error.message 
-      : 'Failed to process document. Please try again or contact support.';
-    
+    const userMessage = error.message?.includes("Rate limit")
+      ? error.message
+      : "Failed to process document. Please try again or contact support.";
+
     return new Response(
       JSON.stringify({
         success: false,
         error: userMessage,
       }),
       {
-        status: error.message?.includes('Rate limit') ? 429 : 500,
+        status: error.message?.includes("Rate limit") ? 429 : 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
@@ -384,7 +383,7 @@ async function categorizeTransactions(
 }
 
 // ============================================================================
-// Anthropic Claude PDF Extraction
+// PDF Extraction
 // ============================================================================
 async function extractPDFWithClaude(
   fileData: Blob,
@@ -450,10 +449,8 @@ Rules:
 
   if (!response.ok) {
     const errorData = await response.text();
-    console.error("Anthropic API error:", errorData);
-    throw new Error(
-      `Anthropic API error: ${response.statusText} - ${errorData}`
-    );
+    console.error("API error:", errorData);
+    throw new Error(`API error: ${response.statusText} - ${errorData}`);
   }
 
   const result = await response.json();

@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "lib": ["deno.window"],
+    "types": ["https://deno.land/x/types/index.d.ts"]
+  },
+  "importMap": "./import_map.json",
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "semiColons": true,
+    "singleQuote": true
+  }
+}

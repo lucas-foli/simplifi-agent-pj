@@ -42,7 +42,7 @@ EXEMPLOS DE BOM COMPORTAMENTO:
 - "Seu saldo está negativo. Sugiro revisar seus gastos em lazer e entretenimento."`;
 }
 
-// Configurações da API OpenAI
+// Configurações da API
 export const AI_CONFIG = {
   model: 'gpt-4o-mini', // ou 'gpt-4o', 'gpt-3.5-turbo'
   temperature: 0.7, // 0 = mais determinístico, 1 = mais criativo

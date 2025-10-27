@@ -8,7 +8,7 @@ Este diretório contém as Edge Functions do Supabase para o SimplifiQA Agent.
 Assistente de chat com IA que responde perguntas sobre finanças do usuário.
 
 **Recursos:**
-- ✅ Integração com OpenAI GPT-4o-mini (ou qualquer modelo)
+- ✅ Integração com qualquer modelo LLM
 - ✅ Context-aware: busca dados financeiros do usuário automaticamente
 - ✅ Fallback para respostas simuladas se API key não estiver configurada
 - ✅ Sugestões de ações (navegar para dashboard, transações, etc.)
@@ -141,10 +141,6 @@ const response = await fetch('https://api.anthropic.com/v1/messages', {
 - ✅ **2 milhões de invocações grátis/mês**
 - Depois: $2/milhão de invocações
 
-### OpenAI
-- GPT-4o-mini: ~$0.15/1M tokens input, $0.60/1M tokens output
-- Custo médio por mensagem: **~$0.0001**
-- 10.000 mensagens/mês: **~$1**
 
 ### Alternativas Grátis
 Se não quiser pagar, a função já tem **fallback para respostas simuladas** baseadas em keywords!

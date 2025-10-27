@@ -209,8 +209,6 @@ POST /functions/v1/gdpr-data-export
 
 ### 9. Transferência Internacional de Dados
 
-⚠️ **ATENÇÃO**: OpenAI (EUA) processa dados de chat
-
 **Medidas de Proteção**:
 - ✅ Dados financeiros são contextualizados (sem CPF/CNPJ enviados à IA)
 - ✅ Apenas descrições de transações e valores agregados

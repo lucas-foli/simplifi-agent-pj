@@ -98,7 +98,7 @@ serve(async (req) => {
       result = classifyByKeywords(description);
     }
 
-    // 3. If still no match and OpenAI is available, use AI
+    // 3. If still no match and is available, use AI
     if (!result || result.confidence < 0.7) {
       const openaiKey = Deno.env.get('OPENAI_API_KEY');
       if (openaiKey) {

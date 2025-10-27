@@ -83,32 +83,7 @@ console.error('Detailed error:', error.message, error.stack);
 
 ---
 
-### 4. Configuração de API Keys
-
-**Status**: ✅ Implementado
-
-OpenAI API key agora é **obrigatória** - removido fallback silencioso:
-
-#### Antes (❌ Problema)
-```typescript
-if (!openaiApiKey) {
-  // Fallback silencioso revela estrutura interna
-  return generateSimulatedResponse(message, context);
-}
-```
-
-#### Depois (✅ Correto)
-```typescript
-if (!openaiApiKey) {
-  throw new Error('AI service temporarily unavailable');
-}
-```
-
-**Ação Requerida**: Configure `OPENAI_API_KEY` no Supabase Dashboard antes de usar chat.
-
----
-
-### 5. Row Level Security (RLS)
+### 4. Row Level Security (RLS)
 
 **Status**: ✅ Implementado
 
