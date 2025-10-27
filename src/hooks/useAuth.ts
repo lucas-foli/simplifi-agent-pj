@@ -42,7 +42,7 @@ export const useAuth = () => {
   const fetchProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('users')
+        .from('users_decrypted')
         .select('*')
         .eq('id', userId)
         .single();
@@ -80,14 +80,23 @@ export const useAuth = () => {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       // Update profile with complete data
+      // If CNPJ is provided, encrypt it
+      let updateData: any = {
+        name: userData.name,
+        user_type: userData.user_type,
+        company_name: userData.company_name,
+      };
+
+      if (userData.cnpj) {
+        const { data: encryptedCnpj } = await supabase.rpc('encrypt_sensitive', {
+          data: userData.cnpj,
+        });
+        updateData.cnpj_encrypted = encryptedCnpj;
+      }
+
       const { error: updateError } = await supabase
         .from('users')
-        .update({
-          name: userData.name,
-          user_type: userData.user_type,
-          company_name: userData.company_name,
-          cnpj: userData.cnpj,
-        })
+        .update(updateData)
         .eq('id', data.user.id);
 
       if (updateError) {
@@ -118,16 +127,32 @@ export const useAuth = () => {
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) throw new Error('No user logged in');
 
+    // Encrypt CNPJ if provided
+    let updateData: any = { ...updates };
+    if (updates.cnpj) {
+      const { data: encryptedCnpj } = await supabase.rpc('encrypt_sensitive', {
+        data: updates.cnpj,
+      });
+      updateData.cnpj_encrypted = encryptedCnpj;
+      delete updateData.cnpj; // Remove plain CNPJ
+    }
+
     const { data, error } = await supabase
       .from('users')
-      .update(updates)
-      .eq('id', user.id)
-      .select()
-      .single();
+      .update(updateData)
+      .eq('id', user.id);
 
     if (error) throw error;
-    setProfile(data);
-    return data;
+
+    // Fetch updated profile from decrypted view
+    const { data: updatedProfile } = await supabase
+      .from('users_decrypted')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    setProfile(updatedProfile);
+    return updatedProfile;
   };
 
   return {
