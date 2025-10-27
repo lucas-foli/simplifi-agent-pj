@@ -309,8 +309,8 @@ Only return the JSON array, no other text.`,
 
   if (!response.ok) {
     const errorData = await response.text();
-    console.error("OpenAI API error:", errorData);
-    throw new Error(`OpenAI API error: ${response.statusText} - ${errorData}`);
+    console.error("API error:", errorData);
+    throw new Error(`API error: ${response.statusText} - ${errorData}`);
   }
 
   const result = await response.json();
