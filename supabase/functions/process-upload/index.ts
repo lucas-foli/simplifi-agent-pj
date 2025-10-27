@@ -1,12 +1,39 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { checkRateLimit } from "../_shared/validation.ts";
+import { 
+  checkRateLimit, 
+  validateRequest, 
+  UUIDSchema 
+} from '../_shared/validation.ts';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+// Request validation schema
+const UploadRequestSchema = z.object({
+  userId: UUIDSchema,
+  filePath: z.string()
+    .min(1, 'File path required')
+    .max(500, 'File path too long')
+    .refine(path => !path.includes('..'), 'Invalid file path - path traversal not allowed'),
+  fileType: z.enum([
+    'text/csv',
+    'application/json',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/x-ofx',
+    'image/jpeg',
+    'image/png',
+    'application/pdf',
+    // Common variations
+    'text/plain',
+    'image/jpg'
+  ], { errorMap: () => ({ message: 'Unsupported file type' }) })
+});
 
 interface Transaction {
   date: string;
@@ -22,14 +49,18 @@ serve(async (req) => {
   }
 
   try {
-    const { filePath, fileType, userId } = await req.json();
-
-    if (!filePath || !fileType || !userId) {
-      throw new Error("Missing required parameters");
-    }
+    // Validate and parse request
+    const requestData = await req.json();
+    const { userId, filePath, fileType } = validateRequest(UploadRequestSchema, requestData);
 
     // Rate limiting: 10 uploads per hour per user
     checkRateLimit(userId, { maxRequests: 10, windowMs: 3600000 }); // 1 hour
+
+    // Verify file ownership - path should start with userId
+    const pathParts = filePath.split('/');
+    if (pathParts[0] !== userId && !filePath.startsWith(`${userId}/`)) {
+      throw new Error('Unauthorized: You can only process your own files');
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
