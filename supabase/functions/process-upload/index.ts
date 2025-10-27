@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkRateLimit } from '../_shared/rate-limit.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,6 +27,9 @@ serve(async (req) => {
     if (!filePath || !fileType || !userId) {
       throw new Error("Missing required parameters");
     }
+
+    // Rate limiting: 10 uploads per hour per user
+    await checkRateLimit(userId, 'upload', 10, 3600);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -55,7 +59,7 @@ serve(async (req) => {
       if (openaiKey) {
         transactions = await extractWithAI(fileData, fileType, openaiKey);
       } else {
-        throw new Error("OpenAI API key not configured for image processing");
+        throw new Error("Document processing temporarily unavailable");
       }
     } else if (fileType.includes("pdf")) {
       // Use Anthropic Claude for PDFs (native support)
@@ -63,9 +67,7 @@ serve(async (req) => {
       if (anthropicKey) {
         transactions = await extractPDFWithClaude(fileData, anthropicKey);
       } else {
-        throw new Error(
-          "Anthropic API key not configured for PDF processing. Please add ANTHROPIC_API_KEY to environment variables."
-        );
+        throw new Error("Document processing temporarily unavailable");
       }
     } else {
       throw new Error(`Unsupported file type: ${fileType}`);
@@ -89,13 +91,19 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("Error processing upload:", error);
+    
+    // Generic error message for users (don't expose implementation details)
+    const userMessage = error.message?.includes('Rate limit') 
+      ? error.message 
+      : 'Failed to process document. Please try again or contact support.';
+    
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: userMessage,
       }),
       {
-        status: 500,
+        status: error.message?.includes('Rate limit') ? 429 : 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
