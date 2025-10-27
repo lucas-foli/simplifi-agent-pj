@@ -88,6 +88,7 @@ serve(async (req) => {
 
 async function fetchAllUserData(supabase: any, userId: string) {
   // Fetch from all tables containing user data
+  // Use users_decrypted view to get decrypted CNPJ data
   const [
     profile,
     transactions,
@@ -97,7 +98,7 @@ async function fetchAllUserData(supabase: any, userId: string) {
     conversations,
     messages,
   ] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', userId).single(),
+    supabase.from('users_decrypted').select('*').eq('id', userId).single(),
     supabase.from('transactions').select('*').eq('user_id', userId),
     supabase.from('fixed_costs').select('*').eq('user_id', userId),
     supabase.from('categories').select('*').eq('user_id', userId),

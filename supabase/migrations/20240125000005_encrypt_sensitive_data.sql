@@ -129,28 +129,24 @@ EXCEPTION
 END;
 $$;
 
--- Add columns for encrypted CNPJ (keep old column for migration)
-ALTER TABLE users ADD COLUMN IF NOT EXISTS cnpj_encrypted TEXT;
-ALTER TABLE companies ADD COLUMN IF NOT EXISTS cnpj_encrypted TEXT;
+-- Add column for encrypted CNPJ to profiles (keep old column for migration)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS cnpj_encrypted TEXT;
 
 -- Migrate existing CNPJs to encrypted format
-UPDATE users
+UPDATE profiles
 SET cnpj_encrypted = encrypt_sensitive(cnpj)
 WHERE cnpj IS NOT NULL AND cnpj_encrypted IS NULL;
 
-UPDATE companies
-SET cnpj_encrypted = encrypt_sensitive(cnpj)
-WHERE cnpj IS NOT NULL AND cnpj_encrypted IS NULL;
-
--- Create views with decrypted data for application use
--- These views automatically decrypt when accessed through RLS
+-- Create view with decrypted data for application use
+-- This view automatically decrypts when accessed through RLS
 CREATE OR REPLACE VIEW users_decrypted AS
 SELECT 
   id,
   email,
-  name,
+  full_name as name,
   user_type,
   company_name,
+  monthly_income,
   CASE 
     WHEN cnpj_encrypted IS NOT NULL 
     THEN decrypt_sensitive(cnpj_encrypted)
@@ -158,21 +154,10 @@ SELECT
   END as cnpj,
   created_at,
   updated_at
-FROM users;
+FROM profiles;
 
-CREATE OR REPLACE VIEW companies_decrypted AS
-SELECT 
-  id,
-  user_id,
-  name,
-  CASE 
-    WHEN cnpj_encrypted IS NOT NULL 
-    THEN decrypt_sensitive(cnpj_encrypted)
-    ELSE cnpj
-  END as cnpj,
-  created_at,
-  updated_at
-FROM companies;
+-- Note: companies_decrypted view removed - no companies table exists
+-- If you need companies in the future, create the table first
 
 -- Enable RLS on views (inherit from base tables)
 -- Note: Views inherit RLS from underlying tables

@@ -6,6 +6,8 @@ import type { Database } from '@/types/supabase';
 
 type UserProfile = Database['public']['Tables']['profiles']['Row'];
 
+// Note: We use 'users_decrypted' view which automatically decrypts CNPJ data
+
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -42,7 +44,7 @@ export const useAuth = () => {
   const fetchProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('profiles')
+        .from('users_decrypted')
         .select('*')
         .eq('id', userId)
         .single();
@@ -144,9 +146,9 @@ export const useAuth = () => {
 
     if (error) throw error;
 
-    // Fetch updated profile
+    // Fetch updated profile with decrypted data
     const { data: updatedProfile } = await supabase
-      .from('profiles')
+      .from('users_decrypted')
       .select('*')
       .eq('id', user.id)
       .single();
