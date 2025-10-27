@@ -60,34 +60,30 @@ async function fetchFinancialContext(supabase: any, userId: string): Promise<Fin
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
 
-  // Fetch monthly income
-  const { data: incomeData } = await supabase
-    .from('monthly_income')
-    .select('amount')
-    .eq('user_id', userId)
-    .eq('month', currentMonth)
-    .eq('year', currentYear)
+  // Fetch monthly income from profiles table
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('monthly_income')
+    .eq('id', userId)
     .single();
 
-  // Fetch fixed costs
+  // Fetch fixed costs (all fixed costs for user)
   const { data: costsData } = await supabase
     .from('fixed_costs')
     .select('amount')
-    .eq('user_id', userId)
-    .eq('month', currentMonth)
-    .eq('year', currentYear);
+    .eq('user_id', userId);
 
-  // Fetch transactions
+  // Fetch transactions for current month
   const { data: transactionsData } = await supabase
     .from('transactions')
-    .select('description, amount, category, date')
+    .select('description, amount, category_id, transaction_date, categories(name)')
     .eq('user_id', userId)
-    .gte('date', `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`)
-    .order('date', { ascending: false })
+    .gte('transaction_date', `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`)
+    .order('transaction_date', { ascending: false })
     .limit(10);
 
   // Values are already stored as decimals (reais) in the database, not cents!
-  const monthlyIncome = incomeData?.amount ? Number(incomeData.amount) : 0;
+  const monthlyIncome = profileData?.monthly_income ? Number(profileData.monthly_income) : 0;
   const fixedCosts = costsData?.reduce((sum: number, cost: any) => sum + Number(cost.amount), 0) || 0;
   const totalExpenses = transactionsData?.reduce((sum: number, tx: any) => sum + Number(tx.amount), 0) || 0;
   const balance = monthlyIncome - fixedCosts - totalExpenses;
@@ -100,8 +96,8 @@ async function fetchFinancialContext(supabase: any, userId: string): Promise<Fin
     recentTransactions: transactionsData?.map((tx: any) => ({
       description: tx.description,
       amount: Number(tx.amount),
-      category: tx.category,
-      date: tx.date,
+      category: tx.categories?.name || 'Sem categoria',
+      date: tx.transaction_date,
     })) || [],
   };
 }

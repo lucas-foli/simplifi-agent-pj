@@ -36,10 +36,19 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verify user authorization
+    // Verify user authorization - CRITICAL: user must match authenticated user
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
       throw new Error('Missing authorization header');
+    }
+
+    // Verify the authenticated user matches the requested userId
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    if (authError || !user || user.id !== userId) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: You can only export your own data' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Fetch all user data
@@ -85,16 +94,20 @@ async function fetchAllUserData(supabase: any, userId: string) {
     companies,
     transactions,
     fixedCosts,
-    monthlyIncome,
-    chatHistory,
+    categories,
+    classificationRules,
+    conversations,
+    messages,
     transactionPatterns,
   ] = await Promise.all([
     supabase.from('users_decrypted').select('*').eq('id', userId).single(),
     supabase.from('companies_decrypted').select('*').eq('user_id', userId),
     supabase.from('transactions').select('*').eq('user_id', userId),
     supabase.from('fixed_costs').select('*').eq('user_id', userId),
-    supabase.from('monthly_income').select('*').eq('user_id', userId),
-    supabase.from('chat_history').select('*').eq('user_id', userId),
+    supabase.from('categories').select('*').eq('user_id', userId),
+    supabase.from('classification_rules').select('*').eq('user_id', userId),
+    supabase.from('conversations').select('*').eq('user_id', userId),
+    supabase.from('messages').select('messages.*, conversations!inner(user_id)').eq('conversations.user_id', userId),
     supabase.from('transaction_patterns').select('*').eq('user_id', userId),
   ]);
 
@@ -105,15 +118,19 @@ async function fetchAllUserData(supabase: any, userId: string) {
     companies: companies.data || [],
     transactions: transactions.data || [],
     fixed_costs: fixedCosts.data || [],
-    monthly_income: monthlyIncome.data || [],
-    chat_history: chatHistory.data || [],
+    categories: categories.data || [],
+    classification_rules: classificationRules.data || [],
+    conversations: conversations.data || [],
+    messages: messages.data || [],
     transaction_patterns: transactionPatterns.data || [],
     _metadata: {
       total_records: {
         transactions: transactions.data?.length || 0,
         fixed_costs: fixedCosts.data?.length || 0,
-        monthly_income: monthlyIncome.data?.length || 0,
-        chat_history: chatHistory.data?.length || 0,
+        categories: categories.data?.length || 0,
+        classification_rules: classificationRules.data?.length || 0,
+        conversations: conversations.data?.length || 0,
+        messages: messages.data?.length || 0,
         transaction_patterns: transactionPatterns.data?.length || 0,
       },
       export_format: 'LGPD/GDPR compliant data export',
