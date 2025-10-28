@@ -139,26 +139,31 @@ const Onboarding = () => {
         return;
       }
 
-      // Wait a bit for the session to be established
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait for the session to be established and triggers to execute
+      // (profile creation + default categories creation)
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Save monthly income to profile
       try {
+        console.log('Salvando receita mensal:', formData.monthlyIncome);
         await setMonthlyIncome.mutateAsync(parseFloat(formData.monthlyIncome));
 
         // Save fixed costs
+        console.log('Salvando custos fixos:', formData.fixedCosts);
         for (const cost of formData.fixedCosts) {
           if (cost.name && cost.value && parseFloat(cost.value) > 0) {
+            console.log('Criando custo fixo:', { description: cost.name, amount: parseFloat(cost.value) });
             await createFixedCost.mutateAsync({
               description: cost.name,
               amount: parseFloat(cost.value),
             });
           }
         }
+        console.log('Todos os custos fixos foram salvos com sucesso');
       } catch (dataError) {
         console.error('Erro ao salvar dados:', dataError);
         // Continue anyway, user can add data later
-        toast.warning('Conta criada, mas alguns dados n\u00e3o foram salvos');
+        toast.warning('Conta criada, mas alguns dados não foram salvos');
       }
 
       toast.success('Conta criada com sucesso!');
