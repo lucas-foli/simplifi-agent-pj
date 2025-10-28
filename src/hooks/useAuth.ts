@@ -75,6 +75,7 @@ export const useAuth = () => {
       options: {
         data: {
           name: userData.name,
+          user_type: userData.user_type, // Will be converted by trigger
         },
       },
     });
