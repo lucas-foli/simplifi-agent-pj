@@ -14,6 +14,7 @@ import { Trash2, Save, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { useCategories } from '@/hooks/useFinancialData';
 
 interface Transaction {
   date: string;
@@ -56,6 +57,7 @@ export const TransactionReview = ({
 }: TransactionReviewProps) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { data: categories = [] } = useCategories();
   const [transactions, setTransactions] = useState(initialTransactions);
   const [saving, setSaving] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -85,17 +87,24 @@ export const TransactionReview = ({
     setSaving(true);
 
     try {
+      // Create a map of category name -> category_id
+      const categoryMap = new Map(
+        categories.map(cat => [cat.name, cat.id])
+      );
+
       // Format transactions for database
-      const formattedTransactions = transactions.map((t) => ({
-        user_id: user.id,
-        company_id: null,
-        date: t.date,
-        description: t.description,
-        amount: t.amount,
-        category: t.category || 'Outros',
-        payment_method: t.payment_method || 'imported',
-        created_by: user.id,
-      }));
+      const formattedTransactions = transactions.map((t) => {
+        const categoryId = t.category ? categoryMap.get(t.category) : null;
+        
+        return {
+          user_id: user.id,
+          date: t.date,
+          description: t.description,
+          amount: t.amount,
+          type: 'despesa' as const,  // Assuming all imports are expenses
+          category_id: categoryId || null,
+        };
+      });
 
       console.log('Saving transactions:', formattedTransactions);
 

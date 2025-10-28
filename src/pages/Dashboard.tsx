@@ -104,12 +104,6 @@ const Dashboard = () => {
     color: colors[index % colors.length]
   })) || [];
 
-  // Debug: Log para verificar estrutura das transações
-  if (transactions && transactions.length > 0) {
-    console.log('Primeira transação:', transactions[0]);
-    console.log('Categories da primeira:', (transactions[0] as any).categories);
-  }
-
   const recentTransactions = transactions?.slice(0, 4).map(tx => ({
     id: tx.id,
     description: tx.description,
