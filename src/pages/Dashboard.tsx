@@ -24,6 +24,8 @@ import { useTransactions, useTransactionsByCategory } from "@/hooks/useTransacti
 import { useAIInsights } from "@/hooks/useAIInsights";
 import { FileUpload } from "@/components/FileUpload";
 import { TransactionReview } from "@/components/TransactionReview";
+import { FixedCostImport } from "@/components/FixedCostImport";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -105,7 +107,7 @@ const Dashboard = () => {
   const recentTransactions = transactions?.slice(0, 4).map(tx => ({
     id: tx.id,
     description: tx.description,
-    category: 'N/A', // category_id exists, need to join with categories table
+    category: (tx as any).categories?.name || 'Sem categoria',
     amount: -Number(tx.amount),
     date: new Date(tx.date).toLocaleDateString('pt-BR'),
     type: tx.type === 'despesa' ? 'Despesa' : 'Receita'
@@ -205,6 +207,14 @@ const Dashboard = () => {
                   <Upload className="h-4 w-4" />
                   Importar Arquivo
                 </Button>
+                <Button 
+                  variant="outline" 
+                  className="gap-2 w-full sm:w-auto"
+                  onClick={() => navigate('/fixed-costs')}
+                >
+                  <Receipt className="h-4 w-4" />
+                  Custos Fixos
+                </Button>
               </div>
             </div>
           </Card>
@@ -234,31 +244,6 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* Import Section */}
-        <motion.div
-          id="import-section"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="mb-8"
-        >
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Upload className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Importar Transações</h3>
-                <p className="text-sm text-muted-foreground">Envie faturas, extratos ou planilhas</p>
-              </div>
-            </div>
-            <FileUpload
-              onTransactionsExtracted={(transactions) => {
-                setExtractedTransactions(transactions);
-              }}
-            />
-          </Card>
-        </motion.div>
 
         {/* Transaction Review */}
         {extractedTransactions.length > 0 && (
@@ -354,6 +339,46 @@ const Dashboard = () => {
             </Card>
           </div>
         </div>
+
+        {/* Import Section */}
+        <motion.div
+          id="import-section"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="mt-8 mb-8"
+        >
+          <Card className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Upload className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Importar Dados</h3>
+                <p className="text-sm text-muted-foreground">Envie arquivos para importar transações ou custos fixos</p>
+              </div>
+            </div>
+            
+            <Tabs defaultValue="transactions" className="mt-4">
+              <TabsList className="grid w-full grid-cols-2 max-w-md">
+                <TabsTrigger value="transactions">Transações</TabsTrigger>
+                <TabsTrigger value="fixed-costs">Custos Fixos</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="transactions" className="mt-4">
+                <FileUpload
+                  onTransactionsExtracted={(transactions) => {
+                    setExtractedTransactions(transactions);
+                  }}
+                />
+              </TabsContent>
+              
+              <TabsContent value="fixed-costs" className="mt-4">
+                <FixedCostImport />
+              </TabsContent>
+            </Tabs>
+          </Card>
+        </motion.div>
 
         {/* AI Insights */}
         {(aiInsight || insightLoading) && (

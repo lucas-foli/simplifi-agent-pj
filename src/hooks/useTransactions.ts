@@ -13,9 +13,16 @@ export const useTransactions = (month?: number, year?: number) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // LEFT JOIN com categories para pegar o nome
+      // categories(name) faz o JOIN automaticamente via foreign key category_id
       let query = supabase
         .from('transactions')
-        .select('*')
+        .select(`
+          *,
+          categories (
+            name
+          )
+        `)
         .eq('user_id', user.id)
         .order('date', { ascending: false });
 

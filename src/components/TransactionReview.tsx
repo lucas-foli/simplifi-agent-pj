@@ -14,6 +14,7 @@ import { Trash2, Save, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { useCategories } from '@/hooks/useFinancialData';
 
 interface Transaction {
   date: string;
@@ -56,6 +57,7 @@ export const TransactionReview = ({
 }: TransactionReviewProps) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { data: categories = [] } = useCategories();
   const [transactions, setTransactions] = useState(initialTransactions);
   const [saving, setSaving] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -85,23 +87,31 @@ export const TransactionReview = ({
     setSaving(true);
 
     try {
+      // Create a map of category name -> category_id
+      const categoryMap = new Map(
+        categories.map(cat => [cat.name, cat.id])
+      );
+
       // Format transactions for database
-      const formattedTransactions = transactions.map((t) => ({
-        user_id: user.id,
-        company_id: null,
-        date: t.date,
-        description: t.description,
-        amount: t.amount,
-        category: t.category || 'Outros',
-        payment_method: t.payment_method || 'imported',
-        created_by: user.id,
-      }));
+      const formattedTransactions = transactions.map((t) => {
+        const categoryId = t.category ? categoryMap.get(t.category) : null;
+        
+        return {
+          user_id: user.id,
+          date: t.date,
+          description: t.description,
+          amount: t.amount,
+          type: 'despesa' as const,  // Assuming all imports are expenses
+          category_id: categoryId || null,
+        };
+      });
 
       console.log('Saving transactions:', formattedTransactions);
 
       const { data, error } = await supabase
         .from('transactions')
-        .insert(formattedTransactions);
+        .insert(formattedTransactions)
+        .select(); // Request the inserted data back for confirmation
 
       console.log('Supabase response:', { data, error });
 
@@ -110,13 +120,16 @@ export const TransactionReview = ({
         throw error;
       }
 
-      // Supabase insert returns null data on success
+      // Supabase insert with select() returns the inserted rows
       toast.success(`${transactions.length} transações salvas com sucesso!`);
 
+      // Small delay to ensure DB has committed (Supabase replication)
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // Invalidate React Query cache to refetch dashboard data
-      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      queryClient.invalidateQueries({ queryKey: ['transactions-by-category'] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      await queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      await queryClient.invalidateQueries({ queryKey: ['transactions-by-category'] });
 
       // Clear transactions
       setTransactions([]);

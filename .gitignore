@@ -49,6 +49,6 @@ supabase/migrations/*.sql
 MANUAL_MIGRATION.sql
 
 # Keep only README
-*.md
+SPRINTS.md
 !README.md
 !docs/**/*.md
