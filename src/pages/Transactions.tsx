@@ -85,30 +85,31 @@ const Transactions = () => {
       return;
     }
 
+    if (!user?.id) {
+      toast.error('Usuário não autenticado');
+      return;
+    }
+
     try {
+      // Find category_id from category name
+      const { data: categories, error: catError } = await supabase
+        .from('categories')
+        .select('id, name')
+        .eq('user_id', user.id);
+
+      if (catError) throw catError;
+
+      const category = categories?.find(c => c.name === newTransaction.category);
+      const category_id = category?.id || null;
+
       await createTransaction.mutateAsync({
         description: newTransaction.description,
         amount: parseFloat(newTransaction.amount),
         type: 'despesa', // Default to expense
         date: newTransaction.date,
+        category_id: category_id,
         user_id: '', // Will be set by the mutation hook
       } as any);
-
-      // Save pattern for learning (silent - don't show errors to user)
-      if (user?.id) {
-        try {
-          await supabase.functions.invoke('save-transaction-pattern', {
-            body: {
-              description: newTransaction.description,
-              category: newTransaction.category,
-              userId: user.id,
-            },
-          });
-        } catch (patternError) {
-          console.error('Error saving pattern:', patternError);
-          // Don't show error to user - learning is a background operation
-        }
-      }
 
       // Save pattern for learning (silent - don't show errors to user)
       if (user?.id) {

@@ -93,11 +93,11 @@ serve(async (req) => {
         throw new Error("Document processing temporarily unavailable");
       }
     } else if (fileType.includes("pdf")) {
-      const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-      if (anthropicKey) {
-        transactions = await extractPDFWithClaude(fileData, anthropicKey);
+      const geminiKey = Deno.env.get("GEMINI_API_KEY");
+      if (geminiKey) {
+        transactions = await extractPDFWithGemini(fileData, geminiKey);
       } else {
-        throw new Error("Document processing temporarily unavailable");
+        throw new Error("PDF processing temporarily unavailable. Please configure GEMINI_API_KEY.");
       }
     } else {
       throw new Error(`Unsupported file type: ${fileType}`);
@@ -339,8 +339,8 @@ Only return the JSON array, no other text.`,
 
   if (!response.ok) {
     const errorData = await response.text();
-    console.error("API error:", errorData);
-    throw new Error(`API error: ${response.statusText} - ${errorData}`);
+    console.error("Vision API error:", response.status, errorData);
+    throw new Error(`Failed to process image: ${response.statusText}`);
   }
 
   const result = await response.json();
@@ -414,22 +414,22 @@ async function categorizeTransactions(
 }
 
 // ============================================================================
-// PDF Extraction
+// PDF Extraction with Gemini Flash 2.0
 // ============================================================================
-async function extractPDFWithClaude(
+async function extractPDFWithGemini(
   fileData: Blob,
   apiKey: string
 ): Promise<Transaction[]> {
-  // Check file size (max 10MB for Claude)
+  // Check file size (max 10MB for Gemini)
   const sizeMB = fileData.size / (1024 * 1024);
   if (sizeMB > 10) {
     throw new Error(`PDF too large: ${sizeMB.toFixed(1)}MB (max 10MB)`);
   }
 
-  // Convert to base64
+  // Convert PDF to base64
   const arrayBuffer = await fileData.arrayBuffer();
   const uint8Array = new Uint8Array(arrayBuffer);
-
+  
   let base64 = "";
   const chunkSize = 8192;
   for (let i = 0; i < uint8Array.length; i += chunkSize) {
@@ -438,65 +438,92 @@ async function extractPDFWithClaude(
   }
   base64 = btoa(base64);
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 4096,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "document",
-              source: {
-                type: "base64",
-                media_type: "application/pdf",
-                data: base64,
-              },
-            },
-            {
-              type: "text",
-              text: `Extract ALL transactions from this PDF invoice/statement. Return ONLY a JSON array with this exact format:
+  // Use Gemini Flash 2.0 to extract transactions from PDF
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: `Extract ALL transactions from this PDF bank statement or invoice. Return ONLY a JSON array with this exact format:
 [{"date": "YYYY-MM-DD", "description": "text", "amount": number}]
 
 Rules:
-- Extract every transaction line
-- Convert dates to YYYY-MM-DD format
-- Amount should be positive number only
+- Extract every transaction line you can find
+- Convert dates to YYYY-MM-DD format (use current year if not specified)
+- Amount should be positive number only (no currency symbols)
 - Description should be clear and concise
-- Return ONLY the JSON array, no markdown, no explanation`,
-            },
-          ],
+- Return ONLY the JSON array, no markdown, no explanation, no other text`,
+              },
+              {
+                inline_data: {
+                  mime_type: "application/pdf",
+                  data: base64,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 8192, // Increased for larger statements
         },
-      ],
-    }),
-  });
+      }),
+    }
+  );
 
   if (!response.ok) {
     const errorData = await response.text();
-    console.error("API error:", errorData);
-    throw new Error(`API error: ${response.statusText} - ${errorData}`);
+    console.error("Gemini API error:", response.status, errorData);
+    throw new Error(`Failed to process PDF: ${response.statusText}`);
   }
 
   const result = await response.json();
-  const content = result.content[0]?.text || "[]";
+  const content = result.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
 
-  // Extract JSON from response
-  const jsonMatch = content.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) {
-    console.error("Could not extract JSON from:", content);
+  // Extract JSON from response (remove markdown if present)
+  let jsonText = content.trim();
+  if (jsonText.startsWith("```")) {
+    jsonText = jsonText.replace(/```json\n?/g, "").replace(/```\n?/g, "");
+  }
+  
+  // Find the start of the JSON array
+  const startIdx = jsonText.indexOf('[');
+  if (startIdx === -1) {
+    console.error("Could not find JSON array in Gemini response:", content);
     throw new Error("Could not extract transactions from PDF");
   }
-
-  const transactions = JSON.parse(jsonMatch[0]);
+  
+  // Find the matching closing bracket
+  let depth = 0;
+  let endIdx = -1;
+  for (let i = startIdx; i < jsonText.length; i++) {
+    if (jsonText[i] === '[') depth++;
+    if (jsonText[i] === ']') {
+      depth--;
+      if (depth === 0) {
+        endIdx = i + 1;
+        break;
+      }
+    }
+  }
+  
+  if (endIdx === -1) {
+    console.error("Incomplete JSON in Gemini response (possibly truncated):", content.substring(0, 200));
+    throw new Error("PDF response was truncated. Try a smaller file or split into pages.");
+  }
+  
+  const jsonStr = jsonText.substring(startIdx, endIdx);
+  const transactions = JSON.parse(jsonStr);
   return transactions.map((t: any) => ({
-    ...t,
+    date: t.date,
+    description: t.description,
     amount: Math.abs(parseFloat(t.amount)),
     payment_method: "imported",
   }));

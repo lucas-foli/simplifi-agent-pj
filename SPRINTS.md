@@ -81,9 +81,32 @@
 ## 🔄 Sprint 2 - Relatórios e Análises (EM ANDAMENTO)
 
 **Período:** Semana 5-6  
-**Status:** 🟡 30% Concluída
+**Status:** 🟡 35% Concluída
 
 ### Funcionalidades Planejadas
+- [ ] **Seletor de Mês no Dashboard**
+  - [ ] Componente de navegação entre meses (anterior/próximo)
+  - [ ] Dropdown de seleção rápida de mês/ano
+  - [ ] Persistir mês selecionado no localStorage
+  - [ ] Atualizar todas as queries do dashboard baseado no mês
+  - [ ] Indicador visual do mês atual
+- [ ] **Sistema de Tracking de Custos Fixos**
+  - [ ] **Opção 1: Tracking de Custos Fixos Pagos**
+    - [ ] Vincular transações a custos fixos cadastrados via `fixed_cost_id`
+    - [ ] Marcar custos fixos como pagos no mês
+    - [ ] Dashboard mostrando custos fixos pagos vs. pendentes
+    - [ ] Alertas de custos fixos não pagos
+    - [ ] Histórico de pagamentos de cada custo fixo
+  - [ ] **Opção 2: Histórico de Custos Fixos Variáveis**
+    - [ ] Permitir custos fixos sem valor definido (ex: energia, água)
+    - [ ] Criar transações com `is_fixed_cost: true` para cada mês
+    - [ ] Visualizar histórico e variação mensal de cada custo fixo
+    - [ ] Gráficos de evolução de custos variáveis
+    - [ ] Alertas quando valor ultrapassar média histórica
+  - [ ] **Correção do Cálculo de Dashboard**
+    - [ ] Filtrar transações com `is_fixed_cost: true` do cálculo de `expenses`
+    - [ ] Evitar duplicação entre `fixedCosts` e `expenses`
+    - [ ] Atualizar `useDashboardSummary` hook
 - [ ] Relatórios em PDF exportáveis
   - [ ] Relatório mensal de receitas e despesas
   - [ ] Relatório por categoria

@@ -110,7 +110,8 @@ export const TransactionReview = ({
 
       const { data, error } = await supabase
         .from('transactions')
-        .insert(formattedTransactions);
+        .insert(formattedTransactions)
+        .select(); // Request the inserted data back for confirmation
 
       console.log('Supabase response:', { data, error });
 
@@ -119,13 +120,16 @@ export const TransactionReview = ({
         throw error;
       }
 
-      // Supabase insert returns null data on success
+      // Supabase insert with select() returns the inserted rows
       toast.success(`${transactions.length} transações salvas com sucesso!`);
 
+      // Small delay to ensure DB has committed (Supabase replication)
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // Invalidate React Query cache to refetch dashboard data
-      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      queryClient.invalidateQueries({ queryKey: ['transactions-by-category'] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      await queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      await queryClient.invalidateQueries({ queryKey: ['transactions-by-category'] });
 
       // Clear transactions
       setTransactions([]);

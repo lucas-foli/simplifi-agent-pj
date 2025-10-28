@@ -381,7 +381,7 @@ const FixedCosts = () => {
                         <p className="text-xs text-muted-foreground">/mês</p>
                       </div>
                       <div className="flex gap-2">
-                        <Dialog>
+                        <Dialog open={editingCost?.id === cost.id} onOpenChange={(open) => !open && setEditingCost(null)}>
                           <DialogTrigger asChild>
                             <Button
                               variant="ghost"
