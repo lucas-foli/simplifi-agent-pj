@@ -64,6 +64,11 @@ export const useAuth = () => {
     company_name?: string;
     cnpj?: string;
   }) => {
+    // Convert short user_type to database enum
+    const userTypeMap = {
+      'pf': 'pessoa_fisica' as const,
+      'pj': 'pessoa_juridica' as const,
+    };
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -85,7 +90,7 @@ export const useAuth = () => {
       // If CNPJ is provided, encrypt it
       let updateData: any = {
         full_name: userData.name,
-        user_type: userData.user_type,
+        user_type: userTypeMap[userData.user_type],
         company_name: userData.company_name,
       };
 
