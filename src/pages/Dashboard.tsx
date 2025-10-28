@@ -13,7 +13,9 @@ import {
   Calendar,
   Filter,
   LogOut,
-  Upload
+  Upload,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -31,17 +33,52 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
   const now = new Date();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
   
-  const { data: summary, isLoading: summaryLoading } = useDashboardSummary(currentMonth, currentYear);
-  const { data: transactions, isLoading: transactionsLoading } = useTransactions(currentMonth, currentYear);
-  const { data: categoryData, isLoading: categoryLoading } = useTransactionsByCategory(currentMonth, currentYear);
+  // Get selected month from localStorage or use current month
+  const getInitialMonth = () => {
+    const saved = localStorage.getItem('dashboard-selected-month');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { month: parsed.month, year: parsed.year };
+    }
+    return { month: now.getMonth() + 1, year: now.getFullYear() };
+  };
+  
+  const [selectedDate, setSelectedDate] = useState(getInitialMonth());
+  const { month: selectedMonth, year: selectedYear } = selectedDate;
+  
+  // Persist selected month to localStorage
+  useEffect(() => {
+    localStorage.setItem('dashboard-selected-month', JSON.stringify(selectedDate));
+  }, [selectedDate]);
+  
+  const { data: summary, isLoading: summaryLoading } = useDashboardSummary(selectedMonth, selectedYear);
+  const { data: transactions, isLoading: transactionsLoading } = useTransactions(selectedMonth, selectedYear);
+  const { data: categoryData, isLoading: categoryLoading } = useTransactionsByCategory(selectedMonth, selectedYear);
   const { data: aiInsight, isLoading: insightLoading } = useAIInsights();
   
   const [balanceValue, setBalanceValue] = useState(0);
   const [extractedTransactions, setExtractedTransactions] = useState<any[]>([]);
   const targetBalance = summary?.remaining ?? null;
+  
+  // Navigation functions
+  const goToPreviousMonth = () => {
+    const newMonth = selectedMonth === 1 ? 12 : selectedMonth - 1;
+    const newYear = selectedMonth === 1 ? selectedYear - 1 : selectedYear;
+    setSelectedDate({ month: newMonth, year: newYear });
+  };
+  
+  const goToNextMonth = () => {
+    const newMonth = selectedMonth === 12 ? 1 : selectedMonth + 1;
+    const newYear = selectedMonth === 12 ? selectedYear + 1 : selectedYear;
+    setSelectedDate({ month: newMonth, year: newYear });
+  };
+  
+  const goToCurrentMonth = () => {
+    setSelectedDate({ month: now.getMonth() + 1, year: now.getFullYear() });
+  };
+  
+  const isCurrentMonth = selectedMonth === now.getMonth() + 1 && selectedYear === now.getFullYear();
 
   // Animate balance count-up
   useEffect(() => {
@@ -113,7 +150,7 @@ const Dashboard = () => {
     type: tx.type === 'despesa' ? 'Despesa' : 'Receita'
   })) || [];
 
-  const monthName = new Date(currentYear, currentMonth - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const monthName = new Date(selectedYear, selectedMonth - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   if (summaryLoading) {
     return (
@@ -141,10 +178,43 @@ const Dashboard = () => {
             <span className="text-sm text-muted-foreground mr-2 hidden md:inline">
               Olá, {profile?.full_name || user?.email}
             </span>
-            <Button variant="ghost" size="sm" className="hidden sm:flex">
-              <Calendar className="h-4 w-4 mr-2" />
-              {monthName}
-            </Button>
+            
+            {/* Month Selector */}
+            <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8"
+                onClick={goToPreviousMonth}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="px-3 font-medium min-w-[140px]"
+                onClick={isCurrentMonth ? undefined : goToCurrentMonth}
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                {monthName}
+                {!isCurrentMonth && (
+                  <span className="ml-2 text-xs bg-primary/20 text-primary px-1.5 rounded">
+                    Ver atual
+                  </span>
+                )}
+              </Button>
+              
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8"
+                onClick={goToNextMonth}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            
             <Button variant="outline" size="sm" onClick={signOut}>
               <LogOut className="h-4 w-4" />
             </Button>
