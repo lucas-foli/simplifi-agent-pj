@@ -55,7 +55,7 @@ CREATE TABLE public.transactions (
   description TEXT NOT NULL,
   amount DECIMAL(15,2) NOT NULL,
   category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
-  transaction_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  date DATE NOT NULL DEFAULT CURRENT_DATE,
   is_fixed_cost BOOLEAN NOT NULL DEFAULT false,
   fixed_cost_id UUID REFERENCES public.fixed_costs(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -275,7 +275,7 @@ CREATE TRIGGER on_auth_user_created
 CREATE INDEX idx_categories_user_id ON public.categories(user_id);
 CREATE INDEX idx_fixed_costs_user_id ON public.fixed_costs(user_id);
 CREATE INDEX idx_transactions_user_id ON public.transactions(user_id);
-CREATE INDEX idx_transactions_date ON public.transactions(transaction_date);
+CREATE INDEX idx_transactions_date ON public.transactions(date);
 CREATE INDEX idx_classification_rules_user_id ON public.classification_rules(user_id);
 CREATE INDEX idx_conversations_user_id ON public.conversations(user_id);
 CREATE INDEX idx_messages_conversation_id ON public.messages(conversation_id);
