@@ -24,6 +24,8 @@ import { useTransactions, useTransactionsByCategory } from "@/hooks/useTransacti
 import { useAIInsights } from "@/hooks/useAIInsights";
 import { FileUpload } from "@/components/FileUpload";
 import { TransactionReview } from "@/components/TransactionReview";
+import { FixedCostImport } from "@/components/FixedCostImport";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -205,6 +207,14 @@ const Dashboard = () => {
                   <Upload className="h-4 w-4" />
                   Importar Arquivo
                 </Button>
+                <Button 
+                  variant="outline" 
+                  className="gap-2 w-full sm:w-auto"
+                  onClick={() => navigate('/fixed-costs')}
+                >
+                  <Receipt className="h-4 w-4" />
+                  Custos Fixos
+                </Button>
               </div>
             </div>
           </Card>
@@ -248,15 +258,29 @@ const Dashboard = () => {
                 <Upload className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold text-foreground">Importar Transações</h3>
-                <p className="text-sm text-muted-foreground">Envie faturas, extratos ou planilhas</p>
+                <h3 className="font-semibold text-foreground">Importar Dados</h3>
+                <p className="text-sm text-muted-foreground">Envie arquivos para importar transações ou custos fixos</p>
               </div>
             </div>
-            <FileUpload
-              onTransactionsExtracted={(transactions) => {
-                setExtractedTransactions(transactions);
-              }}
-            />
+            
+            <Tabs defaultValue="transactions" className="mt-4">
+              <TabsList className="grid w-full grid-cols-2 max-w-md">
+                <TabsTrigger value="transactions">Transações</TabsTrigger>
+                <TabsTrigger value="fixed-costs">Custos Fixos</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="transactions" className="mt-4">
+                <FileUpload
+                  onTransactionsExtracted={(transactions) => {
+                    setExtractedTransactions(transactions);
+                  }}
+                />
+              </TabsContent>
+              
+              <TabsContent value="fixed-costs" className="mt-4">
+                <FixedCostImport />
+              </TabsContent>
+            </Tabs>
           </Card>
         </motion.div>
 

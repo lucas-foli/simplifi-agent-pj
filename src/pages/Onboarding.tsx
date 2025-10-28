@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Building2, DollarSign, Receipt, ArrowRight, ArrowLeft, Check, AlertCircle } from "lucide-react";
+import { User, Building2, DollarSign, Receipt, ArrowRight, ArrowLeft, Check, AlertCircle, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useSetMonthlyIncome, useCreateFixedCost } from "@/hooks/useFinancialData";
@@ -477,11 +477,75 @@ const Onboarding = () => {
                 transition={{ duration: 0.3 }}
               >
                 <h2 className="text-2xl font-bold text-foreground mb-2">Custos Fixos</h2>
-                <p className="text-muted-foreground mb-6">
+                <p className="text-muted-foreground mb-4">
                   {userType === "pf" 
                     ? "Adicione suas despesas fixas mensais (aluguel, contas, etc.)" 
                     : "Adicione os custos fixos da empresa"}
                 </p>
+                
+                {/* Import CSV Option */}
+                <div className="mb-4 p-4 border border-border rounded-lg bg-muted/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium">Importar de CSV</p>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      id="onboarding-csv-upload"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const text = event.target?.result as string;
+                          const lines = text.split('\n').filter(l => l.trim());
+                          
+                          if (lines.length < 2) return;
+                          
+                          const header = lines[0].split(/[,;]/).map(h => h.toLowerCase().trim());
+                          const descIdx = header.findIndex(h => h.includes('descri') || h.includes('nome'));
+                          const amountIdx = header.findIndex(h => h.includes('valor') || h.includes('amount'));
+                          
+                          if (descIdx === -1 || amountIdx === -1) {
+                            toast.error('CSV inválido. Use: descrição,valor');
+                            return;
+                          }
+                          
+                          const newCosts: { name: string; value: string }[] = [];
+                          for (let i = 1; i < lines.length; i++) {
+                            const row = lines[i].split(/[,;]/);
+                            const name = row[descIdx]?.trim();
+                            const value = row[amountIdx]?.trim().replace(/[^\d,.-]/g, '').replace(',', '.');
+                            if (name && value) {
+                              newCosts.push({ name, value });
+                            }
+                          }
+                          
+                          setFormData(prev => ({
+                            ...prev,
+                            fixedCosts: [...prev.fixedCosts, ...newCosts]
+                          }));
+                          toast.success(`${newCosts.length} custo(s) importado(s)!`);
+                        };
+                        reader.readAsText(file);
+                        e.target.value = '';
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => document.getElementById('onboarding-csv-upload')?.click()}
+                    >
+                      <Upload className="h-3 w-3 mr-2" />
+                      Importar CSV
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Formato: descrição,valor (ex: Aluguel,1500.00)
+                  </p>
+                </div>
                 
                 <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 -mr-2 scrollbar-thin">
                   {formData.fixedCosts.map((cost, index) => (
@@ -526,6 +590,14 @@ const Onboarding = () => {
                   <Button variant="outline" onClick={() => setStep(3)} className="gap-2">
                     <ArrowLeft className="h-4 w-4" />
                     Voltar
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={handleComplete} 
+                    className="gap-2"
+                    disabled={loading}
+                  >
+                    {loading ? 'Criando conta...' : 'Pular e Finalizar'}
                   </Button>
                   <Button 
                     onClick={handleComplete} 

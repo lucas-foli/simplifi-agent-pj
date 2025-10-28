@@ -4,6 +4,27 @@ import type { Database } from '@/integrations/supabase/types';
 
 type FixedCost = Database['public']['Tables']['fixed_costs']['Row'];
 type FixedCostInsert = Database['public']['Tables']['fixed_costs']['Insert'];
+type Category = Database['public']['Tables']['categories']['Row'];
+
+// Categories Hooks
+export const useCategories = () => {
+  return useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name');
+
+      if (error) throw error;
+      return data as Category[];
+    },
+  });
+};
 
 // Fixed Costs Hooks
 export const useFixedCosts = (month: number, year: number) => {

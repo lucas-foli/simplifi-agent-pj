@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
+import FixedCosts from "./pages/FixedCosts";
 import Chat from "./pages/Chat";
 import Debug from "./pages/Debug";
 import CacheTest from "./pages/CacheTest";
@@ -34,6 +35,11 @@ const App = () => (
           <Route path="/transactions" element={
             <ProtectedRoute>
               <Transactions />
+            </ProtectedRoute>
+          } />
+          <Route path="/fixed-costs" element={
+            <ProtectedRoute>
+              <FixedCosts />
             </ProtectedRoute>
           } />
           <Route path="/chat" element={

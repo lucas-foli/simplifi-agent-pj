@@ -9,8 +9,16 @@ import { toast } from 'sonner';
 interface FileUploadProps {
   onUploadSuccess?: (files: UploadedFile[]) => void;
   onTransactionsExtracted?: (transactions: ProcessedTransaction[]) => void;
+  onFixedCostsExtracted?: (fixedCosts: ProcessedFixedCost[]) => void;
+  importType?: 'transactions' | 'fixed_costs';
   maxFiles?: number;
   maxSizeMB?: number;
+}
+
+interface ProcessedFixedCost {
+  description: string;
+  amount: number;
+  category_id?: string;
 }
 
 interface UploadedFile {
