@@ -1,89 +1,122 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Receipt, 
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Receipt,
   Target,
   Plus,
   MessageSquare,
-  Calendar,
   Filter,
   LogOut,
   Upload,
+  Calendar as CalendarIcon,
   ChevronLeft,
-  ChevronRight
-} from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+  ChevronRight,
+} from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Legend,
+  Tooltip,
+} from "recharts";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardSummary } from "@/hooks/useFinancialData";
-import { useTransactions, useTransactionsByCategory } from "@/hooks/useTransactions";
+import {
+  useTransactions,
+  useTransactionsByCategory,
+} from "@/hooks/useTransactions";
 import { useAIInsights } from "@/hooks/useAIInsights";
 import { FileUpload } from "@/components/FileUpload";
 import { TransactionReview } from "@/components/TransactionReview";
 import { FixedCostImport } from "@/components/FixedCostImport";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
   const now = new Date();
-  
+
   // Get selected month from localStorage or use current month
   const getInitialMonth = () => {
-    const saved = localStorage.getItem('dashboard-selected-month');
+    const saved = localStorage.getItem("dashboard-selected-month");
     if (saved) {
       const parsed = JSON.parse(saved);
       return { month: parsed.month, year: parsed.year };
     }
     return { month: now.getMonth() + 1, year: now.getFullYear() };
   };
-  
+
   const [selectedDate, setSelectedDate] = useState(getInitialMonth());
   const { month: selectedMonth, year: selectedYear } = selectedDate;
-  
+
   // Persist selected month to localStorage
   useEffect(() => {
-    localStorage.setItem('dashboard-selected-month', JSON.stringify(selectedDate));
+    localStorage.setItem(
+      "dashboard-selected-month",
+      JSON.stringify(selectedDate)
+    );
   }, [selectedDate]);
-  
-  const { data: summary, isLoading: summaryLoading } = useDashboardSummary(selectedMonth, selectedYear);
-  const { data: transactions, isLoading: transactionsLoading } = useTransactions(selectedMonth, selectedYear);
-  const { data: categoryData, isLoading: categoryLoading } = useTransactionsByCategory(selectedMonth, selectedYear);
+
+  const { data: summary, isLoading: summaryLoading } = useDashboardSummary(
+    selectedMonth,
+    selectedYear
+  );
+  const { data: transactions, isLoading: transactionsLoading } =
+    useTransactions(selectedMonth, selectedYear);
+  const { data: categoryData, isLoading: categoryLoading } =
+    useTransactionsByCategory(selectedMonth, selectedYear);
   const { data: aiInsight, isLoading: insightLoading } = useAIInsights();
-  
+
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [balanceValue, setBalanceValue] = useState(0);
   const [extractedTransactions, setExtractedTransactions] = useState<any[]>([]);
   const targetBalance = summary?.remaining ?? null;
-  
+
   // Navigation functions
   const goToPreviousMonth = () => {
     const newMonth = selectedMonth === 1 ? 12 : selectedMonth - 1;
     const newYear = selectedMonth === 1 ? selectedYear - 1 : selectedYear;
     setSelectedDate({ month: newMonth, year: newYear });
   };
-  
+
   const goToNextMonth = () => {
     const newMonth = selectedMonth === 12 ? 1 : selectedMonth + 1;
     const newYear = selectedMonth === 12 ? selectedYear + 1 : selectedYear;
     setSelectedDate({ month: newMonth, year: newYear });
   };
-  
+
   const goToCurrentMonth = () => {
     setSelectedDate({ month: now.getMonth() + 1, year: now.getFullYear() });
   };
-  
-  const isCurrentMonth = selectedMonth === now.getMonth() + 1 && selectedYear === now.getFullYear();
+
+  const isCurrentMonth =
+    selectedMonth === now.getMonth() + 1 && selectedYear === now.getFullYear();
 
   // Animate balance count-up
   useEffect(() => {
     if (targetBalance === null || summaryLoading) return;
-    
+
     const duration = 1000;
     const steps = 60;
     const increment = targetBalance / steps;
@@ -105,52 +138,73 @@ const Dashboard = () => {
   const kpis = [
     {
       label: "Receita Mensal",
-      value: summary?.income.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) || "0,00",
+      value:
+        summary?.income.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) ||
+        "0,00",
       icon: DollarSign,
       color: "text-success",
-      bgColor: "bg-success/10"
+      bgColor: "bg-success/10",
     },
     {
       label: "Custos Fixos",
-      value: summary?.fixedCosts.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) || "0,00",
+      value:
+        summary?.fixedCosts.toLocaleString("pt-BR", {
+          minimumFractionDigits: 2,
+        }) || "0,00",
       icon: Receipt,
       color: "text-warning",
-      bgColor: "bg-warning/10"
+      bgColor: "bg-warning/10",
     },
     {
       label: "Gastos do Mês",
-      value: summary?.expenses.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) || "0,00",
+      value:
+        summary?.expenses.toLocaleString("pt-BR", {
+          minimumFractionDigits: 2,
+        }) || "0,00",
       icon: TrendingDown,
       color: "text-danger",
-      bgColor: "bg-danger/10"
+      bgColor: "bg-danger/10",
     },
     {
       label: "Meta de Economia",
       value: "1.000,00", // TODO: Implementar metas
       icon: Target,
       color: "text-primary",
-      bgColor: "bg-primary/10"
-    }
+      bgColor: "bg-primary/10",
+    },
   ];
 
-  const colors = ["#0B59A3", "#2ECC71", "#F39C12", "#E74C3C", "#9B59B6", "#1ABC9C", "#E67E22"];
-  
-  const chartData = categoryData?.map((cat: any, index: number) => ({
-    name: cat.category,
-    value: cat.total,
-    color: colors[index % colors.length]
-  })) || [];
+  const colors = [
+    "#0B59A3",
+    "#2ECC71",
+    "#F39C12",
+    "#E74C3C",
+    "#9B59B6",
+    "#1ABC9C",
+    "#E67E22",
+  ];
 
-  const recentTransactions = transactions?.slice(0, 4).map(tx => ({
-    id: tx.id,
-    description: tx.description,
-    category: (tx as any).categories?.name || 'Sem categoria',
-    amount: -Number(tx.amount),
-    date: new Date(tx.date).toLocaleDateString('pt-BR'),
-    type: tx.type === 'despesa' ? 'Despesa' : 'Receita'
-  })) || [];
+  const chartData =
+    categoryData?.map((cat: any, index: number) => ({
+      name: cat.category,
+      value: cat.total,
+      color: colors[index % colors.length],
+    })) || [];
 
-  const monthName = new Date(selectedYear, selectedMonth - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const recentTransactions =
+    transactions?.slice(0, 4).map((tx) => ({
+      id: tx.id,
+      description: tx.description,
+      category: (tx as any).categories?.name || "Sem categoria",
+      amount: -Number(tx.amount),
+      date: new Date(tx.date).toLocaleDateString("pt-BR"),
+      type: tx.type === "despesa" ? "Despesa" : "Receita",
+    })) || [];
+
+  const monthName = new Date(
+    selectedYear,
+    selectedMonth - 1
+  ).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
   if (summaryLoading) {
     return (
@@ -172,49 +226,77 @@ const Dashboard = () => {
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
               <TrendingUp className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-foreground">SimplifiQA</span>
+            <span className="text-xl font-bold text-foreground">
+              SimplifiQA
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground mr-2 hidden md:inline">
               Olá, {profile?.full_name || user?.email}
             </span>
-            
+
             {/* Month Selector */}
             <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="h-8 w-8"
                 onClick={goToPreviousMonth}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="px-3 font-medium min-w-[140px]"
-                onClick={isCurrentMonth ? undefined : goToCurrentMonth}
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                {monthName}
-                {!isCurrentMonth && (
-                  <span className="ml-2 text-xs bg-primary/20 text-primary px-1.5 rounded">
-                    Ver atual
-                  </span>
-                )}
-              </Button>
-              
-              <Button 
-                variant="ghost" 
-                size="icon" 
+
+              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="px-3 font-medium min-w-[140px]"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {monthName}
+                    {!isCurrentMonth && (
+                      <span
+                        className="ml-2 text-xs bg-primary/20 text-primary px-1.5 rounded hover:bg-primary/30"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          goToCurrentMonth();
+                        }}
+                      >
+                        Ver atual
+                      </span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    month={new Date(selectedYear, selectedMonth - 1)}
+                    selected={new Date(selectedYear, selectedMonth - 1)}
+                    onSelect={(date) => {
+                      if (date) {
+                        setSelectedDate({
+                          month: date.getMonth() + 1,
+                          year: date.getFullYear(),
+                        });
+                        setIsCalendarOpen(false);
+                      }
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <Button
+                variant="ghost"
+                size="icon"
                 className="h-8 w-8"
                 onClick={goToNextMonth}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-            
+
             <Button variant="outline" size="sm" onClick={signOut}>
               <LogOut className="h-4 w-4" />
             </Button>
@@ -232,7 +314,9 @@ const Dashboard = () => {
           <Card className="p-4 sm:p-8 mb-8 shadow-primary border-2 bg-gradient-to-br from-card via-card to-primary/5">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div className="w-full md:w-auto">
-                <p className="text-sm text-muted-foreground mb-2">Saldo Restante do Mês</p>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Saldo Restante do Mês
+                </p>
                 <motion.div
                   className="text-4xl sm:text-5xl md:text-6xl font-mono font-bold text-success mb-2"
                   animate={{ scale: [1, 1.02, 1] }}
@@ -241,46 +325,62 @@ const Dashboard = () => {
                   {summaryLoading ? (
                     <div className="animate-pulse">R$ ---.--</div>
                   ) : (
-                    `R$ ${balanceValue.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    `R$ ${balanceValue.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}`
                   )}
                 </motion.div>
                 {!summaryLoading && targetBalance !== null && (
                   <div className="flex items-center gap-2 text-sm">
-                    <span className={`${targetBalance >= 0 ? 'text-success' : 'text-danger'} flex items-center gap-1`}>
-                      {targetBalance >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                      {targetBalance >= 0 ? 'Positivo' : 'Negativo'}
+                    <span
+                      className={`${
+                        targetBalance >= 0 ? "text-success" : "text-danger"
+                      } flex items-center gap-1`}
+                    >
+                      {targetBalance >= 0 ? (
+                        <TrendingUp className="h-4 w-4" />
+                      ) : (
+                        <TrendingDown className="h-4 w-4" />
+                      )}
+                      {targetBalance >= 0 ? "Positivo" : "Negativo"}
                     </span>
                     {summary && summary.income > 0 && (
                       <span className="text-muted-foreground">
-                        • {((summary.remaining / summary.income) * 100).toFixed(0)}% do orçamento
+                        •{" "}
+                        {((summary.remaining / summary.income) * 100).toFixed(
+                          0
+                        )}
+                        % do orçamento
                       </span>
                     )}
                   </div>
                 )}
               </div>
               <div className="flex flex-col sm:flex-row md:flex-col gap-2 w-full md:w-auto">
-                <Button 
+                <Button
                   className="gap-2 animate-pulse-subtle shadow-lg w-full sm:w-auto"
-                  onClick={() => navigate('/transactions')}
+                  onClick={() => navigate("/transactions")}
                 >
                   <Plus className="h-4 w-4" />
                   Adicionar Despesa
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="gap-2 w-full sm:w-auto"
                   onClick={() => {
-                    const importSection = document.getElementById('import-section');
-                    importSection?.scrollIntoView({ behavior: 'smooth' });
+                    const importSection =
+                      document.getElementById("import-section");
+                    importSection?.scrollIntoView({ behavior: "smooth" });
                   }}
                 >
                   <Upload className="h-4 w-4" />
                   Importar Arquivo
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="gap-2 w-full sm:w-auto"
-                  onClick={() => navigate('/fixed-costs')}
+                  onClick={() => navigate("/fixed-costs")}
                 >
                   <Receipt className="h-4 w-4" />
                   Custos Fixos
@@ -301,8 +401,12 @@ const Dashboard = () => {
             >
               <Card className="p-4 hover:shadow-md transition-smooth">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-muted-foreground">{kpi.label}</span>
-                  <div className={`h-8 w-8 rounded-lg ${kpi.bgColor} flex items-center justify-center`}>
+                  <span className="text-sm text-muted-foreground">
+                    {kpi.label}
+                  </span>
+                  <div
+                    className={`h-8 w-8 rounded-lg ${kpi.bgColor} flex items-center justify-center`}
+                  >
                     <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
                   </div>
                 </div>
@@ -313,7 +417,6 @@ const Dashboard = () => {
             </motion.div>
           ))}
         </div>
-
 
         {/* Transaction Review */}
         {extractedTransactions.length > 0 && (
@@ -339,7 +442,9 @@ const Dashboard = () => {
           {/* Chart Section */}
           <div className="lg:col-span-1">
             <Card className="p-6">
-              <h3 className="font-semibold text-foreground mb-4">Gastos por Categoria</h3>
+              <h3 className="font-semibold text-foreground mb-4">
+                Gastos por Categoria
+              </h3>
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
@@ -356,7 +461,9 @@ const Dashboard = () => {
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: number) => `R$ ${value.toFixed(2)}`} />
+                    <Tooltip
+                      formatter={(value: number) => `R$ ${value.toFixed(2)}`}
+                    />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
@@ -372,37 +479,49 @@ const Dashboard = () => {
           <div className="lg:col-span-2">
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-foreground">Transações Recentes</h3>
+                <h3 className="font-semibold text-foreground">
+                  Transações Recentes
+                </h3>
                 <Link to="/transactions">
-                  <Button variant="ghost" size="sm">Ver todas</Button>
+                  <Button variant="ghost" size="sm">
+                    Ver todas
+                  </Button>
                 </Link>
               </div>
               <div className="space-y-3">
-                {recentTransactions.length > 0 ? recentTransactions.map((transaction, index) => (
-                  <motion.div
-                    key={transaction.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
-                    className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-smooth"
-                  >
-                    <div className="flex-1">
-                      <div className="font-medium text-foreground">{transaction.description}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {transaction.category} • {transaction.type}
+                {recentTransactions.length > 0 ? (
+                  recentTransactions.map((transaction, index) => (
+                    <motion.div
+                      key={transaction.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.1 }}
+                      className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-smooth"
+                    >
+                      <div className="flex-1">
+                        <div className="font-medium text-foreground">
+                          {transaction.description}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {transaction.category} • {transaction.type}
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold text-danger">
-                        R$ {Math.abs(transaction.amount).toFixed(2)}
+                      <div className="text-right">
+                        <div className="font-semibold text-danger">
+                          R$ {Math.abs(transaction.amount).toFixed(2)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {transaction.date}
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground">{transaction.date}</div>
-                    </div>
-                  </motion.div>
-                )) : (
+                    </motion.div>
+                  ))
+                ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <p>Nenhuma transação ainda</p>
-                    <p className="text-sm mt-2">Adicione sua primeira despesa</p>
+                    <p className="text-sm mt-2">
+                      Adicione sua primeira despesa
+                    </p>
                   </div>
                 )}
               </div>
@@ -424,17 +543,21 @@ const Dashboard = () => {
                 <Upload className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold text-foreground">Importar Dados</h3>
-                <p className="text-sm text-muted-foreground">Envie arquivos para importar transações ou custos fixos</p>
+                <h3 className="font-semibold text-foreground">
+                  Importar Dados
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Envie arquivos para importar transações ou custos fixos
+                </p>
               </div>
             </div>
-            
+
             <Tabs defaultValue="transactions" className="mt-4">
               <TabsList className="grid w-full grid-cols-2 max-w-md">
                 <TabsTrigger value="transactions">Transações</TabsTrigger>
                 <TabsTrigger value="fixed-costs">Custos Fixos</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="transactions" className="mt-4">
                 <FileUpload
                   onTransactionsExtracted={(transactions) => {
@@ -442,7 +565,7 @@ const Dashboard = () => {
                   }}
                 />
               </TabsContent>
-              
+
               <TabsContent value="fixed-costs" className="mt-4">
                 <FixedCostImport />
               </TabsContent>
@@ -464,7 +587,9 @@ const Dashboard = () => {
                   <MessageSquare className="h-5 w-5 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-semibold text-foreground mb-2">Sugestão do Assistente</h4>
+                  <h4 className="font-semibold text-foreground mb-2">
+                    Sugestão do Assistente
+                  </h4>
                   {insightLoading ? (
                     <div className="space-y-2">
                       <div className="h-4 bg-muted animate-pulse rounded w-3/4"></div>
@@ -478,12 +603,15 @@ const Dashboard = () => {
                       <div className="flex flex-wrap gap-2">
                         {aiInsight.actions && aiInsight.actions.length > 0 ? (
                           aiInsight.actions.map((action, idx) => (
-                            <Button 
+                            <Button
                               key={idx}
-                              size="sm" 
+                              size="sm"
                               variant={idx === 0 ? "default" : "outline"}
                               onClick={() => {
-                                if (action.action === 'navigate' && action.data) {
+                                if (
+                                  action.action === "navigate" &&
+                                  action.data
+                                ) {
                                   navigate(action.data);
                                 }
                               }}
@@ -492,19 +620,19 @@ const Dashboard = () => {
                             </Button>
                           ))
                         ) : (
-                          <Button 
+                          <Button
                             size="sm"
-                            onClick={() => navigate('/transactions')}
+                            onClick={() => navigate("/transactions")}
                           >
                             Ver Transações
                           </Button>
                         )}
                         {/* Always show Assistente button */}
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
                           className="gap-2"
-                          onClick={() => navigate('/chat')}
+                          onClick={() => navigate("/chat")}
                         >
                           <MessageSquare className="h-4 w-4" />
                           Assistente
@@ -529,7 +657,7 @@ const Dashboard = () => {
         <Button
           size="lg"
           className="h-14 w-14 rounded-full shadow-primary animate-pulse-subtle"
-          onClick={() => navigate('/transactions')}
+          onClick={() => navigate("/transactions")}
           title="Adicionar Despesa"
         >
           <Plus className="h-6 w-6" />
