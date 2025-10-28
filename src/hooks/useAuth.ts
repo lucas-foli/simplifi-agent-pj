@@ -84,7 +84,7 @@ export const useAuth = () => {
       // Update profile with complete data
       // If CNPJ is provided, encrypt it
       let updateData: any = {
-        name: userData.name,
+        full_name: userData.name,
         user_type: userData.user_type,
         company_name: userData.company_name,
       };
