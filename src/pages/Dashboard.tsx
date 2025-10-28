@@ -107,7 +107,7 @@ const Dashboard = () => {
   const recentTransactions = transactions?.slice(0, 4).map(tx => ({
     id: tx.id,
     description: tx.description,
-    category: 'N/A', // category_id exists, need to join with categories table
+    category: (tx as any).categories?.name || 'Sem categoria',
     amount: -Number(tx.amount),
     date: new Date(tx.date).toLocaleDateString('pt-BR'),
     type: tx.type === 'despesa' ? 'Despesa' : 'Receita'

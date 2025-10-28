@@ -15,7 +15,7 @@ export const useTransactions = (month?: number, year?: number) => {
 
       let query = supabase
         .from('transactions')
-        .select('*')
+        .select('*, categories(name)')
         .eq('user_id', user.id)
         .order('date', { ascending: false });
 
