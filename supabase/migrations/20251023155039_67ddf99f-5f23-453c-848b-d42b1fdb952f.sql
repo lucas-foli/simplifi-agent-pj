@@ -1,8 +1,16 @@
 -- Create enum for user types
-CREATE TYPE public.user_type AS ENUM ('pessoa_fisica', 'pessoa_juridica');
+DO $$ BEGIN
+  CREATE TYPE public.user_type AS ENUM ('pessoa_fisica', 'pessoa_juridica');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- Create enum for transaction types
-CREATE TYPE public.transaction_type AS ENUM ('receita', 'despesa');
+DO $$ BEGIN
+  CREATE TYPE public.transaction_type AS ENUM ('receita', 'despesa');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- Create profiles table
 CREATE TABLE public.profiles (
