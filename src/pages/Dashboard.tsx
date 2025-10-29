@@ -273,6 +273,12 @@ const Dashboard = () => {
                     mode="single"
                     month={new Date(selectedYear, selectedMonth - 1)}
                     selected={new Date(selectedYear, selectedMonth - 1)}
+                    onMonthChange={(newMonth) => {
+                      setSelectedDate({
+                        month: newMonth.getMonth() + 1,
+                        year: newMonth.getFullYear(),
+                      });
+                    }}
                     onSelect={(date) => {
                       if (date) {
                         setSelectedDate({
