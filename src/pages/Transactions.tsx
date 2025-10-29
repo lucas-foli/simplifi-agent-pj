@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { motion } from 'framer-motion';
 import {
   Plus,
@@ -24,9 +30,11 @@ import {
   Filter,
   Pencil,
   Trash2,
-  Calendar,
+  Calendar as CalendarIcon,
   ArrowLeft,
   Sparkles,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -43,8 +51,30 @@ import { useAuth } from '@/hooks/useAuth';
 const Transactions = () => {
   const { user } = useAuth();
   const now = new Date();
-  const [currentMonth] = useState(now.getMonth() + 1);
-  const [currentYear] = useState(now.getFullYear());
+  const getInitialMonth = () => {
+    if (typeof window === 'undefined') {
+      return { month: now.getMonth() + 1, year: now.getFullYear() };
+    }
+    const saved = window.localStorage.getItem('dashboard-selected-month');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (
+          typeof parsed?.month === 'number' &&
+          typeof parsed?.year === 'number'
+        ) {
+          return { month: parsed.month, year: parsed.year };
+        }
+      } catch (error) {
+        console.warn('Erro ao ler mês salvo:', error);
+      }
+    }
+    return { month: now.getMonth() + 1, year: now.getFullYear() };
+  };
+
+  const [selectedDate, setSelectedDate] = useState(getInitialMonth);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const { month: currentMonth, year: currentYear } = selectedDate;
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -78,6 +108,50 @@ const Transactions = () => {
   ];
 
   const paymentMethods = ['Pix', 'Crédito', 'Débito', 'Dinheiro', 'Transferência'];
+  const isCurrentMonth = currentMonth === now.getMonth() + 1 && currentYear === now.getFullYear();
+  const fullDate = new Date(currentYear, currentMonth - 1);
+  const monthLabel = fullDate.toLocaleDateString('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+  });
+  const monthLabelShort = fullDate.toLocaleDateString('pt-BR', {
+    month: 'short',
+    year: '2-digit',
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('dashboard-selected-month', JSON.stringify(selectedDate));
+    }
+  }, [selectedDate]);
+
+  const goToPreviousMonth = () => {
+    setSelectedDate((prev) => {
+      const date = new Date(prev.year, prev.month - 2, 1);
+      return {
+        month: date.getMonth() + 1,
+        year: date.getFullYear(),
+      };
+    });
+  };
+
+  const goToNextMonth = () => {
+    setSelectedDate((prev) => {
+      const date = new Date(prev.year, prev.month, 1);
+      return {
+        month: date.getMonth() + 1,
+        year: date.getFullYear(),
+      };
+    });
+  };
+
+  const goToCurrentMonth = () => {
+    const today = new Date();
+    setSelectedDate({
+      month: today.getMonth() + 1,
+      year: today.getFullYear(),
+    });
+  };
 
   const handleAddTransaction = async () => {
     if (!newTransaction.description || !newTransaction.amount || !newTransaction.category) {
@@ -382,11 +456,68 @@ const Transactions = () => {
               </Select>
             </div>
 
-            <div className="flex items-end sm:col-span-2 md:col-span-1">
-              <Button variant="outline" className="w-full gap-2">
-                <Calendar className="h-4 w-4" />
-                <span className="hidden sm:inline">{format(new Date(currentYear, currentMonth - 1), 'MMMM yyyy')}</span>
-                <span className="sm:hidden">{format(new Date(currentYear, currentMonth - 1), 'MMM/yy')}</span>
+            <div className="flex items-center justify-between gap-1 sm:col-span-2 md:col-span-1 bg-muted/50 rounded-lg p-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={goToPreviousMonth}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+
+              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="px-3 font-medium min-w-[140px]">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    <span className="hidden sm:inline capitalize">{monthLabel}</span>
+                    <span className="sm:hidden capitalize">{monthLabelShort}</span>
+                    {!isCurrentMonth && (
+                      <span
+                        className="ml-2 text-xs bg-primary/20 text-primary px-1.5 rounded hover:bg-primary/30"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          goToCurrentMonth();
+                          setIsCalendarOpen(false);
+                        }}
+                      >
+                        Ver atual
+                      </span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    month={new Date(currentYear, currentMonth - 1)}
+                    selected={new Date(currentYear, currentMonth - 1)}
+                    onMonthChange={(newMonth) => {
+                      setSelectedDate({
+                        month: newMonth.getMonth() + 1,
+                        year: newMonth.getFullYear(),
+                      });
+                    }}
+                    onSelect={(date) => {
+                      if (date) {
+                        setSelectedDate({
+                          month: date.getMonth() + 1,
+                          year: date.getFullYear(),
+                        });
+                        setIsCalendarOpen(false);
+                      }
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={goToNextMonth}
+              >
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
