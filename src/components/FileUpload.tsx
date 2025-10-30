@@ -35,6 +35,7 @@ interface ProcessedTransaction {
   amount: number;
   category?: string;
   payment_method?: string;
+  type?: 'despesa' | 'receita';
 }
 
 const ACCEPTED_TYPES = {

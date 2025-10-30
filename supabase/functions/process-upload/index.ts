@@ -41,6 +41,7 @@ interface Transaction {
   amount: number;
   category?: string;
   payment_method?: string;
+  type?: 'despesa' | 'receita';
 }
 
 serve(async (req) => {
@@ -192,20 +193,27 @@ async function parseCSV(fileData: Blob): Promise<Transaction[]> {
       const description = row[descIdx]?.trim();
       const amountStr = row[amountIdx]
         ?.trim()
-        .replace(/[^\d,.-]/g, "")
+        .replace(/[^\d,.-+]/g, "")
         .replace(",", ".");
 
       if (!dateStr || !description || !amountStr) continue;
 
       const date = parseDate(dateStr);
-      const amount = Math.abs(parseFloat(amountStr));
+      const rawAmount = parseFloat(amountStr);
+      if (Number.isNaN(rawAmount)) continue;
+
+      const amount = Math.abs(rawAmount);
+      const type: 'despesa' | 'receita' = rawAmount > 0 ? 'receita' : 'despesa';
+      const rawCategory = categoryIdx !== -1 ? row[categoryIdx]?.trim() : undefined;
+      const category = rawCategory || (type === 'receita' ? 'Receitas' : undefined);
 
       transactions.push({
         date: date.toISOString().split("T")[0],
         description,
         amount,
-        category: categoryIdx !== -1 ? row[categoryIdx]?.trim() : undefined,
+        category,
         payment_method: "imported",
+        type,
       });
     } catch (err) {
       console.error(`Error parsing row ${i}:`, err);
@@ -227,13 +235,22 @@ async function parseJSON(fileData: Blob): Promise<Transaction[]> {
     throw new Error("JSON must be an array of transactions");
   }
 
-  return data.map((item) => ({
-    date: item.date || item.data,
-    description: item.description || item.descricao || item.desc,
-    amount: Math.abs(parseFloat(item.amount || item.valor)),
-    category: item.category || item.categoria,
-    payment_method: item.payment_method || "imported",
-  }));
+  return data.map((item) => {
+    const rawAmount = parseFloat(item.amount ?? item.valor ?? 0);
+    const amount = Math.abs(rawAmount);
+    const type: 'despesa' | 'receita' = rawAmount > 0 ? 'receita' : 'despesa';
+    const rawCategory = item.category || item.categoria;
+    const category = rawCategory || (type === 'receita' ? 'Receitas' : undefined);
+
+    return {
+      date: item.date || item.data,
+      description: item.description || item.descricao || item.desc,
+      amount,
+      category,
+      payment_method: item.payment_method || "imported",
+      type,
+    } satisfies Transaction;
+  });
 }
 
 // ============================================================================
@@ -260,7 +277,9 @@ async function parseOFX(fileData: Blob): Promise<Transaction[]> {
         4,
         6
       )}-${dateStr.substring(6, 8)}`;
-      const amount = Math.abs(parseFloat(amountMatch[1]));
+      const rawAmount = parseFloat(amountMatch[1]);
+      const amount = Math.abs(rawAmount);
+      const type: 'despesa' | 'receita' = rawAmount > 0 ? 'receita' : 'despesa';
       const description = memoMatch ? memoMatch[1].trim() : "Transaction";
 
       transactions.push({
@@ -268,6 +287,8 @@ async function parseOFX(fileData: Blob): Promise<Transaction[]> {
         description,
         amount,
         payment_method: "imported",
+        type,
+        category: type === 'receita' ? 'Receitas' : undefined,
       });
     }
   }
@@ -322,7 +343,10 @@ async function extractWithAI(
               type: "text",
               text: `Extract ALL transactions from this invoice/statement. Return a JSON array with format:
 [{"date": "YYYY-MM-DD", "description": "text", "amount": number}]
-Only return the JSON array, no other text.`,
+Rules:
+- Use negative numbers for expenses/outgoing payments
+- Use positive numbers for income/credits
+- Only return the JSON array, no other text.`,
             },
             {
               type: "image_url",
@@ -353,11 +377,19 @@ Only return the JSON array, no other text.`,
   }
 
   const transactions = JSON.parse(jsonMatch[0]);
-  return transactions.map((t: any) => ({
-    ...t,
-    amount: Math.abs(parseFloat(t.amount)),
-    payment_method: "imported",
-  }));
+  return transactions.map((t: any) => {
+    const rawAmount = parseFloat(t.amount);
+    const amount = Math.abs(rawAmount);
+    const type: 'despesa' | 'receita' = rawAmount > 0 ? 'receita' : 'despesa';
+
+    return {
+      ...t,
+      amount,
+      payment_method: "imported",
+      type,
+      category: t.category ?? (type === 'receita' ? 'Receitas' : undefined),
+    } satisfies Transaction;
+  });
 }
 
 // ============================================================================
@@ -451,13 +483,13 @@ async function extractPDFWithGemini(
           {
             parts: [
               {
-                text: `Extract ALL transactions from this PDF bank statement or invoice. Return ONLY a JSON array with this exact format:
+              text: `Extract ALL transactions from this PDF bank statement or invoice. Return ONLY a JSON array with this exact format:
 [{"date": "YYYY-MM-DD", "description": "text", "amount": number}]
 
 Rules:
 - Extract every transaction line you can find
 - Convert dates to YYYY-MM-DD format (use current year if not specified)
-- Amount should be positive number only (no currency symbols)
+- Use negative numbers for expenses/outgoing payments and positive numbers for income/credits
 - Description should be clear and concise
 - Return ONLY the JSON array, no markdown, no explanation, no other text`,
               },
@@ -521,12 +553,20 @@ Rules:
   
   const jsonStr = jsonText.substring(startIdx, endIdx);
   const transactions = JSON.parse(jsonStr);
-  return transactions.map((t: any) => ({
-    date: t.date,
-    description: t.description,
-    amount: Math.abs(parseFloat(t.amount)),
-    payment_method: "imported",
-  }));
+  return transactions.map((t: any) => {
+    const rawAmount = parseFloat(t.amount);
+    const amount = Math.abs(rawAmount);
+    const type: 'despesa' | 'receita' = rawAmount > 0 ? 'receita' : 'despesa';
+
+    return {
+      date: t.date,
+      description: t.description,
+      amount,
+      payment_method: "imported",
+      type,
+      category: t.category ?? (type === 'receita' ? 'Receitas' : undefined),
+    } satisfies Transaction;
+  });
 }
 
 // ============================================================================

@@ -17,6 +17,7 @@ import {
   Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
+  Pencil,
 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Link, useNavigate } from "react-router-dom";
@@ -30,7 +31,7 @@ import {
   Tooltip,
 } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
-import { useDashboardSummary } from "@/hooks/useFinancialData";
+import { useDashboardSummary, useSetMonthlyIncome } from "@/hooks/useFinancialData";
 import {
   useTransactions,
   useTransactionsByCategory,
@@ -107,11 +108,14 @@ const Dashboard = () => {
   const { data: categoryData, isLoading: categoryLoading } =
     useTransactionsByCategory(selectedMonth, selectedYear);
   const { data: aiInsight, isLoading: insightLoading } = useAIInsights();
+  const setMonthlyIncome = useSetMonthlyIncome();
 
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isWhatsAppDialogOpen, setIsWhatsAppDialogOpen] = useState(false);
   const [whatsAppPhone, setWhatsAppPhone] = useState("");
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
+  const [isIncomeDialogOpen, setIsIncomeDialogOpen] = useState(false);
+  const [incomeInput, setIncomeInput] = useState("");
   const [balanceValue, setBalanceValue] = useState(0);
   const [extractedTransactions, setExtractedTransactions] = useState<any[]>([]);
   const targetBalance = summary?.remaining ?? null;
@@ -158,42 +162,40 @@ const Dashboard = () => {
     return () => clearInterval(timer);
   }, [targetBalance, summaryLoading]);
 
+  const monthlyIncomeValue = summary?.income ?? 0;
+  const fixedCostsValue = summary?.fixedCosts ?? 0;
+  const expensesValue = summary?.expenses ?? 0;
+  const transactionIncomeValue = summary?.transactionIncome ?? 0;
+
   const kpis = [
     {
       label: "Receita Mensal",
-      value:
-        summary?.income.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) ||
-        "0,00",
+      value: currencyFormatter.format(monthlyIncomeValue),
       icon: DollarSign,
       color: "text-success",
       bgColor: "bg-success/10",
+      editable: true,
     },
     {
       label: "Custos Fixos",
-      value:
-        summary?.fixedCosts.toLocaleString("pt-BR", {
-          minimumFractionDigits: 2,
-        }) || "0,00",
+      value: currencyFormatter.format(fixedCostsValue),
       icon: Receipt,
       color: "text-warning",
       bgColor: "bg-warning/10",
     },
     {
       label: "Gastos do Mês",
-      value:
-        summary?.expenses.toLocaleString("pt-BR", {
-          minimumFractionDigits: 2,
-        }) || "0,00",
+      value: currencyFormatter.format(expensesValue),
       icon: TrendingDown,
       color: "text-danger",
       bgColor: "bg-danger/10",
     },
     {
-      label: "Meta de Economia",
-      value: "1.000,00", // TODO: Implementar metas
-      icon: Target,
-      color: "text-primary",
-      bgColor: "bg-primary/10",
+      label: "Receitas Registradas",
+      value: currencyFormatter.format(transactionIncomeValue),
+      icon: TrendingUp,
+      color: "text-success",
+      bgColor: "bg-success/10",
     },
   ];
 
@@ -219,7 +221,10 @@ const Dashboard = () => {
       id: tx.id,
       description: tx.description,
       category: (tx as any).categories?.name || "Sem categoria",
-      amount: -Number(tx.amount),
+      amount:
+        tx.type === "receita"
+          ? Number(tx.amount)
+          : -Number(tx.amount),
       date: new Date(tx.date).toLocaleDateString("pt-BR"),
       type: tx.type === "despesa" ? "Despesa" : "Receita",
     })) || [];
@@ -229,14 +234,25 @@ const Dashboard = () => {
     selectedMonth - 1
   ).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
+  const monthlyIncomeValue = summary?.income ?? 0;
+  const fixedCostsValue = summary?.fixedCosts ?? 0;
+  const expensesValue = summary?.expenses ?? 0;
+  const transactionIncomeValue = summary?.transactionIncome ?? 0;
+
+  const parseIncomeValue = (value: string) => {
+    const normalized = value.replace(/\s/g, "").replace(/\./g, "").replace(",", ".");
+    return Number(normalized);
+  };
+
   const buildSummaryMessage = () => {
     if (!summary) return "";
 
     const lines = [
       `SimplifiQA · Resumo de ${monthName}`,
-      `Receitas: ${currencyFormatter.format(summary.income ?? 0)}`,
-      `Custos Fixos: ${currencyFormatter.format(summary.fixedCosts ?? 0)}`,
-      `Despesas: ${currencyFormatter.format(summary.expenses ?? 0)}`,
+      `Receita mensal: ${currencyFormatter.format(monthlyIncomeValue)}`,
+      `Receitas registradas: ${currencyFormatter.format(transactionIncomeValue)}`,
+      `Custos Fixos: ${currencyFormatter.format(fixedCostsValue)}`,
+      `Despesas: ${currencyFormatter.format(expensesValue)}`,
       `Saldo restante: ${currencyFormatter.format(summary.remaining ?? 0)}`,
     ];
 
@@ -293,6 +309,28 @@ const Dashboard = () => {
       toast.error("Não foi possível enviar a mensagem no momento.");
     } finally {
       setIsSendingWhatsApp(false);
+    }
+  };
+
+  const handleSaveMonthlyIncome = async () => {
+    if (!incomeInput.trim()) {
+      toast.error("Informe um valor válido para a receita mensal.");
+      return;
+    }
+
+    const parsed = parseIncomeValue(incomeInput);
+    if (Number.isNaN(parsed)) {
+      toast.error("Informe um valor válido para a receita mensal.");
+      return;
+    }
+
+    try {
+      await setMonthlyIncome.mutateAsync(parsed);
+      toast.success("Receita mensal atualizada!");
+      setIsIncomeDialogOpen(false);
+    } catch (error) {
+      console.error("Erro ao atualizar receita mensal:", error);
+      toast.error("Não foi possível atualizar a receita mensal.");
     }
   };
 
@@ -443,6 +481,43 @@ const Dashboard = () => {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isIncomeDialogOpen} onOpenChange={setIsIncomeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Atualizar receita mensal</DialogTitle>
+            <DialogDescription>
+              Defina o valor de receita mensal utilizado para os cálculos do dashboard.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="income-value">Receita mensal (R$)</Label>
+              <Input
+                id="income-value"
+                value={incomeInput}
+                onChange={(event) => setIncomeInput(event.target.value)}
+                placeholder="Ex.: 5000"
+                inputMode="decimal"
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Este valor corresponde à sua receita fixa mensal e é somado às receitas lançadas manualmente.
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setIsIncomeDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveMonthlyIncome}
+              disabled={setMonthlyIncome.isPending}
+            >
+              {setMonthlyIncome.isPending ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="container mx-auto px-4 py-8">
         {/* Hero Card - Balance */}
         <motion.div
@@ -543,14 +618,29 @@ const Dashboard = () => {
                   <span className="text-sm text-muted-foreground">
                     {kpi.label}
                   </span>
-                  <div
-                    className={`h-8 w-8 rounded-lg ${kpi.bgColor} flex items-center justify-center`}
-                  >
-                    <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
+                  <div className="flex items-center gap-2">
+                    {kpi.editable && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          setIncomeInput(String(monthlyIncomeValue));
+                          setIsIncomeDialogOpen(true);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <div
+                      className={`h-8 w-8 rounded-lg ${kpi.bgColor} flex items-center justify-center`}
+                    >
+                      <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
+                    </div>
                   </div>
                 </div>
                 <div className={`text-2xl font-bold ${kpi.color}`}>
-                  R$ {kpi.value}
+                  {kpi.value}
                 </div>
               </Card>
             </motion.div>
@@ -646,8 +736,10 @@ const Dashboard = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-danger">
-                          R$ {Math.abs(transaction.amount).toFixed(2)}
+                        <div
+                          className={`font-semibold ${transaction.amount >= 0 ? 'text-success' : 'text-danger'}`}
+                        >
+                          {transaction.amount >= 0 ? '+' : '-'} R$ {Math.abs(transaction.amount).toFixed(2)}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {transaction.date}

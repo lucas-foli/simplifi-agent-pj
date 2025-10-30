@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,7 @@ interface Transaction {
   amount: number;
   category?: string;
   payment_method?: string;
+  type?: 'despesa' | 'receita';
 }
 
 interface TransactionReviewProps {
@@ -38,16 +39,13 @@ const CATEGORIES = [
   'Lazer',
   'Casa',
   'Vestuário',
+  'Receitas',
   'Outros',
 ];
 
-const PAYMENT_METHODS = [
-  'credit_card',
-  'debit_card',
-  'pix',
-  'cash',
-  'bank_transfer',
-  'imported',
+const TRANSACTION_TYPES: Array<{ value: 'despesa' | 'receita'; label: string }> = [
+  { value: 'despesa', label: 'Despesa' },
+  { value: 'receita', label: 'Receita' },
 ];
 
 export const TransactionReview = ({
@@ -58,9 +56,20 @@ export const TransactionReview = ({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { data: categories = [] } = useCategories();
-  const [transactions, setTransactions] = useState(initialTransactions);
+  const mapInitialTransactions = (list: Transaction[]) =>
+    list.map((transaction) => ({
+      ...transaction,
+      type: transaction.type ?? 'despesa',
+    }));
+
+  const [transactions, setTransactions] = useState(() =>
+    mapInitialTransactions(initialTransactions)
+  );
   const [saving, setSaving] = useState(false);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    setTransactions(mapInitialTransactions(initialTransactions));
+  }, [initialTransactions]);
 
   const updateTransaction = (index: number, field: keyof Transaction, value: any) => {
     setTransactions((prev) =>
@@ -100,9 +109,10 @@ export const TransactionReview = ({
           user_id: user.id,
           date: t.date,
           description: t.description,
-          amount: t.amount,
-          type: 'despesa' as const,  // Assuming all imports are expenses
+          amount: Number(t.amount),
+          type: (t.type ?? 'despesa') as 'despesa' | 'receita',
           category_id: categoryId || null,
+          payment_method: t.payment_method ?? null,
         };
       });
 
@@ -237,11 +247,40 @@ export const TransactionReview = ({
                     type="number"
                     step="0.01"
                     value={transaction.amount}
-                    onChange={(e) =>
-                      updateTransaction(index, 'amount', parseFloat(e.target.value))
-                    }
-                    className="h-9"
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      updateTransaction(
+                        index,
+                        'amount',
+                        Number.isNaN(value) ? 0 : value
+                      );
+                    }}
+                    className={`h-9 ${transaction.type === 'receita' ? 'text-success' : ''}`}
                   />
+                </div>
+
+                {/* Type */}
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    Tipo
+                  </label>
+                  <Select
+                    value={transaction.type ?? 'despesa'}
+                    onValueChange={(value: 'despesa' | 'receita') =>
+                      updateTransaction(index, 'type', value)
+                    }
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TRANSACTION_TYPES.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Category */}
