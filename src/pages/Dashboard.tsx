@@ -1,51 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { motion } from "framer-motion";
-import {
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  Receipt,
-  Target,
-  Plus,
-  MessageSquare,
-  Filter,
-  LogOut,
-  Upload,
-  Calendar as CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
-  Pencil,
-} from "lucide-react";
-import { Calendar } from "@/components/ui/calendar";
-import { Link, useNavigate } from "react-router-dom";
-import { toast } from "sonner";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Legend,
-  Tooltip,
-} from "recharts";
-import { useAuth } from "@/hooks/useAuth";
-import { useDashboardSummary, useSetMonthlyIncome } from "@/hooks/useFinancialData";
-import {
-  useTransactions,
-  useTransactionsByCategory,
-} from "@/hooks/useTransactions";
-import { useAIInsights } from "@/hooks/useAIInsights";
 import { FileUpload } from "@/components/FileUpload";
-import { TransactionReview } from "@/components/TransactionReview";
 import { FixedCostImport } from "@/components/FixedCostImport";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { TransactionReview } from "@/components/TransactionReview";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -54,15 +12,48 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAIInsights } from "@/hooks/useAIInsights";
+import { useAuth } from "@/hooks/useAuth";
+import { useDashboardSummary, useSetMonthlyIncome } from "@/hooks/useFinancialData";
+import {
+  useTransactions,
+  useTransactionsByCategory,
+} from "@/hooks/useTransactions";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
+import { motion } from "framer-motion";
+import {
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  DollarSign,
+  LogOut,
+  MessageSquare,
+  Pencil,
+  Plus,
+  Receipt,
+  TrendingDown,
+  TrendingUp,
+  Upload
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
+import { toast } from "sonner";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -149,11 +140,11 @@ const Dashboard = () => {
     const increment = targetBalance / steps;
     let current = 0;
 
-    const timer = setInterval(() => {
-      current += increment;
-      if (current >= targetBalance) {
-        setBalanceValue(targetBalance);
-        clearInterval(timer);
+  const timer = setInterval(() => {
+    current += increment;
+    if (current >= targetBalance) {
+      setBalanceValue(targetBalance);
+      clearInterval(timer);
       } else {
         setBalanceValue(current);
       }
@@ -234,10 +225,22 @@ const Dashboard = () => {
     selectedMonth - 1
   ).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
-  const monthlyIncomeValue = summary?.income ?? 0;
-  const fixedCostsValue = summary?.fixedCosts ?? 0;
-  const expensesValue = summary?.expenses ?? 0;
-  const transactionIncomeValue = summary?.transactionIncome ?? 0;
+  const numberFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+    []
+  );
+
+  const sanitizeIncomeInput = (raw: string) => {
+    const cleaned = raw.replace(/[^0-9.,]/g, "");
+    if (!cleaned) return "";
+    const parsed = parseIncomeValue(cleaned);
+    if (Number.isNaN(parsed)) return "";
+    return numberFormatter.format(parsed);
+  };
 
   const parseIncomeValue = (value: string) => {
     const normalized = value.replace(/\s/g, "").replace(/\./g, "").replace(",", ".");
@@ -495,7 +498,7 @@ const Dashboard = () => {
               <Input
                 id="income-value"
                 value={incomeInput}
-                onChange={(event) => setIncomeInput(event.target.value)}
+                onChange={(event) => setIncomeInput(sanitizeIncomeInput(event.target.value))}
                 placeholder="Ex.: 5000"
                 inputMode="decimal"
               />
@@ -625,7 +628,11 @@ const Dashboard = () => {
                         size="icon"
                         className="h-7 w-7"
                         onClick={() => {
-                          setIncomeInput(String(monthlyIncomeValue));
+                          setIncomeInput(
+                            monthlyIncomeValue > 0
+                              ? numberFormatter.format(monthlyIncomeValue)
+                              : ""
+                          );
                           setIsIncomeDialogOpen(true);
                         }}
                       >
