@@ -146,7 +146,7 @@ async function classifyByPattern(
   }
 
   // Check for exact match
-  const exactMatch = patterns.find(p => p.description_pattern === descLower);
+  const exactMatch = patterns.find((p: any) => p.description_pattern === descLower);
   if (exactMatch) {
     return {
       category: exactMatch.category,
@@ -156,7 +156,7 @@ async function classifyByPattern(
   }
 
   // Check for partial match
-  const partialMatch = patterns.find(p => 
+  const partialMatch = patterns.find((p: any) => 
     descLower.includes(p.description_pattern) || 
     p.description_pattern.includes(descLower)
   );

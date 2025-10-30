@@ -48,7 +48,9 @@ serve(async (req) => {
     }
 
     const payload = await req.json();
-    const { userId, to, type, message, template } = validateRequest(WhatsAppMessageRequestSchema, payload);
+    const validatedData = validateRequest(WhatsAppMessageRequestSchema, payload);
+    const { userId, to, message, template } = validatedData;
+    const type = validatedData.type ?? 'text'; // Ensure type is never undefined
 
     // Basic per-user throttling to avoid accidental floods
     checkRateLimit(userId, { maxRequests: 20, windowMs: 60_000 });

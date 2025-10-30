@@ -124,8 +124,9 @@ serve(async (req) => {
     console.error("Error processing upload:", error);
 
     // Generic error message for users (don't expose implementation details)
-    const userMessage = error.message?.includes("Rate limit")
-      ? error.message
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const userMessage = errorMessage.includes("Rate limit")
+      ? errorMessage
       : "Failed to process document. Please try again or contact support.";
 
     return new Response(
@@ -134,7 +135,7 @@ serve(async (req) => {
         error: userMessage,
       }),
       {
-        status: error.message?.includes("Rate limit") ? 429 : 500,
+        status: errorMessage.includes("Rate limit") ? 429 : 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
@@ -193,7 +194,7 @@ async function parseCSV(fileData: Blob): Promise<Transaction[]> {
       const description = row[descIdx]?.trim();
       const amountStr = row[amountIdx]
         ?.trim()
-        .replace(/[^\d,.-+]/g, "")
+        .replace(/[^\d,.+\-]/g, "")
         .replace(",", ".");
 
       if (!dateStr || !description || !amountStr) continue;
