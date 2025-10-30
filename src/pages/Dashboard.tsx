@@ -352,7 +352,7 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
               <TrendingUp className="h-5 w-5 text-primary-foreground" />
@@ -361,17 +361,17 @@ const Dashboard = () => {
               SimplifiQA
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end">
             <span className="text-sm text-muted-foreground mr-2 hidden md:inline">
               Olá, {profile?.full_name || user?.email}
             </span>
 
             {/* Month Selector */}
-            <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+            <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 w-full sm:w-auto sm:flex-nowrap justify-between sm:justify-start">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 flex-shrink-0"
                 onClick={goToPreviousMonth}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -382,7 +382,7 @@ const Dashboard = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="px-3 font-medium min-w-[140px]"
+                    className="px-3 font-medium min-w-0 flex-1 sm:flex-none sm:min-w-[140px] text-left"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {monthName}
@@ -427,7 +427,7 @@ const Dashboard = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 flex-shrink-0"
                 onClick={goToNextMonth}
               >
                 <ChevronRight className="h-4 w-4" />
