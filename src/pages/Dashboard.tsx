@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
 import {
   TrendingUp,
@@ -45,12 +46,22 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -78,6 +89,15 @@ const Dashboard = () => {
     );
   }, [selectedDate]);
 
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      }),
+    []
+  );
+
   const { data: summary, isLoading: summaryLoading } = useDashboardSummary(
     selectedMonth,
     selectedYear
@@ -89,6 +109,9 @@ const Dashboard = () => {
   const { data: aiInsight, isLoading: insightLoading } = useAIInsights();
 
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isWhatsAppDialogOpen, setIsWhatsAppDialogOpen] = useState(false);
+  const [whatsAppPhone, setWhatsAppPhone] = useState("");
+  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
   const [balanceValue, setBalanceValue] = useState(0);
   const [extractedTransactions, setExtractedTransactions] = useState<any[]>([]);
   const targetBalance = summary?.remaining ?? null;
@@ -206,6 +229,73 @@ const Dashboard = () => {
     selectedMonth - 1
   ).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
+  const buildSummaryMessage = () => {
+    if (!summary) return "";
+
+    const lines = [
+      `SimplifiQA · Resumo de ${monthName}`,
+      `Receitas: ${currencyFormatter.format(summary.income ?? 0)}`,
+      `Custos Fixos: ${currencyFormatter.format(summary.fixedCosts ?? 0)}`,
+      `Despesas: ${currencyFormatter.format(summary.expenses ?? 0)}`,
+      `Saldo restante: ${currencyFormatter.format(summary.remaining ?? 0)}`,
+    ];
+
+    if (chartData.length > 0) {
+      const topCategories = chartData
+        .slice(0, 3)
+        .map(
+          (cat) =>
+            `${cat.name}: ${currencyFormatter.format(Number(cat.value) ?? 0)}`
+        );
+
+      lines.push("Principais categorias:", ...topCategories);
+    }
+
+    lines.push("Gerado automaticamente pelo SimplifiQA.");
+
+    return lines.join("\n");
+  };
+
+  const handleSendWhatsAppSummary = async () => {
+    if (!user?.id) {
+      toast.error("É necessário estar autenticado para enviar mensagens.");
+      return;
+    }
+
+    if (!summary) {
+      toast.error("Resumo indisponível. Tente novamente em instantes.");
+      return;
+    }
+
+    const sanitizedPhone = whatsAppPhone.trim();
+    if (sanitizedPhone.length < 6) {
+      toast.warning("Informe um número de WhatsApp válido.");
+      return;
+    }
+
+    const message = buildSummaryMessage();
+    if (!message) {
+      toast.error("Não foi possível montar o resumo para envio.");
+      return;
+    }
+
+    try {
+      setIsSendingWhatsApp(true);
+      await sendWhatsAppMessage({
+        userId: user.id,
+        to: sanitizedPhone,
+        message,
+      });
+      toast.success("Resumo enviado via WhatsApp!");
+      setIsWhatsAppDialogOpen(false);
+    } catch (error) {
+      console.error("Erro ao enviar WhatsApp:", error);
+      toast.error("Não foi possível enviar a mensagem no momento.");
+    } finally {
+      setIsSendingWhatsApp(false);
+    }
+  };
+
   if (summaryLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -303,12 +393,55 @@ const Dashboard = () => {
               </Button>
             </div>
 
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden sm:inline-flex gap-2"
+              onClick={() => setIsWhatsAppDialogOpen(true)}
+            >
+              <MessageSquare className="h-4 w-4" />
+              Enviar resumo
+            </Button>
+
             <Button variant="outline" size="sm" onClick={signOut}>
               <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </header>
+
+      <Dialog open={isWhatsAppDialogOpen} onOpenChange={setIsWhatsAppDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar resumo via WhatsApp</DialogTitle>
+            <DialogDescription>
+              Informe o número com DDD (somente dígitos ou com +) para receber o resumo do mês atual.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="whatsapp-phone">Número de WhatsApp</Label>
+              <Input
+                id="whatsapp-phone"
+                placeholder="Ex.: 5511999999999"
+                value={whatsAppPhone}
+                onChange={(event) => setWhatsAppPhone(event.target.value)}
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              O resumo inclui receitas, custos fixos, despesas, saldo restante e as principais categorias do mês {monthName}.
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setIsWhatsAppDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSendWhatsAppSummary} disabled={isSendingWhatsApp}>
+              {isSendingWhatsApp ? "Enviando..." : "Enviar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="container mx-auto px-4 py-8">
         {/* Hero Card - Balance */}
