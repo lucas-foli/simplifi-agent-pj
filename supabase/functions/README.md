@@ -13,6 +13,55 @@ Assistente de chat com IA que responde perguntas sobre finanças do usuário.
 - ✅ Fallback para respostas simuladas se API key não estiver configurada
 - ✅ Sugestões de ações (navegar para dashboard, transações, etc.)
 
+### 2. `send-whatsapp-message`
+Integração com a API Oficial do WhatsApp (Meta) para disparo de mensagens de texto ou templates aprovados.
+
+**Recursos:**
+- ✅ Envia mensagens de texto simples
+- ✅ Suporte a templates com variáveis (`body`)
+- ✅ Normaliza o número para o formato aceito pela API (remove `+`)
+- ✅ Limita a 20 envios/minuto por usuário para evitar floods
+
+**Variáveis de ambiente necessárias:**
+
+```
+META_WHATSAPP_TOKEN=EAAG...
+META_WHATSAPP_PHONE_NUMBER_ID=1234567890
+# Opcional (default v20.0)
+META_WHATSAPP_API_VERSION=v20.0
+```
+
+> Configure as chaves em **Settings → Edge Functions → Environment Variables** no dashboard do Supabase.
+
+**Exemplo de payload (via Supabase Client):**
+
+```ts
+const { data, error } = await supabase.functions.invoke('send-whatsapp-message', {
+  body: {
+    userId: '<UUID-do-usuário>',
+    to: '5511999999999',
+    message: 'Olá! Seu fechamento mensal está pronto. 📊',
+  },
+});
+```
+
+**Exemplo com template aprovado:**
+
+```ts
+await supabase.functions.invoke('send-whatsapp-message', {
+  body: {
+    userId: '<UUID>',
+    to: '5511999999999',
+    type: 'template',
+    template: {
+      name: 'resumo_financeiro',
+      languageCode: 'pt_BR',
+      variables: ['Lucas', 'R$ 5.420,00'],
+    },
+  },
+});
+```
+
 ## 🚀 Como fazer Deploy
 
 ### Pré-requisitos
