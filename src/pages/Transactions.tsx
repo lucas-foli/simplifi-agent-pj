@@ -91,6 +91,7 @@ const Transactions = () => {
     amount: '',
     category: '',
     payment_method: '',
+    type: 'despesa' as 'despesa' | 'receita',
     date: format(new Date(), 'yyyy-MM-dd'),
     notes: '',
   });
@@ -104,10 +105,16 @@ const Transactions = () => {
     'Moradia',
     'Vestuário',
     'Serviços',
+    'Receitas',
+    'Sem categoria',
     'Outros',
   ];
 
   const paymentMethods = ['Pix', 'Crédito', 'Débito', 'Dinheiro', 'Transferência'];
+  const transactionTypes = [
+    { label: 'Despesa', value: 'despesa' as const },
+    { label: 'Receita', value: 'receita' as const },
+  ];
   const isCurrentMonth = currentMonth === now.getMonth() + 1 && currentYear === now.getFullYear();
   const fullDate = new Date(currentYear, currentMonth - 1);
   const monthLabel = fullDate.toLocaleDateString('pt-BR', {
@@ -176,10 +183,16 @@ const Transactions = () => {
       const category = categories?.find(c => c.name === newTransaction.category);
       const category_id = category?.id || null;
 
+      const amountValue = Math.abs(parseFloat(newTransaction.amount));
+      if (Number.isNaN(amountValue)) {
+        toast.error('Informe um valor válido');
+        return;
+      }
+
       await createTransaction.mutateAsync({
         description: newTransaction.description,
-        amount: parseFloat(newTransaction.amount),
-        type: 'despesa', // Default to expense
+        amount: amountValue,
+        type: newTransaction.type,
         date: newTransaction.date,
         category_id: category_id,
         user_id: '', // Will be set by the mutation hook
@@ -208,6 +221,7 @@ const Transactions = () => {
         amount: '',
         category: '',
         payment_method: '',
+        type: 'despesa',
         date: format(new Date(), 'yyyy-MM-dd'),
         notes: '',
       });
@@ -263,8 +277,9 @@ const Transactions = () => {
 
   const filteredTransactions = transactions?.filter((tx) => {
     const matchesSearch = tx.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterCategory === 'all' || tx.type === filterCategory;
-    return matchesSearch && matchesType;
+    const categoryName = ((tx as any).categories?.name as string | undefined) ?? 'Sem categoria';
+    const matchesCategory = filterCategory === 'all' || categoryName === filterCategory;
+    return matchesSearch && matchesCategory;
   }) || [];
 
   return (
@@ -318,6 +333,27 @@ const Transactions = () => {
                     }
                     placeholder="0.00"
                   />
+                </div>
+
+                <div>
+                  <Label htmlFor="transaction-type">Tipo *</Label>
+                  <Select
+                    value={newTransaction.type}
+                    onValueChange={(value: 'despesa' | 'receita') =>
+                      setNewTransaction({ ...newTransaction, type: value })
+                    }
+                  >
+                    <SelectTrigger id="transaction-type">
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {transactionTypes.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>
@@ -547,20 +583,31 @@ const Transactions = () => {
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredTransactions.map((transaction, index) => (
-                <motion.div
-                  key={transaction.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
-                  className="flex items-center justify-between p-3 sm:p-4 rounded-lg hover:bg-muted/50 transition-smooth border border-transparent hover:border-border"
-                >
+              {filteredTransactions.map((transaction, index) => {
+                const categoryName = ((transaction as any).categories?.name as string | undefined) ?? 'Sem categoria';
+                const amountNumber = Math.abs(Number(transaction.amount));
+                const isIncome = transaction.type === 'receita';
+                const formattedAmount = amountNumber.toLocaleString('pt-BR', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                });
+
+                return (
+                  <motion.div
+                    key={transaction.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    className="flex items-center justify-between p-3 sm:p-4 rounded-lg hover:bg-muted/50 transition-smooth border border-transparent hover:border-border"
+                  >
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-foreground truncate">
                       {transaction.description}
                     </div>
                     <div className="text-xs sm:text-sm text-muted-foreground">
                       {transaction.type === 'despesa' ? 'Despesa' : 'Receita'}
+                      {' • '}
+                      {categoryName || 'Sem categoria'}
                       {' • '}
                       <span className="hidden sm:inline">{format(new Date(transaction.date), 'dd/MM/yyyy')}</span>
                       <span className="sm:hidden">{format(new Date(transaction.date), 'dd/MM')}</span>
@@ -569,11 +616,10 @@ const Transactions = () => {
 
                   <div className="flex items-center gap-2 sm:gap-4">
                     <div className="text-right">
-                      <div className="font-semibold text-danger text-sm sm:text-base">
-                        R$ {Number(transaction.amount).toLocaleString('pt-BR', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
+                      <div
+                        className={`font-semibold text-sm sm:text-base ${isIncome ? 'text-success' : 'text-danger'}`}
+                      >
+                        {isIncome ? '+' : '-'} R$ {formattedAmount}
                       </div>
                     </div>
 
@@ -586,8 +632,9 @@ const Transactions = () => {
                       <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
                   </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </div>
           )}
         </Card>

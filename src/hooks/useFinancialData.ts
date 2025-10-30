@@ -198,12 +198,17 @@ export const useDashboardSummary = (month: number, year: number) => {
         ?.filter(t => t.type === 'despesa')
         .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
 
-      const remaining = income - fixedCosts - expenses;
+      const transactionIncome = transactionsData
+        ?.filter(t => t.type === 'receita')
+        .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+
+      const remaining = income + transactionIncome - fixedCosts - expenses;
 
       return {
         income,
         fixedCosts,
         expenses,
+        transactionIncome,
         remaining,
       };
     },
