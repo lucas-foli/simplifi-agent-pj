@@ -54,6 +54,33 @@ export const SavePatternRequestSchema = z.object({
   userId: UUIDSchema,
 });
 
+export const WhatsAppTemplateSchema = z.object({
+  name: z.string().min(1, 'Template name is required'),
+  languageCode: z.string().min(2, 'Language code is required'),
+  variables: z.array(z.string()).optional(),
+});
+
+export const WhatsAppMessageRequestSchema = z.object({
+  userId: UUIDSchema,
+  to: z.string()
+    .min(6, 'Destination number is required')
+    .regex(/^[0-9+]+$/, 'Destination number must contain only digits or the + sign'),
+  type: z.enum(['text', 'template']).default('text'),
+  message: MessageSchema.optional(),
+  template: WhatsAppTemplateSchema.optional(),
+}).refine((data) => {
+  if (data.type === 'text') {
+    return Boolean(data.message?.length);
+  }
+  if (data.type === 'template') {
+    return Boolean(data.template);
+  }
+  return true;
+}, {
+  message: 'Provide a message for text type or template details for template type.',
+  path: ['message'],
+});
+
 // Generic validation helper
 export function validateRequest<T>(schema: z.ZodSchema<T>, data: unknown): T {
   try {
