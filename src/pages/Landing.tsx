@@ -56,7 +56,7 @@ const Landing = () => {
             <a href="#features" className="text-muted-foreground hover:text-foreground transition-smooth">Recursos</a>
             <a href="#benefits" className="text-muted-foreground hover:text-foreground transition-smooth">Benefícios</a>
           </nav>
-          <Link to="/onboarding">
+          <Link to="/auth">
             <Button variant="default" size="sm">
               Começar Agora
             </Button>
@@ -81,7 +81,7 @@ const Landing = () => {
               veja seu saldo restante e receba sugestões inteligentes sem planilhas.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/onboarding">
+              <Link to="/auth">
                 <Button size="lg" className="gap-2 shadow-primary">
                   Começar Gratuitamente
                   <ArrowRight className="h-4 w-4" />
