@@ -7,9 +7,6 @@ import Landing from "./pages/Landing";
 import AuthGateway from "./pages/AuthGateway";
 import Login from "./pages/Login";
 import Onboarding from "./pages/Onboarding";
-import Dashboard from "./pages/Dashboard";
-import Transactions from "./pages/Transactions";
-import FixedCosts from "./pages/FixedCosts";
 import Chat from "./pages/Chat";
 import CompanyDashboard from "./pages/CompanyDashboard";
 import CompanyTransactions from "./pages/CompanyTransactions";
@@ -32,29 +29,14 @@ const App = () => (
           <Route path="/auth" element={<AuthGateway />} />
           <Route path="/login" element={<Login />} />
           <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
           <Route path="/company/dashboard" element={
             <ProtectedRoute>
               <CompanyDashboard />
             </ProtectedRoute>
           } />
-          <Route path="/transactions" element={
-            <ProtectedRoute>
-              <Transactions />
-            </ProtectedRoute>
-          } />
           <Route path="/company/transactions" element={
             <ProtectedRoute>
               <CompanyTransactions />
-            </ProtectedRoute>
-          } />
-          <Route path="/fixed-costs" element={
-            <ProtectedRoute>
-              <FixedCosts />
             </ProtectedRoute>
           } />
           <Route path="/company/fixed-costs" element={

@@ -1,75 +1,86 @@
 # simplifi-agent-pj
 
-Your PJ Simplify App
+Assistente financeiro conversacional focado em empresas (Pessoa Jurídica).  
+O aplicativo centraliza o fluxo de caixa, cadastra custos fixos, registra transações via chat/WhatsApp e apresenta dashboards específicos para CNPJ.
 
-## Project info
+---
 
-**URL**: https://lovable.dev/projects/aaf55e6e-8ebe-423d-8e6a-e3132f3a7974
+## Principais recursos
 
-## How can I edit this code?
+- Onboarding 100% empresarial (responsável + dados da empresa + custos fixos).
+- Dashboard de fluxo de caixa, custos e comparativos para cada empresa.
+- Cadastros de transações, custos fixos e categorias por companhia.
+- Integração com Supabase (Auth, PostgREST, edge functions, RPCs).
+- Interface construída com Shadcn UI, Tailwind CSS e React Query.
 
-There are several ways of editing your application.
+---
 
-**Use Lovable**
+## Requisitos
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/aaf55e6e-8ebe-423d-8e6a-e3132f3a7974) and start prompting.
+- Node.js 18+ (recomendado usar [nvm](https://github.com/nvm-sh/nvm))
+- Supabase CLI (opcional, caso rode o backend localmente)
+- Variáveis de ambiente (`.env`) com as chaves do projeto compartilhado
 
-Changes made via Lovable will be committed automatically to this repo.
+---
 
-**Use your preferred IDE**
+## Como rodar localmente
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+```bash
+# 1. Clonar o repositório
+git clone git@github.com:lucas-foli/simplifi-agent-pj.git
+cd simplifi-agent-pj
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+# 2. Instalar dependências
+npm install
 
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# 3. Rodar o app
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+O projeto usa Vite; por padrão a aplicação sobe em `http://localhost:5173`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+---
 
-**Use GitHub Codespaces**
+## Estrutura de pastas
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- `src/pages` – onboarding PJ, dashboards empresariais, fluxo de transações/custos.
+- `src/hooks` – hooks específicos para empresas (`useCompanyFinancialData`, `useAuth`).
+- `supabase/` – migrações, funções e configurações compartilhadas PF/PJ (não remover).
+- `public/` – assets e ícones.
 
-## What technologies are used for this project?
+### White label / branding
 
-This project is built with:
+Para personalizar o visual com a marca do cliente, basta substituir os arquivos em `public/branding/` mantendo os mesmos nomes:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- `logo-horizontal.svg` – versão principal para fundos claros (menus, login etc.).
+- `logo-horizontal-inverted.svg` – versão para fundos escuros.
+- `logo-mark.svg` – ícone compacto usado em cabeçalhos e atalhos.
 
-## How can I deploy this project?
+Também é possível trocar o favicon substituindo `public/favicon.ico`. Não é necessário alterar código: os componentes consomem essas imagens via `src/config/branding.ts`.
 
-Simply open [Lovable](https://lovable.dev/projects/aaf55e6e-8ebe-423d-8e6a-e3132f3a7974) and click on Share -> Publish.
+No mesmo arquivo você pode ajustar `brandName` e a paleta `colors` (`primary`, `secondary`, `tertiary`) usando HEX ou nomes CSS, caso precise personalizar componentes adicionais.
 
-## Can I connect a custom domain to my Lovable project?
+---
 
-Yes, you can!
+## Stack principal
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- React + TypeScript + Vite
+- @tanstack/react-query
+- shadcn/ui + Tailwind CSS
+- Supabase (Auth, Postgres, Storage, Edge Functions)
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+---
+
+## Próximos passos sugeridos
+
+- Conectar o app à instância Supabase compartilhada (já referenciada no `.env`).
+- Revisar rotas protegidas em `src/App.tsx` caso adicione novos módulos PJ.
+- Criar testes de integração/end-to-end para flows críticos (onboarding e lançamento de transações).
+
+---
+
+## Links úteis
+
+- Projeto no Lovable: https://lovable.dev/projects/aaf55e6e-8ebe-423d-8e6a-e3132f3a7974
+- Documentação Supabase: https://supabase.com/docs
+- Documentação shadcn/ui: https://ui.shadcn.com/docs
