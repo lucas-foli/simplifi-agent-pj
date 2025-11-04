@@ -1,0 +1,54 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Backup files with sensitive data
+*.backup
+*_backup.*
+*.bak
+
+# Manual migrations (consolidated in MANUAL_MIGRATION_FIXED.sql)
+supabase/migrations/*.sql
+*.sql
+
+# PR documentation (temporary files)
+*.md
+MANUAL_MIGRATION.sql
+
+# Keep only README
+SPRINTS.md
+!README.md
+!docs/**/*.md

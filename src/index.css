@@ -1,0 +1,231 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* SimplifiQA Design System - Financial App Theme */
+    
+    /* Base colors */
+    --background: 214 32% 97%;
+    --foreground: 210 29% 24%;
+
+    /* Card system */
+    --card: 0 0% 100%;
+    --card-foreground: 210 29% 24%;
+
+    /* Popover */
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 29% 24%;
+
+    /* Primary - Professional Blue */
+    --primary: 206 89% 35%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 206 89% 45%;
+    --primary-dark: 206 89% 25%;
+
+    /* Success/Positive - Green */
+    --success: 145 63% 49%;
+    --success-foreground: 0 0% 100%;
+    --success-light: 145 63% 65%;
+
+    /* Warning - Amber */
+    --warning: 37 90% 51%;
+    --warning-foreground: 0 0% 100%;
+    --warning-light: 37 90% 65%;
+
+    /* Danger/Destructive - Red */
+    --destructive: 6 78% 57%;
+    --destructive-foreground: 0 0% 100%;
+    --danger: 6 78% 57%;
+    --danger-foreground: 0 0% 100%;
+
+    /* Secondary */
+    --secondary: 210 16% 93%;
+    --secondary-foreground: 210 29% 24%;
+
+    /* Muted */
+    --muted: 210 16% 93%;
+    --muted-foreground: 210 12% 55%;
+
+    /* Accent */
+    --accent: 145 63% 49%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Borders and inputs */
+    --border: 214 20% 88%;
+    --input: 214 20% 88%;
+    --ring: 206 89% 35%;
+
+    /* Chart colors */
+    --chart-1: 206 89% 35%;
+    --chart-2: 145 63% 49%;
+    --chart-3: 37 90% 51%;
+    --chart-4: 6 78% 57%;
+    --chart-5: 270 60% 60%;
+
+    /* Radius */
+    --radius: 0.75rem;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(210 29% 24% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(210 29% 24% / 0.08);
+    --shadow-lg: 0 10px 15px -3px hsl(210 29% 24% / 0.1);
+    --shadow-primary: 0 10px 30px -10px hsl(206 89% 35% / 0.3);
+
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark {
+    --background: 210 29% 12%;
+    --foreground: 0 0% 98%;
+
+    --card: 210 29% 16%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 210 29% 16%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 206 89% 45%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 206 89% 55%;
+    --primary-dark: 206 89% 35%;
+
+    --success: 145 63% 49%;
+    --success-foreground: 0 0% 100%;
+    --success-light: 145 63% 60%;
+
+    --warning: 37 90% 51%;
+    --warning-foreground: 0 0% 100%;
+    --warning-light: 37 90% 60%;
+
+    --destructive: 6 78% 57%;
+    --destructive-foreground: 0 0% 100%;
+    --danger: 6 78% 57%;
+    --danger-foreground: 0 0% 100%;
+
+    --secondary: 210 29% 20%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 210 29% 20%;
+    --muted-foreground: 210 12% 65%;
+
+    --accent: 145 63% 49%;
+    --accent-foreground: 0 0% 100%;
+
+    --border: 210 29% 24%;
+    --input: 210 29% 24%;
+    --ring: 206 89% 45%;
+
+    --chart-1: 206 89% 45%;
+    --chart-2: 145 63% 49%;
+    --chart-3: 37 90% 51%;
+    --chart-4: 6 78% 57%;
+    --chart-5: 270 60% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Custom animations */
+  @keyframes count-up {
+    from {
+      opacity: 0.6;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes pulse-subtle {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.06);
+      opacity: 0.9;
+    }
+  }
+
+  @keyframes slide-up {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+@layer utilities {
+  .animate-count-up {
+    animation: count-up 0.18s ease-out;
+  }
+
+  .animate-pulse-subtle {
+    animation: pulse-subtle 6s ease-in-out infinite;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  .shadow-primary {
+    box-shadow: var(--shadow-primary);
+  }
+
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+
+  /* Custom scrollbar */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.5);
+  }
+}
