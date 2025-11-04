@@ -1,4 +1,4 @@
-# Welcome to your Lovable project
+# simplifi-agent-pj
 
 ## Project info
 
