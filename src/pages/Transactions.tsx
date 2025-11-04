@@ -36,7 +36,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   useTransactions,
   useCreateTransaction,
@@ -49,7 +49,14 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 
 const Transactions = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (profile?.user_type === 'pessoa_juridica') {
+      navigate('/company/transactions', { replace: true });
+    }
+  }, [profile, navigate]);
   const now = new Date();
   const getInitialMonth = () => {
     if (typeof window === 'undefined') {

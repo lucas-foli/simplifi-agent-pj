@@ -111,6 +111,12 @@ const Dashboard = () => {
   const [extractedTransactions, setExtractedTransactions] = useState<any[]>([]);
   const targetBalance = summary?.remaining ?? null;
 
+  useEffect(() => {
+    if (profile?.user_type === 'pessoa_juridica') {
+      navigate('/company/dashboard', { replace: true });
+    }
+  }, [profile, navigate]);
+
   // Navigation functions
   const goToPreviousMonth = () => {
     const newMonth = selectedMonth === 1 ? 12 : selectedMonth - 1;

@@ -49,6 +49,259 @@ export type Database = {
           },
         ]
       }
+      companies: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          cnpj_encrypted: string | null
+          email: string | null
+          id: string
+          metadata: Json | null
+          monthly_revenue: number
+          name: string
+          phone: string | null
+          trade_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          cnpj_encrypted?: string | null
+          email?: string | null
+          id?: string
+          metadata?: Json | null
+          monthly_revenue?: number
+          name: string
+          phone?: string | null
+          trade_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          cnpj_encrypted?: string | null
+          email?: string | null
+          id?: string
+          metadata?: Json | null
+          monthly_revenue?: number
+          name?: string
+          phone?: string | null
+          trade_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companies_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_categories: {
+        Row: {
+          color: string
+          company_id: string
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+        }
+        Insert: {
+          color?: string
+          company_id: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+        }
+        Update: {
+          color?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_categories_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_fixed_costs: {
+        Row: {
+          amount: number
+          category_id: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          category_id?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category_id?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_fixed_costs_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "company_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_fixed_costs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_fixed_costs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_members: {
+        Row: {
+          company_id: string
+          created_at: string
+          invited_by: string | null
+          profile_id: string
+          role: Database["pj"]["Enums"]["member_role"]
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          invited_by?: string | null
+          profile_id: string
+          role?: Database["pj"]["Enums"]["member_role"]
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          invited_by?: string | null
+          profile_id?: string
+          role?: Database["pj"]["Enums"]["member_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_members_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_members_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_transactions: {
+        Row: {
+          amount: number
+          category_id: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          date: string
+          description: string
+          id: string
+          notes: string | null
+          payment_method: string | null
+          type: Database["public"]["Enums"]["transaction_type"]
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          category_id?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          description: string
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          type: Database["public"]["Enums"]["transaction_type"]
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category_id?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          description?: string
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          type?: Database["public"]["Enums"]["transaction_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_transactions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "company_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_transactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_transactions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classification_rules: {
         Row: {
           category_id: string
@@ -308,11 +561,314 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      decrypt_sensitive: {
+        Args: {
+          encrypted_data: string | null
+        }
+        Returns: string | null
+      }
+      encrypt_sensitive: {
+        Args: {
+          data: string | null
+        }
+        Returns: string | null
+      }
     }
     Enums: {
       transaction_type: "receita" | "despesa"
       user_type: "pessoa_fisica" | "pessoa_juridica"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+  pj: {
+    Tables: {
+      companies: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          cnpj_encrypted: string | null
+          email: string | null
+          id: string
+          metadata: Json | null
+          monthly_revenue: number
+          name: string
+          phone: string | null
+          trade_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          cnpj_encrypted?: string | null
+          email?: string | null
+          id?: string
+          metadata?: Json | null
+          monthly_revenue?: number
+          name: string
+          phone?: string | null
+          trade_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          cnpj_encrypted?: string | null
+          email?: string | null
+          id?: string
+          metadata?: Json | null
+          monthly_revenue?: number
+          name?: string
+          phone?: string | null
+          trade_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companies_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_categories: {
+        Row: {
+          color: string
+          company_id: string
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+        }
+        Insert: {
+          color?: string
+          company_id: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+        }
+        Update: {
+          color?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_categories_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_fixed_costs: {
+        Row: {
+          amount: number
+          category_id: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          category_id?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category_id?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_fixed_costs_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "company_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_fixed_costs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_fixed_costs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_members: {
+        Row: {
+          company_id: string
+          created_at: string
+          invited_by: string | null
+          profile_id: string
+          role: Database["pj"]["Enums"]["member_role"]
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          invited_by?: string | null
+          profile_id: string
+          role?: Database["pj"]["Enums"]["member_role"]
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          invited_by?: string | null
+          profile_id?: string
+          role?: Database["pj"]["Enums"]["member_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_members_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_members_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_transactions: {
+        Row: {
+          amount: number
+          category_id: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          date: string
+          description: string
+          id: string
+          notes: string | null
+          payment_method: string | null
+          type: Database["public"]["Enums"]["transaction_type"]
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          category_id?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          description: string
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          type: Database["public"]["Enums"]["transaction_type"]
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category_id?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          description?: string
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          type?: Database["public"]["Enums"]["transaction_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_transactions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "company_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_transactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_transactions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      create_company_with_owner: {
+        Args: {
+          payload: Json
+        }
+        Returns: string
+      }
+      pg_create_company_with_owner: {
+        Args: {
+          payload: Json
+        }
+        Returns: string
+      }
+      pg_ensure_company_for_user: {
+        Args: {
+          payload: Json
+        }
+        Returns: string
+      }
+      ensure_company_for_user: {
+        Args: {
+          payload: Json
+        }
+        Returns: string
+      }
+    }
+    Enums: {
+      member_role: "owner" | "admin" | "member"
     }
     CompositeTypes: {
       [_ in never]: never

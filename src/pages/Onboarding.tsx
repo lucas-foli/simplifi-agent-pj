@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useSetMonthlyIncome, useCreateFixedCost } from "@/hooks/useFinancialData";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 const Onboarding = () => {
   const navigate = useNavigate();
@@ -30,7 +31,7 @@ const Onboarding = () => {
   const [cnpjError, setCnpjError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signUp } = useAuth();
+  const { signUp, refreshCompanyMemberships } = useAuth();
   const setMonthlyIncome = useSetMonthlyIncome();
   const createFixedCost = useCreateFixedCost();
 
@@ -124,12 +125,17 @@ const Onboarding = () => {
   const handleComplete = async () => {
     setLoading(true);
     try {
+      const cleanedCnpj = formData.cnpj ? formData.cnpj.replace(/\D/g, "") : undefined;
+      const monthlyRevenueRaw = formData.monthlyIncome ? parseFloat(formData.monthlyIncome) : 0;
+      const monthlyRevenueValue = Number.isFinite(monthlyRevenueRaw) ? monthlyRevenueRaw : 0;
+
       // Create user account
       const result = await signUp(formData.email, formData.password, {
         name: formData.name,
         user_type: userType,
-        company_name: userType === 'pj' ? formData.companyName : undefined,
-        cnpj: userType === 'pj' ? formData.cnpj : undefined,
+        company_name: userType === "pj" ? formData.companyName : undefined,
+        cnpj: userType === "pj" ? cleanedCnpj : undefined,
+        monthly_revenue: userType === "pj" ? monthlyRevenueValue : undefined,
       });
 
       // Check if email confirmation is required
@@ -143,31 +149,71 @@ const Onboarding = () => {
       // (profile creation + default categories creation)
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Save monthly income to profile
-      try {
-        console.log('Salvando receita mensal:', formData.monthlyIncome);
-        await setMonthlyIncome.mutateAsync(parseFloat(formData.monthlyIncome));
+      if (userType === "pf") {
+        // Save monthly income to profile
+        try {
+          console.log('Salvando receita mensal:', formData.monthlyIncome);
+          await setMonthlyIncome.mutateAsync(parseFloat(formData.monthlyIncome));
 
-        // Save fixed costs
-        console.log('Salvando custos fixos:', formData.fixedCosts);
-        for (const cost of formData.fixedCosts) {
-          if (cost.name && cost.value && parseFloat(cost.value) > 0) {
-            console.log('Criando custo fixo:', { description: cost.name, amount: parseFloat(cost.value) });
-            await createFixedCost.mutateAsync({
-              description: cost.name,
-              amount: parseFloat(cost.value),
-            });
+          // Save fixed costs
+          console.log('Salvando custos fixos:', formData.fixedCosts);
+          for (const cost of formData.fixedCosts) {
+            if (cost.name && cost.value && parseFloat(cost.value) > 0) {
+              console.log('Criando custo fixo:', { description: cost.name, amount: parseFloat(cost.value) });
+              await createFixedCost.mutateAsync({
+                description: cost.name,
+                amount: parseFloat(cost.value),
+              });
+            }
           }
+          console.log('Todos os custos fixos foram salvos com sucesso');
+        } catch (dataError) {
+          console.error('Erro ao salvar dados:', dataError);
+          // Continue anyway, user can add data later
+          toast.warning('Conta criada, mas alguns dados não foram salvos');
         }
-        console.log('Todos os custos fixos foram salvos com sucesso');
-      } catch (dataError) {
-        console.error('Erro ao salvar dados:', dataError);
-        // Continue anyway, user can add data later
-        toast.warning('Conta criada, mas alguns dados não foram salvos');
+      } else if (userType === "pj") {
+        try {
+          const { data: ensuredCompanyId, error: ensureError } = await supabase.rpc('pg_ensure_company_for_user', {
+            payload: {
+              company_name: formData.companyName || formData.name,
+              cnpj: cleanedCnpj || null,
+              monthly_revenue: monthlyRevenueValue,
+            },
+          });
+
+          if (ensureError) throw ensureError;
+
+          if (ensuredCompanyId) {
+            console.log('Empresa vinculada ao usuário:', ensuredCompanyId);
+
+            for (const cost of formData.fixedCosts) {
+              if (cost.name && cost.value && parseFloat(cost.value) > 0) {
+                console.log('Criando custo fixo empresarial:', { description: cost.name, amount: parseFloat(cost.value) });
+                const { error: companyCostError } = await supabase
+                  .from('company_fixed_costs')
+                  .insert({
+                    company_id: ensuredCompanyId,
+                    description: cost.name,
+                    amount: parseFloat(cost.value),
+                  });
+
+                if (companyCostError) {
+                  console.error('Erro ao criar custo fixo empresarial:', companyCostError);
+                }
+              }
+            }
+          }
+
+          await refreshCompanyMemberships();
+        } catch (companyDataError) {
+          console.error('Erro ao configurar dados da empresa:', companyDataError);
+          toast.warning('Conta criada, mas alguns dados da empresa não foram salvos');
+        }
       }
 
       toast.success('Conta criada com sucesso!');
-      navigate("/dashboard");
+      navigate(userType === "pj" ? "/company/dashboard" : "/dashboard");
     } catch (error) {
       console.error('Erro ao criar conta:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro ao criar conta';

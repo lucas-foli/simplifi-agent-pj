@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +27,7 @@ import {
   Upload,
   Receipt,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
@@ -36,7 +36,13 @@ import { FixedCostImport } from '@/components/FixedCostImport';
 import { useCategories } from '@/hooks/useFinancialData';
 
 const FixedCosts = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (profile?.user_type === 'pessoa_juridica') {
+      navigate('/company/fixed-costs', { replace: true });
+    }
+  }, [profile, navigate]);
   const queryClient = useQueryClient();
   const { data: categories = [] } = useCategories();
   const [searchTerm, setSearchTerm] = useState('');

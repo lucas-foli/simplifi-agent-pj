@@ -11,6 +11,9 @@ import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
 import FixedCosts from "./pages/FixedCosts";
 import Chat from "./pages/Chat";
+import CompanyDashboard from "./pages/CompanyDashboard";
+import CompanyTransactions from "./pages/CompanyTransactions";
+import CompanyFixedCosts from "./pages/CompanyFixedCosts";
 import Debug from "./pages/Debug";
 import CacheTest from "./pages/CacheTest";
 import NotFound from "./pages/NotFound";
@@ -34,14 +37,29 @@ const App = () => (
               <Dashboard />
             </ProtectedRoute>
           } />
+          <Route path="/company/dashboard" element={
+            <ProtectedRoute>
+              <CompanyDashboard />
+            </ProtectedRoute>
+          } />
           <Route path="/transactions" element={
             <ProtectedRoute>
               <Transactions />
             </ProtectedRoute>
           } />
+          <Route path="/company/transactions" element={
+            <ProtectedRoute>
+              <CompanyTransactions />
+            </ProtectedRoute>
+          } />
           <Route path="/fixed-costs" element={
             <ProtectedRoute>
               <FixedCosts />
+            </ProtectedRoute>
+          } />
+          <Route path="/company/fixed-costs" element={
+            <ProtectedRoute>
+              <CompanyFixedCosts />
             </ProtectedRoute>
           } />
           <Route path="/chat" element={
