@@ -1,17 +1,17 @@
-import { useState } from "react";
-import InputMask from "react-input-mask";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { motion, AnimatePresence } from "framer-motion";
-import { User, Building2, DollarSign, Receipt, ArrowRight, ArrowLeft, Check, AlertCircle, Upload } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useSetMonthlyIncome, useCreateFixedCost } from "@/hooks/useFinancialData";
-import { toast } from "sonner";
+import { useCreateFixedCost, useSetMonthlyIncome } from "@/hooks/useFinancialData";
 import { supabase } from "@/lib/supabase";
+import { AnimatePresence, motion } from "framer-motion";
+import { AlertCircle, ArrowLeft, ArrowRight, Building2, Check, Receipt, Upload, User } from "lucide-react";
+import { useState } from "react";
+import InputMask from "react-input-mask";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 const Onboarding = () => {
   const navigate = useNavigate();
@@ -239,7 +239,7 @@ const Onboarding = () => {
   const steps = [
     { number: 1, title: "Tipo de Conta" },
     { number: 2, title: "Informações" },
-    { number: 3, title: "Receita Mensal" },
+    { number: 3, title: "Faturamento Mensal" },
     { number: 4, title: "Custos Fixos" },
   ];
 
