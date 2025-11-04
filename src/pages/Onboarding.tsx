@@ -239,7 +239,7 @@ const Onboarding = () => {
   const steps = [
     { number: 1, title: "Tipo de Conta" },
     { number: 2, title: "Informações" },
-    { number: 3, title: "Faturamento Mensal" },
+    { number: 3, title: "Receita Mensal" },
     { number: 4, title: "Custos Fixos" },
   ];
 
@@ -478,7 +478,7 @@ const Onboarding = () => {
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                <h2 className="text-2xl font-bold text-foreground mb-2">Receita Mensal</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Faturamento Médio</h2>
                 <p className="text-muted-foreground mb-6">
                   {userType === "pf" 
                     ? "Qual é sua renda mensal?" 
