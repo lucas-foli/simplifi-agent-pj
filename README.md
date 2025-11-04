@@ -1,5 +1,7 @@
 # simplifi-agent-pj
 
+Your PJ Simplify App
+
 ## Project info
 
 **URL**: https://lovable.dev/projects/aaf55e6e-8ebe-423d-8e6a-e3132f3a7974
