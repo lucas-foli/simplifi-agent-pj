@@ -268,7 +268,7 @@ const Chat = () => {
       <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-4">
-            <Link to="/dashboard">
+            <Link to="/company/dashboard">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Voltar</span>

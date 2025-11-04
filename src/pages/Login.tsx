@@ -25,7 +25,7 @@ const Login = () => {
     try {
       await signIn(email, password);
       toast.success('Login realizado com sucesso!');
-      navigate('/dashboard');
+      navigate('/company/dashboard');
     } catch (err) {
       console.error('Login error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer login';

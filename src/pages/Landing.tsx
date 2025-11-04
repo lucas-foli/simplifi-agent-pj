@@ -9,12 +9,12 @@ const Landing = () => {
     {
       icon: MessageSquare,
       title: "Controle Conversacional",
-      description: "Registre despesas via WhatsApp ou chat com linguagem natural"
+      description: "Registre receitas e despesas da empresa via WhatsApp ou chat com linguagem natural"
     },
     {
       icon: TrendingUp,
       title: "Saldo em Tempo Real",
-      description: "Veja quanto pode gastar considerando receitas e custos fixos"
+      description: "Veja o impacto de cada gasto no fluxo de caixa da sua empresa, em tempo real"
     },
     {
       icon: Shield,
@@ -29,12 +29,12 @@ const Landing = () => {
   ];
 
   const benefits = [
-    "Sem planilhas complexas",
-    "Classificação automática de despesas",
-    "Alertas inteligentes de gastos",
-    "Suporte para pessoa física e jurídica",
-    "Integração com WhatsApp",
-    "Relatórios para contadores"
+    "Sem planilhas complexas ou macros frágeis",
+    "Classificação automática de despesas empresariais",
+    "Alertas inteligentes de fluxo de caixa",
+    "Integração com WhatsApp para toda a equipe",
+    "Relatórios prontos para contadores e sócios",
+    "Visão consolidada de contas a pagar e receber"
   ];
 
   return (
@@ -77,8 +77,8 @@ const Landing = () => {
               <span className="block text-primary mt-2">Simples e Conversacional</span>
             </h1>
             <p className="text-base sm:text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto px-4">
-              Controle suas finanças com linguagem natural. Registre despesas via WhatsApp, 
-              veja seu saldo restante e receba sugestões inteligentes sem planilhas.
+              Controle as finanças da sua empresa com linguagem natural. Registre movimentações via WhatsApp,
+              acompanhe o caixa em tempo real e receba sugestões inteligentes sem depender de planilhas.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center px-4">
               <Link to="/auth" className="w-full sm:w-auto">

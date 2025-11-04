@@ -10,7 +10,7 @@ const AuthGateway = () => {
 
   useEffect(() => {
     if (!loading && user) {
-      navigate("/dashboard", { replace: true });
+      navigate("/company/dashboard", { replace: true });
     }
   }, [loading, navigate, user]);
 
