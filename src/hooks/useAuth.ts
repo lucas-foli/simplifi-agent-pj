@@ -170,26 +170,16 @@ export const useAuth = () => {
 
   const signUp = async (email: string, password: string, userData: {
     name: string;
-    user_type: 'pf' | 'pj';
     company_name?: string;
     cnpj?: string;
     monthly_revenue?: number;
   }) => {
-    // Convert short user_type to database enum
-    const userTypeMap = {
-      'pf': 'pessoa_fisica' as const,
-      'pj': 'pessoa_juridica' as const,
-    };
     const cleanedCnpj = userData.cnpj?.replace(/\D/g, '') ?? null;
-    if (userData.user_type === 'pj') {
-      pendingCompanyPayload.current = {
-        company_name: userData.company_name ?? userData.name,
-        cnpj: cleanedCnpj,
-        monthly_revenue: userData.monthly_revenue ?? null,
-      };
-    } else {
-      pendingCompanyPayload.current = null;
-    }
+    pendingCompanyPayload.current = {
+      company_name: userData.company_name ?? userData.name,
+      cnpj: cleanedCnpj,
+      monthly_revenue: userData.monthly_revenue ?? null,
+    };
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -197,7 +187,7 @@ export const useAuth = () => {
       options: {
         data: {
           name: userData.name,
-          user_type: userData.user_type, // Will be converted by trigger
+          user_type: 'pj', // Will be converted by trigger
         },
       },
     });
@@ -213,7 +203,7 @@ export const useAuth = () => {
       // If CNPJ is provided, encrypt it
       let updateData: any = {
         full_name: userData.name,
-        user_type: userTypeMap[userData.user_type],
+        user_type: 'pessoa_juridica',
         company_name: userData.company_name,
       };
 
@@ -234,24 +224,22 @@ export const useAuth = () => {
         // Don't throw, profile was created by trigger
       }
 
-      if (userData.user_type === 'pj') {
-        try {
-          const payload = pendingCompanyPayload.current ?? {
-            company_name: userData.company_name ?? userData.name,
-            cnpj: cleanedCnpj,
-            monthly_revenue: userData.monthly_revenue ?? null,
-          };
+      try {
+        const payload = pendingCompanyPayload.current ?? {
+          company_name: userData.company_name ?? userData.name,
+          cnpj: cleanedCnpj,
+          monthly_revenue: userData.monthly_revenue ?? null,
+        };
 
-          await supabase.rpc('pg_create_company_with_owner', {
-            payload: {
-              company_name: payload.company_name,
-              cnpj: payload.cnpj,
-              monthly_revenue: Number(payload.monthly_revenue ?? 0),
-            },
-          });
-        } catch (companyError) {
-          console.error('Error creating company for user:', companyError);
-        }
+        await supabase.rpc('pg_create_company_with_owner', {
+          payload: {
+            company_name: payload.company_name,
+            cnpj: payload.cnpj,
+            monthly_revenue: Number(payload.monthly_revenue ?? 0),
+          },
+        });
+      } catch (companyError) {
+        console.error('Error creating company for user:', companyError);
       }
 
       await fetchProfile(data.user.id);

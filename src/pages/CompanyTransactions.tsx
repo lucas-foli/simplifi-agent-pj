@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -8,8 +7,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -19,14 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Trash2,
-} from 'lucide-react';
-import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import {
   useCompanyCategories,
@@ -35,11 +24,25 @@ import {
   useCreateCompanyTransaction,
   useDeleteCompanyTransaction,
 } from '@/hooks/useCompanyFinancialData';
+import { format } from 'date-fns';
+import {
+  ArrowLeft,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Trash2,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const transactionTypes = [
   { label: 'Despesa', value: 'despesa' as const },
   { label: 'Receita', value: 'receita' as const },
 ];
+
+const paymentMethodOptions = ['Pix', 'Cartão de Crédito', 'Cartão de Débito', 'TED'];
 
 const CompanyTransactions = () => {
   const navigate = useNavigate();
@@ -195,11 +198,19 @@ const CompanyTransactions = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/60 bg-card/80 backdrop-blur-sm sticky top-0 z-30">
         <div className="container mx-auto px-4 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Transações da empresa</h1>
-            <p className="text-sm text-muted-foreground">
-              {activeCompany.company.name} • {monthLabel}
-            </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link to="/company/dashboard">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline"></span>
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Transações da empresa</h1>
+              <p className="text-sm text-muted-foreground">
+                {activeCompany.company.name} • {monthLabel}
+              </p>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -424,14 +435,23 @@ const CompanyTransactions = () => {
 
             <div className="grid gap-1.5">
               <Label htmlFor="payment_method">Forma de pagamento</Label>
-              <Input
-                id="payment_method"
-                value={newTransaction.payment_method}
-                onChange={(event) =>
-                  setNewTransaction((prev) => ({ ...prev, payment_method: event.target.value }))
+              <Select
+                value={newTransaction.payment_method || undefined}
+                onValueChange={(value) =>
+                  setNewTransaction((prev) => ({ ...prev, payment_method: value }))
                 }
-                placeholder="Ex.: Pix, Cartão de crédito"
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a forma de pagamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {paymentMethodOptions.map((method) => (
+                    <SelectItem key={method} value={method}>
+                      {method}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid gap-1.5">

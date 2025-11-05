@@ -1,18 +1,25 @@
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useTransactions } from '@/hooks/useTransactions';
 import { RefreshCw } from 'lucide-react';
+
+import { useAuth } from '@/hooks/useAuth';
+import { useCompanyTransactions } from '@/hooks/useCompanyFinancialData';
 
 const CacheTest = () => {
   const now = new Date();
   const [requestCount, setRequestCount] = useState(0);
   const [lastFetchTime, setLastFetchTime] = useState<Date | null>(null);
 
-  const { data: transactions, isLoading, isFetching, refetch } = useTransactions(
-    now.getMonth() + 1,
-    now.getFullYear()
-  );
+  const { activeCompany } = useAuth();
+  const companyId = activeCompany?.company_id;
+
+  const {
+    data: transactions,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useCompanyTransactions(companyId, now.getMonth() + 1, now.getFullYear());
 
   // Interceptar quando o React Query faz fetch
   const handleRefetch = () => {
@@ -46,7 +53,9 @@ const CacheTest = () => {
             <div>
               <div className="text-sm text-muted-foreground">Estado</div>
               <div className="text-xl font-bold">
-                {isLoading ? (
+                {!companyId ? (
+                  <span className="text-orange-600">⚠️ Nenhuma empresa selecionada</span>
+                ) : isLoading ? (
                   <span className="text-yellow-600">⏳ Carregando inicial...</span>
                 ) : isFetching ? (
                   <span className="text-blue-600">🔄 Buscando dados...</span>
@@ -83,11 +92,7 @@ const CacheTest = () => {
         <Card className="p-6">
           <h2 className="font-bold text-lg mb-4">🎮 Ações</h2>
           <div className="flex gap-4">
-            <Button
-              onClick={handleRefetch}
-              disabled={isFetching}
-              className="gap-2"
-            >
+            <Button onClick={handleRefetch} disabled={isFetching || !companyId} className="gap-2">
               <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
               Buscar Transações
             </Button>
@@ -115,7 +120,11 @@ const CacheTest = () => {
         {/* Dados */}
         <Card className="p-6">
           <h2 className="font-bold text-lg mb-4">📦 Dados em Cache</h2>
-          {transactions && transactions.length > 0 ? (
+          {!companyId ? (
+            <p className="text-muted-foreground text-center py-8">
+              Selecione uma empresa para visualizar transações.
+            </p>
+          ) : transactions && transactions.length > 0 ? (
             <div className="space-y-2">
               {transactions.slice(0, 5).map((tx) => (
                 <div

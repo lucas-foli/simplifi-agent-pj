@@ -1,10 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -12,6 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -19,13 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Plus,
-  Pencil,
-  Search,
-  Trash2,
-} from 'lucide-react';
-import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import {
   useCompanyCategories,
@@ -34,6 +24,19 @@ import {
   useDeleteCompanyFixedCost,
   useUpdateCompanyFixedCost,
 } from '@/hooks/useCompanyFinancialData';
+import { motion } from 'framer-motion';
+import {
+  ArrowLeft,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+
+const paymentMethodOptions = ['Pix', 'Cartão de Crédito', 'Cartão de Débito', 'TED'];
 
 const CompanyFixedCosts = () => {
   const navigate = useNavigate();
@@ -51,6 +54,7 @@ const CompanyFixedCosts = () => {
     description: '',
     amount: '',
     category_id: '',
+    payment_method: '',
   });
 
   useEffect(() => {
@@ -78,7 +82,7 @@ const CompanyFixedCosts = () => {
   const total = filteredCosts.reduce((acc, cost) => acc + Number(cost.amount), 0);
 
   const resetForm = () => {
-    setFormState({ description: '', amount: '', category_id: '' });
+    setFormState({ description: '', amount: '', category_id: '', payment_method: '' });
     setEditingId(null);
   };
 
@@ -102,7 +106,8 @@ const CompanyFixedCosts = () => {
             description: formState.description,
             amount,
             category_id: formState.category_id || null,
-          },
+            payment_method: formState.payment_method || null,
+          } as any,
         });
         toast.success('Custo fixo atualizado!');
       } else {
@@ -110,6 +115,7 @@ const CompanyFixedCosts = () => {
           description: formState.description,
           amount,
           category_id: formState.category_id || null,
+          payment_method: formState.payment_method || null,
         } as any);
         toast.success('Custo fixo criado!');
       }
@@ -158,11 +164,19 @@ const CompanyFixedCosts = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/60 bg-card/80 backdrop-blur-sm sticky top-0 z-30">
         <div className="container mx-auto px-4 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Custos fixos</h1>
-            <p className="text-sm text-muted-foreground">
-              Controle compromissos recorrentes da empresa {activeCompany.company.name}
-            </p>
+          <div className="flex items-center gap-3">
+            <Link to="/company/dashboard">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline"></span>
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Custos fixos</h1>
+              <p className="text-sm text-muted-foreground">
+                Controle compromissos recorrentes da empresa {activeCompany.company.name}
+              </p>
+            </div>
           </div>
           <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
             <Plus className="h-4 w-4" />
@@ -226,6 +240,7 @@ const CompanyFixedCosts = () => {
                             description: cost.description,
                             amount: Number(cost.amount).toString(),
                             category_id: cost.category_id ?? '',
+                            payment_method: ((cost as any).payment_method as string | null) ?? '',
                           });
                           setIsDialogOpen(true);
                         }}
@@ -318,6 +333,30 @@ const CompanyFixedCosts = () => {
                   {categories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
                       {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label>Forma de pagamento</Label>
+              <Select
+                value={formState.payment_method || undefined}
+                onValueChange={(value) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    payment_method: value,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a forma de pagamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {paymentMethodOptions.map((method) => (
+                    <SelectItem key={method} value={method}>
+                      {method}
                     </SelectItem>
                   ))}
                 </SelectContent>
