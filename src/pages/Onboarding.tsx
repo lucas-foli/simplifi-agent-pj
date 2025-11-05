@@ -6,6 +6,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useAuth } from "@/hooks/useAuth";
 import { useCreateFixedCost, useSetMonthlyIncome } from "@/hooks/useFinancialData";
 import { supabase } from "@/lib/supabase";
+import { branding } from "@/config/branding";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, ArrowLeft, ArrowRight, Building2, Check, Receipt, Upload, User } from "lucide-react";
 import { useState } from "react";
@@ -283,7 +284,7 @@ const Onboarding = () => {
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                <h2 className="text-2xl font-bold text-foreground mb-2">Bem-vindo ao SimplifiQA!</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Bem-vindo ao {branding.brandName}!</h2>
                 <p className="text-muted-foreground mb-6">Selecione o tipo de conta que deseja criar</p>
                 
                 <RadioGroup value={userType} onValueChange={(v) => setUserType(v as "pf" | "pj")}>

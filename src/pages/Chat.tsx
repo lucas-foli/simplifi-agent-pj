@@ -18,6 +18,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { branding } from '@/config/branding';
 
 interface MessageAction {
   label: string;
@@ -268,18 +269,21 @@ const Chat = () => {
       <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-4">
-            <Link to="/dashboard">
+            <Link to="/company/dashboard">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Voltar</span>
               </Button>
             </Link>
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-                <Bot className="h-5 w-5 text-primary-foreground" />
-              </div>
+            <div className="flex items-center gap-3">
+              <img
+                src={branding.logo.horizontal}
+                alt={`${branding.brandName} assistente`}
+                className="h-8 w-auto object-contain"
+              />
+              <span className="sr-only">{branding.brandName}</span>
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold">Assistente SimplifiQA</h1>
+                <h1 className="text-xl sm:text-2xl font-bold">Assistente {branding.brandName}</h1>
                 <p className="text-xs text-muted-foreground hidden sm:block">
                   Pergunte sobre suas finanças
                 </p>

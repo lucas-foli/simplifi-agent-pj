@@ -1,6 +1,6 @@
 # simplifi-agent-pj
 
-Your PJ Simplify App
+Assistente financeiro conversacional focado em empresas (Pessoa Jurídica).
 
 ## Project info
 
@@ -61,6 +61,15 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- Supabase (Auth + PostgREST + Edge Functions)
+
+## White label / Branding
+
+- Ajuste o nome, caminhos de logo e paleta em `src/config/branding.ts`.
+- Substitua os arquivos em `public/branding/` (`logo-horizontal.svg`, `logo-horizontal-inverted.svg`, `logo-mark.svg`).
+- Paleta suportada: `primary`, `primaryLight`, `primaryDark`, `primaryForeground`, `secondary`, `secondaryForeground`, `accent`, `accentForeground`, `success`, `warning`, `destructive`, `muted`, `mutedForeground`, `chart1…chart5`, `shadowPrimary` (HEX ou CSS names).
+- As cores alimentam automaticamente CTAs, botões, destaques e gráficos; plano de fundo e textos-base permanecem neutros.
+- Se quiser mudar o favicon, substitua `public/favicon.ico`.
 
 ## How can I deploy this project?
 

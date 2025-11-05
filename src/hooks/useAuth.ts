@@ -267,6 +267,24 @@ export const useAuth = () => {
     });
 
     if (error) throw error;
+
+    const userId = data.user?.id;
+    if (!userId) {
+      await supabase.auth.signOut();
+      throw new Error('Usuário ou senha inválidos');
+    }
+
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('user_type')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || profileData?.user_type !== 'pessoa_juridica') {
+      await supabase.auth.signOut();
+      throw new Error('Usuário ou senha inválidos');
+    }
+
     return data;
   };
 
