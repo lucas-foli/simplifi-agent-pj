@@ -1,44 +1,44 @@
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { branding } from "@/config/branding";
-import { motion } from "framer-motion";
-import { ArrowRight, CheckCircle2, MessageSquare, Shield, TrendingUp, Zap } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { branding } from '@/config/branding';
+import { motion } from 'framer-motion';
+import { ArrowRight, CheckCircle2, MessageSquare, Shield, TrendingUp, Zap } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Landing = () => {
-  const features = [
-    {
-      icon: MessageSquare,
-      title: "Controle Conversacional",
-      description: "Registre entradas e saídas da empresa via WhatsApp ou chat com linguagem natural"
-    },
-    {
-      icon: TrendingUp,
-      title: "Saldo em Tempo Real",
-      description: "Acompanhe o impacto de cada gasto no fluxo de caixa em tempo real"
-    },
-    {
-      icon: Shield,
-      title: "Seguro e Profissional",
-      description: "Dados protegidos e relatórios prontos para contadores"
-    },
-    {
-      icon: Zap,
-      title: "Automação Inteligente",
-      description: "Categorização automática e sugestões financeiras acionáveis"
-    }
-  ];
+	const features = [
+		{
+			icon: MessageSquare,
+			title: 'Controle Conversacional',
+			description: 'Registre entradas e saídas da empresa via WhatsApp ou chat com linguagem natural',
+		},
+		{
+			icon: TrendingUp,
+			title: 'Saldo em Tempo Real',
+			description: 'Acompanhe o impacto de cada gasto no fluxo de caixa em tempo real',
+		},
+		{
+			icon: Shield,
+			title: 'Seguro e Profissional',
+			description: 'Dados protegidos e relatórios prontos para contadores',
+		},
+		{
+			icon: Zap,
+			title: 'Automação Inteligente',
+			description: 'Categorização automática e sugestões financeiras acionáveis',
+		},
+	];
 
-  const benefits = [
-    "Sem planilhas complexas para tocar o financeiro",
-    "Classificação automática de despesas empresariais",
-    "Alertas inteligentes de fluxo de caixa",
-    "Integração com WhatsApp para toda a equipe",
-    "Relatórios para contadores e sócios",
-    "Visão consolidada de contas a pagar e receber"
-  ];
+	const benefits = [
+		'Sem planilhas complexas para tocar o financeiro',
+		'Classificação automática de despesas empresariais',
+		'Alertas inteligentes de fluxo de caixa',
+		'Integração com WhatsApp para toda a equipe',
+		'Relatórios para contadores e sócios',
+		'Visão consolidada de contas a pagar e receber',
+	];
 
-  return (
+	return (
 		<div className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/20">
 			{/* Header */}
 			<header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
@@ -51,7 +51,7 @@ const Landing = () => {
 							src={branding.logo.horizontal}
 							alt={`${branding.brandName} logotipo`}
 							className="h-8 w-auto object-contain scale-[10.75]"
-              style={{ transformOrigin: 'center center' }}
+							style={{ transformOrigin: 'center center' }}
 						/>
 						<span className="sr-only">{branding.brandName}</span>
 					</motion.div>
