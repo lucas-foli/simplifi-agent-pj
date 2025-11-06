@@ -84,10 +84,13 @@ export const useCreateCompanyFixedCost = (companyId: string | undefined) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      const { payment_method, ...rest } = payload;
+
       const { error } = await supabase
         .from('company_fixed_costs')
         .insert({
-          ...payload,
+          ...rest,
+          payment_method: payment_method ?? null,
           company_id: companyId,
           amount: Number(payload.amount),
           created_by: user.id,
@@ -109,11 +112,14 @@ export const useUpdateCompanyFixedCost = (companyId: string | undefined) => {
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<CompanyFixedCostInsert> }) => {
       if (!companyId) throw new Error('Company not selected');
 
+      const { payment_method, ...restUpdates } = updates;
+
       const { error } = await supabase
         .from('company_fixed_costs')
         .update({
-          ...updates,
+          ...restUpdates,
           amount: updates.amount !== undefined ? Number(updates.amount) : undefined,
+          payment_method: payment_method !== undefined ? payment_method ?? null : undefined,
         })
         .eq('id', id);
 

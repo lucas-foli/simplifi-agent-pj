@@ -93,8 +93,8 @@ const CompanyFixedCosts = () => {
     }
 
     const amount = Number(formState.amount);
-    if (Number.isNaN(amount) || amount <= 0) {
-      toast.error('Informe um valor válido');
+    if (Number.isNaN(amount) || amount < 0) {
+      toast.error('Informe um valor maior ou igual a zero');
       return;
     }
 
@@ -240,7 +240,7 @@ const CompanyFixedCosts = () => {
                             description: cost.description,
                             amount: Number(cost.amount).toString(),
                             category_id: cost.category_id ?? '',
-                            payment_method: ((cost as any).payment_method as string | null) ?? '',
+                            payment_method: cost.payment_method ?? '',
                           });
                           setIsDialogOpen(true);
                         }}

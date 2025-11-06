@@ -51,6 +51,7 @@ export type Database = {
       }
       companies: {
         Row: {
+          activity: string | null
           created_at: string
           created_by: string | null
           cnpj_encrypted: string | null
@@ -64,6 +65,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          activity?: string | null
           created_at?: string
           created_by?: string | null
           cnpj_encrypted?: string | null
@@ -77,6 +79,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          activity?: string | null
           created_at?: string
           created_by?: string | null
           cnpj_encrypted?: string | null
@@ -143,6 +146,7 @@ export type Database = {
           created_by: string | null
           description: string
           id: string
+          payment_method: string | null
           updated_at: string
         }
         Insert: {
@@ -153,6 +157,7 @@ export type Database = {
           created_by?: string | null
           description: string
           id?: string
+          payment_method?: string | null
           updated_at?: string
         }
         Update: {
@@ -163,6 +168,7 @@ export type Database = {
           created_by?: string | null
           description?: string
           id?: string
+          payment_method?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -586,6 +592,7 @@ export type Database = {
     Tables: {
       companies: {
         Row: {
+          activity: string | null
           created_at: string
           created_by: string | null
           cnpj_encrypted: string | null
@@ -599,6 +606,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          activity?: string | null
           created_at?: string
           created_by?: string | null
           cnpj_encrypted?: string | null
@@ -612,6 +620,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          activity?: string | null
           created_at?: string
           created_by?: string | null
           cnpj_encrypted?: string | null
@@ -678,6 +687,7 @@ export type Database = {
           created_by: string | null
           description: string
           id: string
+          payment_method: string | null
           updated_at: string
         }
         Insert: {
@@ -688,6 +698,7 @@ export type Database = {
           created_by?: string | null
           description: string
           id?: string
+          payment_method?: string | null
           updated_at?: string
         }
         Update: {
@@ -698,6 +709,7 @@ export type Database = {
           created_by?: string | null
           description?: string
           id?: string
+          payment_method?: string | null
           updated_at?: string
         }
         Relationships: [
