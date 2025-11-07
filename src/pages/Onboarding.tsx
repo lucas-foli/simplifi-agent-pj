@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/lib/supabase";
+import { supabase, supabasePJ } from "@/lib/supabase";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, ArrowLeft, ArrowRight, Building2, Check, Receipt, Upload } from "lucide-react";
 import { useState } from "react";
@@ -171,7 +171,7 @@ const Onboarding = () => {
             continue;
           }
 
-          const { error: companyCostError } = await supabase.from("company_fixed_costs").insert({
+          const { error: companyCostError } = await supabasePJ.from("company_fixed_costs").insert({
             company_id: ensuredCompanyId,
             description: cost.name,
             amount: parsedAmount,

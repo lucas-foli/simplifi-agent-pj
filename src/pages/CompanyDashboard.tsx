@@ -62,6 +62,11 @@ import {
   useCompanyTransactionsByCategory,
   useSetCompanyMonthlyRevenue,
 } from '@/hooks/useCompanyFinancialData';
+import {
+  formatCurrencyDisplay,
+  initializeCurrencyValue,
+  parseCurrencyInput,
+} from '@/utils/currency';
 
 const COLORS = [
   '#0B59A3',
@@ -128,7 +133,7 @@ const CompanyDashboard = () => {
 
   useEffect(() => {
     if (summary?.revenue !== undefined) {
-      setRevenueInput(summary.revenue ? summary.revenue.toString() : '');
+      setRevenueInput(initializeCurrencyValue(summary.revenue));
     }
   }, [summary?.revenue]);
 
@@ -161,6 +166,11 @@ const CompanyDashboard = () => {
     });
   };
 
+  const handleRevenueInputChange = (value: string) => {
+    const parsedValue = parseCurrencyInput(value);
+    setRevenueInput(parsedValue);
+  };
+
   const monthLabel = new Date(selectedYear, selectedMonth - 1).toLocaleDateString(
     'pt-BR',
     { month: 'long', year: 'numeric' }
@@ -168,6 +178,11 @@ const CompanyDashboard = () => {
 
   const handleRevenueSave = async () => {
     if (!activeCompany?.company_id) return;
+    if (revenueInput === '') {
+      toast.error('Informe um valor válido');
+      return;
+    }
+
     const value = Number(revenueInput);
 
     if (Number.isNaN(value)) {
@@ -550,12 +565,13 @@ const CompanyDashboard = () => {
             </label>
             <Input
               id="revenue"
-              value={revenueInput}
-              onChange={(event) => setRevenueInput(event.target.value)}
-              placeholder="50.000"
+              inputMode="decimal"
+              value={formatCurrencyDisplay(revenueInput)}
+              onChange={(event) => handleRevenueInputChange(event.target.value)}
+              placeholder="0,00"
             />
             <p className="text-xs text-muted-foreground">
-              Utilize números inteiros ou decimais com ponto. Exemplo: 75000.50
+              Utilize somente números; o formato será aplicado automaticamente (ex.: 75.000,50).
             </p>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">

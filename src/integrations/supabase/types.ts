@@ -253,7 +253,7 @@ export type Database = {
           id: string
           notes: string | null
           payment_method: string | null
-          type: Database["public"]["Enums"]["transaction_type"]
+          type: Database["pj"]["Enums"]["transaction_type"]
           updated_at: string
         }
         Insert: {
@@ -267,7 +267,7 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_method?: string | null
-          type: Database["public"]["Enums"]["transaction_type"]
+          type: Database["pj"]["Enums"]["transaction_type"]
           updated_at?: string
         }
         Update: {
@@ -281,7 +281,7 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_method?: string | null
-          type?: Database["public"]["Enums"]["transaction_type"]
+          type?: Database["pj"]["Enums"]["transaction_type"]
           updated_at?: string
         }
         Relationships: [
@@ -469,7 +469,7 @@ export type Database = {
           id: string
           monthly_income: number
           updated_at: string
-          user_type: Database["public"]["Enums"]["user_type"]
+          user_type: Database["pj"]["Enums"]["user_type"]
         }
         Insert: {
           cnpj?: string | null
@@ -480,7 +480,7 @@ export type Database = {
           id: string
           monthly_income?: number
           updated_at?: string
-          user_type: Database["public"]["Enums"]["user_type"]
+          user_type: Database["pj"]["Enums"]["user_type"]
         }
         Update: {
           cnpj?: string | null
@@ -491,7 +491,7 @@ export type Database = {
           id?: string
           monthly_income?: number
           updated_at?: string
-          user_type?: Database["public"]["Enums"]["user_type"]
+          user_type?: Database["pj"]["Enums"]["user_type"]
         }
         Relationships: []
       }
@@ -506,7 +506,7 @@ export type Database = {
           fixed_cost_id: string | null
           id: string
           is_fixed_cost: boolean
-          type: Database["public"]["Enums"]["transaction_type"]
+          type: Database["pj"]["Enums"]["transaction_type"]
           updated_at: string
           user_id: string
         }
@@ -520,7 +520,7 @@ export type Database = {
           fixed_cost_id?: string | null
           id?: string
           is_fixed_cost?: boolean
-          type: Database["public"]["Enums"]["transaction_type"]
+          type: Database["pj"]["Enums"]["transaction_type"]
           updated_at?: string
           user_id: string
         }
@@ -534,7 +534,7 @@ export type Database = {
           fixed_cost_id?: string | null
           id?: string
           is_fixed_cost?: boolean
-          type?: Database["public"]["Enums"]["transaction_type"]
+          type?: Database["pj"]["Enums"]["transaction_type"]
           updated_at?: string
           user_id?: string
         }
@@ -794,7 +794,7 @@ export type Database = {
           id: string
           notes: string | null
           payment_method: string | null
-          type: Database["public"]["Enums"]["transaction_type"]
+          type: Database["pj"]["Enums"]["transaction_type"]
           updated_at: string
         }
         Insert: {
@@ -808,7 +808,7 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_method?: string | null
-          type: Database["public"]["Enums"]["transaction_type"]
+          type: Database["pj"]["Enums"]["transaction_type"]
           updated_at?: string
         }
         Update: {
@@ -822,7 +822,7 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_method?: string | null
-          type?: Database["public"]["Enums"]["transaction_type"]
+          type?: Database["pj"]["Enums"]["transaction_type"]
           updated_at?: string
         }
         Relationships: [
@@ -890,7 +890,7 @@ export type Database = {
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "pj">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
@@ -989,24 +989,24 @@ export type Enums<
     : never
 
 export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
+  SchemaCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends SchemaCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof DatabaseWithoutInternals[SchemaCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
+> = SchemaCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  ? DatabaseWithoutInternals[SchemaCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : SchemaCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][SchemaCompositeTypeNameOrOptions]
     : never
 
 export const Constants = {
-  public: {
+  pj: {
     Enums: {
       transaction_type: ["receita", "despesa"],
       user_type: ["pessoa_fisica", "pessoa_juridica"],

@@ -49,7 +49,7 @@ const Login = () => {
 						<img
 							src={branding.logo.horizontal}
 							alt={`${branding.brandName} logotipo`}
-							className="mx-auto h-12 w-auto object-contain scale-[10.75]"
+							className="mx-auto h-12 w-auto object-contain scale-[10.75] pointer-events-none relative -z-1"
 							style={{ transformOrigin: 'center center' }}
 						/>
 						<p className="text-muted-foreground">Faça login na sua conta empresarial</p>

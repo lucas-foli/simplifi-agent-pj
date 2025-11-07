@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabasePJ } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
 
 type UserProfile = Database['public']['Tables']['profiles']['Row'];
-type Company = Database['public']['Tables']['companies']['Row'];
+type Company = Database['pj']['Tables']['companies']['Row'];
 type CompanyMembership = {
   company_id: string;
   role: Database['pj']['Enums']['member_role'];
@@ -66,7 +66,7 @@ export const useAuth = () => {
     try {
       const effectiveProfile = profileData ?? profile;
 
-      const { data, error } = await supabase
+      const { data, error } = await supabasePJ
         .from('company_members')
         .select(`
           company_id,

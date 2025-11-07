@@ -24,6 +24,10 @@ import {
   useCreateCompanyTransaction,
   useDeleteCompanyTransaction,
 } from '@/hooks/useCompanyFinancialData';
+import {
+  formatCurrencyDisplay,
+  parseCurrencyInput,
+} from '@/utils/currency';
 import { format } from 'date-fns';
 import {
   ArrowLeft,
@@ -124,7 +128,7 @@ const CompanyTransactions = () => {
   };
 
   const handleCreate = async () => {
-    if (!newTransaction.description || !newTransaction.amount) {
+    if (!newTransaction.description || newTransaction.amount === '') {
       toast.error('Informe descrição e valor');
       return;
     }
@@ -171,6 +175,14 @@ const CompanyTransactions = () => {
       console.error('Erro ao remover transação:', error);
       toast.error('Não foi possível remover a transação');
     }
+  };
+
+  const handleTransactionAmountChange = (value: string) => {
+    const parsedValue = parseCurrencyInput(value);
+    setNewTransaction((prev) => ({
+      ...prev,
+      amount: parsedValue,
+    }));
   };
 
   if (loading || companyLoading) {
@@ -366,14 +378,10 @@ const CompanyTransactions = () => {
               <Label htmlFor="amount">Valor (R$)</Label>
               <Input
                 id="amount"
-                type="number"
-                step="0.01"
-                value={newTransaction.amount}
-                onChange={(event) => setNewTransaction((prev) => ({
-                  ...prev,
-                  amount: event.target.value,
-                }))}
-                placeholder="1000.00"
+                inputMode="decimal"
+                value={formatCurrencyDisplay(newTransaction.amount)}
+                onChange={(event) => handleTransactionAmountChange(event.target.value)}
+                placeholder="0,00"
               />
             </div>
 

@@ -24,6 +24,11 @@ import {
   useDeleteCompanyFixedCost,
   useUpdateCompanyFixedCost,
 } from '@/hooks/useCompanyFinancialData';
+import {
+  formatCurrencyDisplay,
+  initializeCurrencyValue,
+  parseCurrencyInput,
+} from '@/utils/currency';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -87,7 +92,7 @@ const CompanyFixedCosts = () => {
   };
 
   const handleSubmit = async () => {
-    if (!formState.description || !formState.amount) {
+    if (!formState.description || formState.amount === '') {
       toast.error('Preencha descrição e valor');
       return;
     }
@@ -137,6 +142,14 @@ const CompanyFixedCosts = () => {
       console.error('Erro ao remover custo fixo:', error);
       toast.error('Não foi possível remover o custo fixo');
     }
+  };
+
+  const handleAmountChange = (value: string) => {
+    const parsedValue = parseCurrencyInput(value);
+    setFormState((prev) => ({
+      ...prev,
+      amount: parsedValue,
+    }));
   };
 
   if (loading || companyLoading) {
@@ -238,7 +251,7 @@ const CompanyFixedCosts = () => {
                           setEditingId(cost.id);
                           setFormState({
                             description: cost.description,
-                            amount: Number(cost.amount).toString(),
+                            amount: initializeCurrencyValue(Number(cost.amount)),
                             category_id: cost.category_id ?? '',
                             payment_method: cost.payment_method ?? '',
                           });
@@ -303,14 +316,10 @@ const CompanyFixedCosts = () => {
               <Label htmlFor="amount">Valor mensal (R$)</Label>
               <Input
                 id="amount"
-                type="number"
-                step="0.01"
-                value={formState.amount}
-                onChange={(event) => setFormState((prev) => ({
-                  ...prev,
-                  amount: event.target.value,
-                }))}
-                placeholder="5000.00"
+                inputMode="decimal"
+                value={formatCurrencyDisplay(formState.amount)}
+                onChange={(event) => handleAmountChange(event.target.value)}
+                placeholder="0,00"
               />
             </div>
 

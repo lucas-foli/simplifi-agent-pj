@@ -1,14 +1,14 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, supabasePJ } from '@/lib/supabase';
 import type { Database } from '@/integrations/supabase/types';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-type Company = Database['public']['Tables']['companies']['Row'];
-type CompanyCategory = Database['public']['Tables']['company_categories']['Row'];
-type CompanyFixedCost = Database['public']['Tables']['company_fixed_costs']['Row'];
-type CompanyFixedCostInsert = Database['public']['Tables']['company_fixed_costs']['Insert'];
-type CompanyTransaction = Database['public']['Tables']['company_transactions']['Row'];
-type CompanyTransactionInsert = Database['public']['Tables']['company_transactions']['Insert'];
-type CompanyTransactionUpdate = Database['public']['Tables']['company_transactions']['Update'];
+type Company = Database['pj']['Tables']['companies']['Row'];
+type CompanyCategory = Database['pj']['Tables']['company_categories']['Row'];
+type CompanyFixedCost = Database['pj']['Tables']['company_fixed_costs']['Row'];
+type CompanyFixedCostInsert = Database['pj']['Tables']['company_fixed_costs']['Insert'];
+type CompanyTransaction = Database['pj']['Tables']['company_transactions']['Row'];
+type CompanyTransactionInsert = Database['pj']['Tables']['company_transactions']['Insert'];
+type CompanyTransactionUpdate = Database['pj']['Tables']['company_transactions']['Update'];
 type CompanyTransactionWithCategory = CompanyTransaction & {
   company_categories?: {
     id: string;
@@ -22,7 +22,7 @@ export const useCompanyProfile = (companyId?: string) => {
     enabled: !!companyId,
     queryFn: async () => {
       if (!companyId) return null;
-      const { data, error } = await supabase
+      const { data, error } = await supabasePJ
         .from('companies')
         .select('*')
         .eq('id', companyId)
@@ -41,7 +41,7 @@ export const useCompanyCategories = (companyId?: string) => {
     queryFn: async () => {
       if (!companyId) return [] as CompanyCategory[];
 
-      const { data, error } = await supabase
+      const { data, error } = await supabasePJ
         .from('company_categories')
         .select('*')
         .eq('company_id', companyId)
@@ -61,7 +61,7 @@ export const useCompanyFixedCosts = (companyId?: string) => {
     queryFn: async () => {
       if (!companyId) return [] as CompanyFixedCost[];
 
-      const { data, error } = await supabase
+      const { data, error } = await supabasePJ
         .from('company_fixed_costs')
         .select('*')
         .eq('company_id', companyId)
@@ -85,8 +85,9 @@ export const useCreateCompanyFixedCost = (companyId: string | undefined) => {
       if (!user) throw new Error('Not authenticated');
 
       const { payment_method, ...rest } = payload;
+      console.log('payment_method', payment_method)
 
-      const { error } = await supabase
+      const { error } = await supabasePJ
         .from('company_fixed_costs')
         .insert({
           ...rest,
@@ -114,7 +115,7 @@ export const useUpdateCompanyFixedCost = (companyId: string | undefined) => {
 
       const { payment_method, ...restUpdates } = updates;
 
-      const { error } = await supabase
+      const { error } = await supabasePJ
         .from('company_fixed_costs')
         .update({
           ...restUpdates,
@@ -140,7 +141,7 @@ export const useDeleteCompanyFixedCost = (companyId: string | undefined) => {
     mutationFn: async (id: string) => {
       if (!companyId) throw new Error('Company not selected');
 
-      const { error } = await supabase
+      const { error } = await supabasePJ
         .from('company_fixed_costs')
         .delete()
         .eq('id', id);
@@ -161,7 +162,7 @@ export const useCompanyTransactions = (companyId: string | undefined, month?: nu
     queryFn: async () => {
       if (!companyId) return [] as CompanyTransaction[];
 
-      let query = supabase
+      let query = supabasePJ
         .from('company_transactions')
         .select(`
           *,
@@ -199,7 +200,7 @@ export const useCreateCompanyTransaction = (companyId: string | undefined) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { error } = await supabase
+      const { error } = await supabasePJ
         .from('company_transactions')
         .insert({
           ...payload,
@@ -225,7 +226,7 @@ export const useUpdateCompanyTransaction = (companyId: string | undefined) => {
     mutationFn: async ({ id, updates }: { id: string; updates: CompanyTransactionUpdate }) => {
       if (!companyId) throw new Error('Company not selected');
 
-      const { error } = await supabase
+      const { error } = await supabasePJ
         .from('company_transactions')
         .update({
           ...updates,
@@ -251,7 +252,7 @@ export const useDeleteCompanyTransaction = (companyId: string | undefined) => {
     mutationFn: async (id: string) => {
       if (!companyId) throw new Error('Company not selected');
 
-      const { error } = await supabase
+      const { error } = await supabasePJ
         .from('company_transactions')
         .delete()
         .eq('id', id);
@@ -273,7 +274,7 @@ export const useCompanyTransactionsByCategory = (companyId: string | undefined, 
     queryFn: async () => {
       if (!companyId) return [] as Array<{ category: string; total: number; count: number }>;
 
-      let query = supabase
+      let query = supabasePJ
         .from('company_transactions')
         .select('amount, category_id, type')
         .eq('company_id', companyId);
@@ -289,7 +290,7 @@ export const useCompanyTransactionsByCategory = (companyId: string | undefined, 
       const { data, error } = await query;
       if (error) throw error;
 
-      const { data: categoriesData } = await supabase
+      const { data: categoriesData } = await supabasePJ
         .from('company_categories')
         .select('id, name')
         .eq('company_id', companyId);
@@ -330,7 +331,7 @@ export const useCompanyDashboardSummary = (companyId: string | undefined, month:
         };
       }
 
-      const { data: companyData } = await supabase
+      const { data: companyData } = await supabasePJ
         .from('companies')
         .select('monthly_revenue')
         .eq('id', companyId)
@@ -338,7 +339,7 @@ export const useCompanyDashboardSummary = (companyId: string | undefined, month:
 
       const revenue = Number(companyData?.monthly_revenue ?? 0);
 
-      const { data: fixedCostsData } = await supabase
+      const { data: fixedCostsData } = await supabasePJ
         .from('company_fixed_costs')
         .select('amount')
         .eq('company_id', companyId);
@@ -348,7 +349,7 @@ export const useCompanyDashboardSummary = (companyId: string | undefined, month:
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 0);
 
-      const { data: transactionsData } = await supabase
+      const { data: transactionsData } = await supabasePJ
         .from('company_transactions')
         .select('amount, type')
         .eq('company_id', companyId)
@@ -385,7 +386,7 @@ export const useSetCompanyMonthlyRevenue = (companyId: string | undefined) => {
     mutationFn: async (amount: number) => {
       if (!companyId) throw new Error('Company not selected');
 
-      const { error } = await supabase
+      const { error } = await supabasePJ
         .from('companies')
         .update({ monthly_revenue: amount })
         .eq('id', companyId);
