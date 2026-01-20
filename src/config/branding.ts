@@ -3,23 +3,17 @@ export const branding = {
 	 * Nome mostrado em textos, títulos e meta tags.
 	 * Altere aqui para personalizar o white label.
 	 */
-	brandName: 'Easy Numbers',
-	// brandName: "Simplifi Agent",
+	brandName: 'SimplifiQA',
 
 	/**
 	 * Caminhos das logos. Troque os arquivos em /public/branding
 	 * mantendo os mesmos nomes para propagar automaticamente.
 	 */
 	logo: {
-		horizontal: '/branding/GOFly (1).png',
-		horizontalInverted: '/branding/GOFly (1).png',
-		mark: '/branding/GOFly (2).png',
+		horizontal: '/branding/logo-horizontal.svg',
+		horizontalInverted: '/branding/logo-horizontal-inverted.svg',
+		mark: '/branding/logo-mark.svg',
 	},
-	// logo: {
-	//   horizontal: "/branding/logo-horizontal.svg",
-	//   horizontalInverted: "/branding/logo-horizontal-inverted.svg",
-	//   mark: "/branding/logo-mark.svg",
-	// },
 
 	/**
 	 * Paleta de cores da marca. Aceita HEX ou nomes CSS.
@@ -27,39 +21,31 @@ export const branding = {
 	 * e aplicadas nas variáveis do design system.
 	 */
 	colors: {
-		// preto 000000
-		// vermelho df3e5f
-		// verde 45b180
-		// branco FFFFFF
-		// laranja ec7523
-		// azul escuro 394e6b
-		// amarelo eec569
+		primary: '#0a64a9',
+		primaryForeground: '#ffffff',
+		primaryLight: '#0d80d9',
+		primaryDark: '#074778',
 
-		primary: '#000000',
-		primaryForeground: '#FFFFFF',
-		primaryLight: '#3AB5F2',
-		primaryDark: '#394e6b',
+		secondary: '#eaedf0',
+		secondaryForeground: '#2b3d4f',
 
-		secondary: '#eec569',
-		secondaryForeground: '#1F2937',
+		success: '#2ecc70',
+		warning: '#f39c12',
+		destructive: '#e74d3c',
 
-		success: '#45b180',
-		warning: '#F97316',
-		destructive: '#df3e5f',
+		muted: '#eaedf0',
+		mutedForeground: '#7e8c9a',
 
-		muted: '#E2E8F0',
-		mutedForeground: '#64748B',
+		accent: '#2ecc70',
+		accentForeground: '#ffffff',
 
-		accent: '#45b180',
-		accentForeground: '#FFFFFF',
+		chart1: '#0a64a9',
+		chart2: '#2ecc70',
+		chart3: '#f39c12',
+		chart4: '#e74d3c',
+		chart5: '#995cd6',
 
-		chart1: '#0EA5E9',
-		chart2: '#22C55E',
-		chart3: '#F97316',
-		chart4: '#EF4444',
-		chart5: '#7C3AED',
-
-		shadowPrimary: 'rgba(14, 165, 233, 0.3)',
+		shadowPrimary: '0 10px 30px -10px hsl(206 89% 35% / 0.3)',
 	},
 
 	/**

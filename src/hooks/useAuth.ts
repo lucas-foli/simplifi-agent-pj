@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, supabasePJ } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
 
 type UserProfile = Database['public']['Tables']['profiles']['Row'];
-type Company = Database['pj']['Tables']['companies']['Row'];
+type Company = Database['public']['Tables']['companies']['Row'];
 type CompanyMembership = {
   company_id: string;
   role: Database['pj']['Enums']['member_role'];
@@ -15,7 +15,6 @@ type PendingCompanyPayload = {
   company_name: string;
   cnpj: string | null;
   monthly_revenue: number | null;
-  activity: string | null;
 };
 
 // Note: We use 'users_decrypted' view which automatically decrypts CNPJ data
@@ -66,7 +65,7 @@ export const useAuth = () => {
     try {
       const effectiveProfile = profileData ?? profile;
 
-      const { data, error } = await supabasePJ
+      const { data, error } = await supabase
         .from('company_members')
         .select(`
           company_id,
@@ -74,7 +73,6 @@ export const useAuth = () => {
           companies (
             id,
             name,
-            activity,
             trade_name,
             created_by,
             cnpj_encrypted,
@@ -105,7 +103,6 @@ export const useAuth = () => {
             effectiveProfile?.monthly_income != null
               ? Number(effectiveProfile.monthly_income)
               : 0,
-          activity: null,
         };
 
         try {
@@ -114,7 +111,6 @@ export const useAuth = () => {
               company_name: ensurePayload.company_name,
               cnpj: ensurePayload.cnpj,
               monthly_revenue: Number(ensurePayload.monthly_revenue ?? 0),
-              activity: ensurePayload.activity,
             },
           });
         } catch (ensureError) {
@@ -177,14 +173,12 @@ export const useAuth = () => {
     company_name?: string;
     cnpj?: string;
     monthly_revenue?: number;
-    activity?: string;
   }) => {
     const cleanedCnpj = userData.cnpj?.replace(/\D/g, '') ?? null;
     pendingCompanyPayload.current = {
       company_name: userData.company_name ?? userData.name,
       cnpj: cleanedCnpj,
       monthly_revenue: userData.monthly_revenue ?? null,
-      activity: userData.activity ?? null,
     };
 
     const { data, error } = await supabase.auth.signUp({
@@ -235,7 +229,6 @@ export const useAuth = () => {
           company_name: userData.company_name ?? userData.name,
           cnpj: cleanedCnpj,
           monthly_revenue: userData.monthly_revenue ?? null,
-          activity: userData.activity ?? null,
         };
 
         await supabase.rpc('pg_create_company_with_owner', {
@@ -243,7 +236,6 @@ export const useAuth = () => {
             company_name: payload.company_name,
             cnpj: payload.cnpj,
             monthly_revenue: Number(payload.monthly_revenue ?? 0),
-            activity: payload.activity,
           },
         });
       } catch (companyError) {

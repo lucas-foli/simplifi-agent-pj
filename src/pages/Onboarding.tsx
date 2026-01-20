@@ -1,9 +1,3 @@
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase, supabasePJ } from "@/lib/supabase";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, ArrowLeft, ArrowRight, Building2, Check, Receipt, Upload } from "lucide-react";
 import { useState } from "react";
@@ -11,6 +5,13 @@ import InputMask from "react-input-mask";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/lib/supabase";
+// import { branding } from "@/config/branding";
 
 const steps = [
   { number: 1, title: "Bem-vindo" },
@@ -38,7 +39,6 @@ const Onboarding = () => {
     password: "",
     confirmPassword: "",
     companyName: "",
-    companyActivity: "",
     cnpj: "",
     monthlyRevenue: "",
     fixedCosts: [] as FixedCost[],
@@ -133,16 +133,12 @@ const Onboarding = () => {
     try {
       const cleanedCnpj = formData.cnpj ? formData.cnpj.replace(/\D/g, "") : undefined;
       const monthlyRevenueValue = parseFloat(formData.monthlyRevenue || "0") || 0;
-      const activityValue = formData.companyActivity.trim()
-        ? formData.companyActivity.trim()
-        : undefined;
 
       const result = await signUp(formData.email, formData.password, {
         name: formData.name,
         company_name: formData.companyName,
         cnpj: cleanedCnpj,
         monthly_revenue: monthlyRevenueValue,
-        activity: activityValue,
       });
 
       if (!result) {
@@ -158,7 +154,6 @@ const Onboarding = () => {
           company_name: formData.companyName || formData.name,
           cnpj: cleanedCnpj || null,
           monthly_revenue: monthlyRevenueValue,
-          activity: activityValue ?? null,
         },
       });
 
@@ -167,11 +162,11 @@ const Onboarding = () => {
       if (ensuredCompanyId) {
         for (const cost of formData.fixedCosts) {
           const parsedAmount = parseFloat(cost.value);
-          if (!cost.name.trim() || Number.isNaN(parsedAmount) || parsedAmount < 0) {
+          if (!cost.name.trim() || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
             continue;
           }
 
-          const { error: companyCostError } = await supabasePJ.from("company_fixed_costs").insert({
+          const { error: companyCostError } = await supabase.from("company_fixed_costs").insert({
             company_id: ensuredCompanyId,
             description: cost.name,
             amount: parsedAmount,
@@ -367,18 +362,6 @@ const Onboarding = () => {
                   </div>
 
                   <div>
-                    <Label htmlFor="companyActivity">Ramo de Atividade da Empresa</Label>
-                    <Input
-                      id="companyActivity"
-                      value={formData.companyActivity}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, companyActivity: e.target.value }))
-                      }
-                      placeholder="Ex.: Consultoria financeira"
-                    />
-                  </div>
-
-                  <div>
                     <Label htmlFor="cnpj">CNPJ</Label>
                     <InputMask
                       mask="99.999.999/9999-99"
@@ -550,7 +533,7 @@ const Onboarding = () => {
                         loading ||
                         formData.fixedCosts.length === 0 ||
                         formData.fixedCosts.some(
-                          (cost) => !cost.name.trim() || Number.parseFloat(cost.value || "0") < 0,
+                          (cost) => !cost.name.trim() || Number.parseFloat(cost.value || "0") <= 0,
                         )
                       }
                     >

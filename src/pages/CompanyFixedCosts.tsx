@@ -24,11 +24,6 @@ import {
   useDeleteCompanyFixedCost,
   useUpdateCompanyFixedCost,
 } from '@/hooks/useCompanyFinancialData';
-import {
-  formatCurrencyDisplay,
-  initializeCurrencyValue,
-  parseCurrencyInput,
-} from '@/utils/currency';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -92,14 +87,14 @@ const CompanyFixedCosts = () => {
   };
 
   const handleSubmit = async () => {
-    if (!formState.description || formState.amount === '') {
+    if (!formState.description || !formState.amount) {
       toast.error('Preencha descrição e valor');
       return;
     }
 
     const amount = Number(formState.amount);
-    if (Number.isNaN(amount) || amount < 0) {
-      toast.error('Informe um valor maior ou igual a zero');
+    if (Number.isNaN(amount) || amount <= 0) {
+      toast.error('Informe um valor válido');
       return;
     }
 
@@ -142,14 +137,6 @@ const CompanyFixedCosts = () => {
       console.error('Erro ao remover custo fixo:', error);
       toast.error('Não foi possível remover o custo fixo');
     }
-  };
-
-  const handleAmountChange = (value: string) => {
-    const parsedValue = parseCurrencyInput(value);
-    setFormState((prev) => ({
-      ...prev,
-      amount: parsedValue,
-    }));
   };
 
   if (loading || companyLoading) {
@@ -251,9 +238,9 @@ const CompanyFixedCosts = () => {
                           setEditingId(cost.id);
                           setFormState({
                             description: cost.description,
-                            amount: initializeCurrencyValue(Number(cost.amount)),
+                            amount: Number(cost.amount).toString(),
                             category_id: cost.category_id ?? '',
-                            payment_method: cost.payment_method ?? '',
+                            payment_method: ((cost as any).payment_method as string | null) ?? '',
                           });
                           setIsDialogOpen(true);
                         }}
@@ -316,10 +303,14 @@ const CompanyFixedCosts = () => {
               <Label htmlFor="amount">Valor mensal (R$)</Label>
               <Input
                 id="amount"
-                inputMode="decimal"
-                value={formatCurrencyDisplay(formState.amount)}
-                onChange={(event) => handleAmountChange(event.target.value)}
-                placeholder="0,00"
+                type="number"
+                step="0.01"
+                value={formState.amount}
+                onChange={(event) => setFormState((prev) => ({
+                  ...prev,
+                  amount: event.target.value,
+                }))}
+                placeholder="5000.00"
               />
             </div>
 

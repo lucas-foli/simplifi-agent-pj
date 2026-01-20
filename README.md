@@ -45,21 +45,10 @@ O projeto usa Vite; por padrão a aplicação sobe em `http://localhost:5173`.
 
 - `src/pages` – onboarding PJ, dashboards empresariais, fluxo de transações/custos.
 - `src/hooks` – hooks específicos para empresas (`useCompanyFinancialData`, `useAuth`).
-- `supabase/` – migrações, funções e configurações compartilhadas PF/PJ (não remover).
+- `supabase/` – migrações, funções e configurações do Supabase.
 - `public/` – assets e ícones.
 
-### White label / branding
-
-Para personalizar o visual com a marca do cliente, basta substituir os arquivos em `public/branding/` mantendo os mesmos nomes:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-- Supabase (Auth + PostgREST + Edge Functions)
-
-## White label / Branding
+## White label / branding
 
 - Ajuste o nome, caminhos de logo e paleta em `src/config/branding.ts`.
 - Substitua os arquivos em `public/branding/` (`logo-horizontal.svg`, `logo-horizontal-inverted.svg`, `logo-mark.svg`).
@@ -87,7 +76,7 @@ No mesmo arquivo você pode ajustar `brandName` e a paleta `colors` (`primary`, 
 
 ## Próximos passos sugeridos
 
-- Conectar o app à instância Supabase compartilhada (já referenciada no `.env`).
+- Conectar o app à instância Supabase PJ (já referenciada no `.env`).
 - Revisar rotas protegidas em `src/App.tsx` caso adicione novos módulos PJ.
 - Criar testes de integração/end-to-end para flows críticos (onboarding e lançamento de transações).
 

@@ -51,7 +51,6 @@ export type Database = {
       }
       companies: {
         Row: {
-          activity: string | null
           created_at: string
           created_by: string | null
           cnpj_encrypted: string | null
@@ -65,7 +64,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          activity?: string | null
           created_at?: string
           created_by?: string | null
           cnpj_encrypted?: string | null
@@ -79,7 +77,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          activity?: string | null
           created_at?: string
           created_by?: string | null
           cnpj_encrypted?: string | null
@@ -146,7 +143,6 @@ export type Database = {
           created_by: string | null
           description: string
           id: string
-          payment_method: string | null
           updated_at: string
         }
         Insert: {
@@ -157,7 +153,6 @@ export type Database = {
           created_by?: string | null
           description: string
           id?: string
-          payment_method?: string | null
           updated_at?: string
         }
         Update: {
@@ -168,7 +163,6 @@ export type Database = {
           created_by?: string | null
           description?: string
           id?: string
-          payment_method?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -253,7 +247,7 @@ export type Database = {
           id: string
           notes: string | null
           payment_method: string | null
-          type: Database["pj"]["Enums"]["transaction_type"]
+          type: Database["public"]["Enums"]["transaction_type"]
           updated_at: string
         }
         Insert: {
@@ -267,7 +261,7 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_method?: string | null
-          type: Database["pj"]["Enums"]["transaction_type"]
+          type: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
         }
         Update: {
@@ -281,7 +275,7 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_method?: string | null
-          type?: Database["pj"]["Enums"]["transaction_type"]
+          type?: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
         }
         Relationships: [
@@ -469,7 +463,7 @@ export type Database = {
           id: string
           monthly_income: number
           updated_at: string
-          user_type: Database["pj"]["Enums"]["user_type"]
+          user_type: Database["public"]["Enums"]["user_type"]
         }
         Insert: {
           cnpj?: string | null
@@ -480,7 +474,7 @@ export type Database = {
           id: string
           monthly_income?: number
           updated_at?: string
-          user_type: Database["pj"]["Enums"]["user_type"]
+          user_type: Database["public"]["Enums"]["user_type"]
         }
         Update: {
           cnpj?: string | null
@@ -491,7 +485,7 @@ export type Database = {
           id?: string
           monthly_income?: number
           updated_at?: string
-          user_type?: Database["pj"]["Enums"]["user_type"]
+          user_type?: Database["public"]["Enums"]["user_type"]
         }
         Relationships: []
       }
@@ -506,7 +500,7 @@ export type Database = {
           fixed_cost_id: string | null
           id: string
           is_fixed_cost: boolean
-          type: Database["pj"]["Enums"]["transaction_type"]
+          type: Database["public"]["Enums"]["transaction_type"]
           updated_at: string
           user_id: string
         }
@@ -520,7 +514,7 @@ export type Database = {
           fixed_cost_id?: string | null
           id?: string
           is_fixed_cost?: boolean
-          type: Database["pj"]["Enums"]["transaction_type"]
+          type: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
           user_id: string
         }
@@ -534,7 +528,7 @@ export type Database = {
           fixed_cost_id?: string | null
           id?: string
           is_fixed_cost?: boolean
-          type?: Database["pj"]["Enums"]["transaction_type"]
+          type?: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
           user_id?: string
         }
@@ -592,7 +586,6 @@ export type Database = {
     Tables: {
       companies: {
         Row: {
-          activity: string | null
           created_at: string
           created_by: string | null
           cnpj_encrypted: string | null
@@ -606,7 +599,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          activity?: string | null
           created_at?: string
           created_by?: string | null
           cnpj_encrypted?: string | null
@@ -620,7 +612,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          activity?: string | null
           created_at?: string
           created_by?: string | null
           cnpj_encrypted?: string | null
@@ -687,7 +678,6 @@ export type Database = {
           created_by: string | null
           description: string
           id: string
-          payment_method: string | null
           updated_at: string
         }
         Insert: {
@@ -698,7 +688,6 @@ export type Database = {
           created_by?: string | null
           description: string
           id?: string
-          payment_method?: string | null
           updated_at?: string
         }
         Update: {
@@ -709,7 +698,6 @@ export type Database = {
           created_by?: string | null
           description?: string
           id?: string
-          payment_method?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -794,7 +782,7 @@ export type Database = {
           id: string
           notes: string | null
           payment_method: string | null
-          type: Database["pj"]["Enums"]["transaction_type"]
+          type: Database["public"]["Enums"]["transaction_type"]
           updated_at: string
         }
         Insert: {
@@ -808,7 +796,7 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_method?: string | null
-          type: Database["pj"]["Enums"]["transaction_type"]
+          type: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
         }
         Update: {
@@ -822,7 +810,7 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_method?: string | null
-          type?: Database["pj"]["Enums"]["transaction_type"]
+          type?: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
         }
         Relationships: [
@@ -890,7 +878,7 @@ export type Database = {
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "pj">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
@@ -989,24 +977,24 @@ export type Enums<
     : never
 
 export type CompositeTypes<
-  SchemaCompositeTypeNameOrOptions extends
+  PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends SchemaCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[SchemaCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = SchemaCompositeTypeNameOrOptions extends {
+> = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[SchemaCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : SchemaCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][SchemaCompositeTypeNameOrOptions]
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
 export const Constants = {
-  pj: {
+  public: {
     Enums: {
       transaction_type: ["receita", "despesa"],
       user_type: ["pessoa_fisica", "pessoa_juridica"],
