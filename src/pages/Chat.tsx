@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { motion, AnimatePresence } from 'framer-motion';
+import { branding } from '@/config/branding';
 import {
   Send,
   ArrowLeft,
@@ -274,12 +275,15 @@ const Chat = () => {
                 <span className="hidden sm:inline">Voltar</span>
               </Button>
             </Link>
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-                <Bot className="h-5 w-5 text-primary-foreground" />
-              </div>
+            <div className="flex items-center gap-3">
+              <img
+                src={branding.logo.horizontal}
+                alt={`${branding.brandName} assistente`}
+                className="h-8 w-auto object-contain"
+              />
+              <span className="sr-only">{branding.brandName}</span>
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold">Assistente SimplifiQA</h1>
+                <h1 className="text-xl sm:text-2xl font-bold">Assistente {branding.brandName}</h1>
                 <p className="text-xs text-muted-foreground hidden sm:block">
                   Pergunte sobre suas finanças
                 </p>

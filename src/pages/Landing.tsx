@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { branding } from "@/config/branding";
 import { ArrowRight, MessageSquare, TrendingUp, Shield, Zap, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
@@ -47,10 +48,12 @@ const Landing = () => {
             animate={{ opacity: 1, x: 0 }}
             className="flex items-center gap-2"
           >
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <TrendingUp className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold text-foreground">SimplifiQA</span>
+            <img
+              src={branding.logo.horizontal}
+              alt={`${branding.brandName} logotipo`}
+              className="h-8 w-auto object-contain"
+            />
+            <span className="text-xl font-bold text-foreground">{branding.brandName}</span>
           </motion.div>
           <nav className="hidden md:flex gap-6 text-sm">
             <a href="#features" className="text-muted-foreground hover:text-foreground transition-smooth">Recursos</a>
@@ -158,7 +161,7 @@ const Landing = () => {
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-8 sm:mb-10 md:mb-12">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-3 sm:mb-4 px-4">
-                Por Que Escolher SimplifiQA?
+                Por Que Escolher {branding.brandName}?
               </h2>
             </div>
             
@@ -215,13 +218,15 @@ const Landing = () => {
         <div className="container mx-auto px-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 text-center sm:text-left">
             <div className="flex items-center gap-2">
-              <div className="h-6 w-6 rounded-lg bg-primary flex items-center justify-center">
-                <TrendingUp className="h-4 w-4 text-primary-foreground" />
-              </div>
-              <span className="font-semibold text-foreground">SimplifiQA</span>
+              <img
+                src={branding.logo.mark}
+                alt={`${branding.brandName} marca`}
+                className="h-6 w-6 object-contain"
+              />
+              <span className="font-semibold text-foreground">{branding.brandName}</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2025 SimplifiQA. Seu contador digital.
+              © {new Date().getFullYear()} {branding.brandName}. Seu contador digital.
             </p>
           </div>
         </div>

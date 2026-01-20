@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { branding } from '@/config/branding';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,8 +46,13 @@ const Login = () => {
         className="w-full max-w-md"
       >
         <Card className="p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2">SimplifiQA</h1>
+          <div className="text-center mb-8 space-y-2">
+            <img
+              src={branding.logo.horizontal}
+              alt={`${branding.brandName} logotipo`}
+              className="mx-auto h-10 w-auto object-contain"
+            />
+            <h1 className="text-3xl font-bold text-foreground">{branding.brandName}</h1>
             <p className="text-muted-foreground">Faça login na sua conta</p>
           </div>
 
