@@ -30,10 +30,8 @@ const Onboarding = () => {
   const [loading, setLoading] = useState(false);
 
   const [emailError, setEmailError] = useState("");
-  const [phoneError, setPhoneError] = useState("");
   const [cnpjError, setCnpjError] = useState("");
   const [passwordError, setPasswordError] = useState("");
-  const [authMethod, setAuthMethod] = useState<"email" | "phone">("email");
   const [verificationCode, setVerificationCode] = useState("");
   const [verificationError, setVerificationError] = useState("");
   const [verificationSent, setVerificationSent] = useState(false);
@@ -43,7 +41,6 @@ const Onboarding = () => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    phone: "",
     password: "",
     confirmPassword: "",
     companyName: "",
@@ -53,20 +50,10 @@ const Onboarding = () => {
   });
 
   const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  const validatePhone = (value: string) => {
-    const digits = value.replace(/\D/g, "");
-    return digits.length >= 10;
-  };
 
   const handleEmailChange = (value: string) => {
     setFormData((prev) => ({ ...prev, email: value }));
     setEmailError(value && !validateEmail(value) ? "Email inválido" : "");
-    if (verificationSent) resetVerification();
-  };
-
-  const handlePhoneChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, phone: value }));
-    setPhoneError(value && !validatePhone(value) ? "Telefone inválido" : "");
     if (verificationSent) resetVerification();
   };
 
@@ -143,57 +130,33 @@ const Onboarding = () => {
     setAuthVerified(false);
   };
 
-  const normalizePhone = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    if (trimmed.startsWith("+")) return trimmed;
-    const digits = trimmed.replace(/\D/g, "");
-    if (!digits) return null;
-    if (digits.startsWith("55")) return `+${digits}`;
-    return `+55${digits}`;
-  };
-
   const handleSendVerification = async () => {
     if (authLoading) return;
     if (!validatePassword()) return;
 
-    if (authMethod === "email") {
-      if (!formData.email || !validateEmail(formData.email)) {
-        setEmailError("Email inválido");
-        return;
-      }
-    } else {
-      if (!formData.phone || !validatePhone(formData.phone)) {
-        setPhoneError("Telefone inválido");
-        return;
-      }
+    if (!formData.email || !validateEmail(formData.email)) {
+      setEmailError("Email inválido");
+      return;
     }
 
     setAuthLoading(true);
     setVerificationError("");
     try {
       if (verificationSent && !authVerified) {
-        if (authMethod === "email") {
-          const { error } = await supabase.auth.resend({
-            type: "signup",
-            email: formData.email,
-          });
-          if (error) throw error;
-          toast.success("Código reenviado para seu email.");
-          return;
-        }
-
-        toast.success("Aguarde alguns minutos antes de solicitar um novo SMS.");
+        const { error } = await supabase.auth.resend({
+          type: "signup",
+          email: formData.email,
+        });
+        if (error) throw error;
+        toast.success("Código reenviado para seu email.");
         return;
       }
 
       const monthlyRevenueValue = parseFloat(formData.monthlyRevenue || "0") || 0;
-      const normalizedPhone = authMethod === "phone" ? normalizePhone(formData.phone) : undefined;
 
       const result = await signUp(
         {
-          email: authMethod === "email" ? formData.email : undefined,
-          phone: authMethod === "phone" ? normalizedPhone ?? undefined : undefined,
+          email: formData.email,
           password: formData.password,
         },
         {
@@ -212,11 +175,7 @@ const Onboarding = () => {
         return;
       }
 
-      toast.success(
-        authMethod === "email"
-          ? "Enviamos um código para seu email."
-          : "Enviamos um código por SMS.",
-      );
+      toast.success("Enviamos um código para seu email.");
     } catch (error) {
       console.error("Erro ao enviar código:", error);
       const errorMessage = error instanceof Error ? error.message : "Erro ao enviar código";
@@ -236,12 +195,10 @@ const Onboarding = () => {
     setAuthLoading(true);
     setVerificationError("");
     try {
-      const normalizedPhone = authMethod === "phone" ? normalizePhone(formData.phone) : undefined;
       const { data, error } = await supabase.auth.verifyOtp({
-        email: authMethod === "email" ? formData.email : undefined,
-        phone: authMethod === "phone" ? normalizedPhone ?? undefined : undefined,
+        email: formData.email,
         token: verificationCode.trim(),
-        type: authMethod === "phone" ? "sms" : "signup",
+        type: "signup",
       });
 
       if (error) throw error;
@@ -267,12 +224,8 @@ const Onboarding = () => {
       return;
     }
     if (step === 2) {
-      if (authMethod === "email" && (!formData.email || emailError)) {
+      if (!formData.email || emailError) {
         setEmailError("Email inválido");
-        return;
-      }
-      if (authMethod === "phone" && (!formData.phone || phoneError)) {
-        setPhoneError("Telefone inválido");
         return;
       }
       if (!authVerified) {
@@ -370,10 +323,7 @@ const Onboarding = () => {
   };
 
   const isPasswordValid = formData.password.length >= 6 && formData.password === formData.confirmPassword;
-  const isContactValid =
-    authMethod === "email"
-      ? Boolean(formData.email) && !emailError
-      : Boolean(formData.phone) && !phoneError;
+  const isContactValid = Boolean(formData.email) && !emailError;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20 flex items-center justify-center p-4">
@@ -461,76 +411,23 @@ const Onboarding = () => {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Como deseja receber o código?</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        type="button"
-                        variant={authMethod === "email" ? "default" : "outline"}
-                        onClick={() => {
-                          setAuthMethod("email");
-                          resetVerification();
-                        }}
-                      >
-                        Email
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={authMethod === "phone" ? "default" : "outline"}
-                        onClick={() => {
-                          setAuthMethod("phone");
-                          resetVerification();
-                        }}
-                      >
-                        SMS
-                      </Button>
-                    </div>
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => handleEmailChange(e.target.value)}
+                      placeholder="seu@email.com"
+                      className={emailError ? "border-danger" : ""}
+                    />
+                    {emailError && (
+                      <div className="flex items-center gap-2 text-xs text-danger mt-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {emailError}
+                      </div>
+                    )}
                   </div>
-
-                  {authMethod === "email" ? (
-                    <div>
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => handleEmailChange(e.target.value)}
-                        placeholder="seu@email.com"
-                        className={emailError ? "border-danger" : ""}
-                      />
-                      {emailError && (
-                        <div className="flex items-center gap-2 text-xs text-danger mt-1">
-                          <AlertCircle className="h-3 w-3" />
-                          {emailError}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div>
-                      <Label htmlFor="phone">Celular</Label>
-                      <InputMask
-                        id="phone"
-                        mask="(99) 99999-9999"
-                        value={formData.phone}
-                        onChange={(e) => handlePhoneChange(e.target.value)}
-                      >
-                        {(inputProps: any) => (
-                          <Input
-                            {...inputProps}
-                            type="tel"
-                            placeholder="(11) 99999-9999"
-                            className={phoneError ? "border-danger" : ""}
-                          />
-                        )}
-                      </InputMask>
-                      {phoneError && (
-                        <div className="flex items-center gap-2 text-xs text-danger mt-1">
-                          <AlertCircle className="h-3 w-3" />
-                          {phoneError}
-                        </div>
-                      )}
-                    </div>
-                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
