@@ -67,7 +67,7 @@ export async function loadTenantBranding(): Promise<BrandingConfig | null> {
     return null;
   }
 
-  const tenant = data as TenantRecord | null;
+  const tenant = data as unknown as TenantRecord | null;
   if (!tenant || tenant.is_active === false) return null;
 
   return mergeBranding(tenant.branding ?? undefined);
