@@ -168,12 +168,15 @@ export const useAuth = () => {
     }
   };
 
-  const signUp = async (email: string, password: string, userData: {
-    name: string;
-    company_name?: string;
-    cnpj?: string;
-    monthly_revenue?: number;
-  }) => {
+  const signUp = async (
+    credentials: { email?: string; phone?: string; password: string },
+    userData: {
+      name: string;
+      company_name?: string;
+      cnpj?: string;
+      monthly_revenue?: number;
+    },
+  ) => {
     const cleanedCnpj = userData.cnpj?.replace(/\D/g, '') ?? null;
     pendingCompanyPayload.current = {
       company_name: userData.company_name ?? userData.name,
@@ -181,8 +184,10 @@ export const useAuth = () => {
       monthly_revenue: userData.monthly_revenue ?? null,
     };
 
+    const { email, phone, password } = credentials;
     const { data, error } = await supabase.auth.signUp({
       email,
+      phone,
       password,
       options: {
         data: {
@@ -194,54 +199,7 @@ export const useAuth = () => {
 
     if (error) throw error;
 
-    // Wait for the trigger to create the user profile
     if (data.user && data.session) {
-      // Give the trigger time to execute
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Update profile with complete data
-      // If CNPJ is provided, encrypt it
-      let updateData: any = {
-        full_name: userData.name,
-        user_type: 'pessoa_juridica',
-        company_name: userData.company_name,
-      };
-
-      if (cleanedCnpj) {
-        const { data: encryptedCnpj } = await supabase.rpc('encrypt_sensitive', {
-          data: cleanedCnpj,
-        });
-        updateData.cnpj_encrypted = encryptedCnpj;
-      }
-
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update(updateData)
-        .eq('id', data.user.id);
-
-      if (updateError) {
-        console.error('Error updating profile:', updateError);
-        // Don't throw, profile was created by trigger
-      }
-
-      try {
-        const payload = pendingCompanyPayload.current ?? {
-          company_name: userData.company_name ?? userData.name,
-          cnpj: cleanedCnpj,
-          monthly_revenue: userData.monthly_revenue ?? null,
-        };
-
-        await supabase.rpc('pg_create_company_with_owner', {
-          payload: {
-            company_name: payload.company_name,
-            cnpj: payload.cnpj,
-            monthly_revenue: Number(payload.monthly_revenue ?? 0),
-          },
-        });
-      } catch (companyError) {
-        console.error('Error creating company for user:', companyError);
-      }
-
       await fetchProfile(data.user.id);
     }
 
