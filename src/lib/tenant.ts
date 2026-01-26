@@ -37,6 +37,18 @@ function mergeBranding(overrides?: Partial<BrandingConfig> | null): BrandingConf
       ...defaultBranding.colors,
       ...overrides.colors,
     },
+    images: {
+      ...(defaultBranding as any).images,
+      ...(overrides as any).images,
+    },
+    cssVars: {
+      ...(defaultBranding as any).cssVars,
+      ...(overrides as any).cssVars,
+    },
+    dashboard: {
+      ...(defaultBranding as any).dashboard,
+      ...(overrides as any).dashboard,
+    },
   };
 }
 
@@ -55,7 +67,8 @@ export async function loadTenantBranding(): Promise<BrandingConfig | null> {
     return null;
   }
 
-  if (!data || data.is_active === false) return null;
+  const tenant = data as unknown as TenantRecord | null;
+  if (!tenant || tenant.is_active === false) return null;
 
-  return mergeBranding(data.branding ?? undefined);
+  return mergeBranding(tenant.branding ?? undefined);
 }

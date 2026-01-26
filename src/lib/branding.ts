@@ -123,6 +123,7 @@ export function applyBrandingTheme(config: BrandingConfig = branding) {
     chart5,
     shadowPrimary,
   } = config.colors;
+  const cssVars = (config as any).cssVars as Record<string, string> | undefined;
 
   const primaryHsl = normalizeToHsl(primary);
   const primaryLightHsl = normalizeToHsl(primaryLight);
@@ -205,6 +206,14 @@ export function applyBrandingTheme(config: BrandingConfig = branding) {
   if (chart3Hsl) root.style.setProperty("--chart-3", hslToString(chart3Hsl));
   if (chart4Hsl) root.style.setProperty("--chart-4", hslToString(chart4Hsl));
   if (chart5Hsl) root.style.setProperty("--chart-5", hslToString(chart5Hsl));
+
+  if (cssVars) {
+    Object.entries(cssVars).forEach(([key, value]) => {
+      if (!value) return;
+      const property = key.startsWith("--") ? key : `--${key}`;
+      root.style.setProperty(property, value);
+    });
+  }
 }
 
 function applyFavicon(favicon?: string) {
