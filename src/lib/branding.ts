@@ -216,6 +216,15 @@ export function applyBrandingTheme(config: BrandingConfig = branding) {
   }
 }
 
-export function initializeBranding() {
-  applyBrandingTheme(branding);
+function applyFavicon(favicon?: string) {
+  if (typeof document === "undefined" || !favicon) return;
+  const link =
+    document.querySelector<HTMLLinkElement>('link[rel="icon"]') ??
+    document.head.appendChild(Object.assign(document.createElement("link"), { rel: "icon" }));
+  link.href = favicon;
+}
+
+export function initializeBranding(config: BrandingConfig = branding) {
+  applyBrandingTheme(config);
+  applyFavicon(config.favicon);
 }
