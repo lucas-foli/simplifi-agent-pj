@@ -40,9 +40,6 @@ dist-ssr
 *_backup.*
 *.bak
 
-# Manual migrations (consolidated in MANUAL_MIGRATION_FIXED.sql)
-supabase/migrations/*.sql
-*.sql
 
 # PR documentation (temporary files)
 *.md

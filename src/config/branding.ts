@@ -53,6 +53,29 @@ export const branding = {
 	 * se precisar customizar.
 	 */
 	favicon: '/favicon.ico',
+	/**
+	 * Imagens opcionais usadas em telas específicas.
+	 */
+	images: {
+		hero: '',
+		login: '',
+		onboarding: '',
+		dashboard: '',
+	},
+	/**
+	 * CSS variables adicionais (sem o prefixo --).
+	 * Ex.: { background: '210 16% 98%', foreground: '210 29% 24%' }
+	 */
+	cssVars: {},
+	/**
+	 * Paleta opcional para telas específicas (ex.: dashboard).
+	 */
+	dashboard: {
+		primary: '',
+		secondary: '',
+		background: '',
+		foreground: '',
+	},
 };
 
 export type BrandingConfig = typeof branding;

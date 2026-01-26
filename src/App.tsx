@@ -13,6 +13,7 @@ import CompanyTransactions from "./pages/CompanyTransactions";
 import CompanyFixedCosts from "./pages/CompanyFixedCosts";
 import Debug from "./pages/Debug";
 import CacheTest from "./pages/CacheTest";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -57,6 +58,11 @@ const App = () => (
           <Route path="/cache-test" element={
             <ProtectedRoute>
               <CacheTest />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin" element={
+            <ProtectedRoute>
+              <Admin />
             </ProtectedRoute>
           } />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
