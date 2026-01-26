@@ -141,7 +141,7 @@ const Onboarding = () => {
         monthly_revenue: monthlyRevenueValue,
       });
 
-      if (!result) {
+      if (!result?.session) {
         toast.success("Verifique seu email para confirmar a conta!");
         navigate("/login");
         return;
