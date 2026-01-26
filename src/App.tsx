@@ -14,6 +14,7 @@ import CompanyFixedCosts from "./pages/CompanyFixedCosts";
 import Debug from "./pages/Debug";
 import CacheTest from "./pages/CacheTest";
 import Admin from "./pages/Admin";
+import AdminLogin from "./pages/AdminLogin";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -60,8 +61,9 @@ const App = () => (
               <CacheTest />
             </ProtectedRoute>
           } />
+          <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin" element={
-            <ProtectedRoute>
+            <ProtectedRoute redirectTo="/admin/login">
               <Admin />
             </ProtectedRoute>
           } />

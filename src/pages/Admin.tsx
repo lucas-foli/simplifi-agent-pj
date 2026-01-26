@@ -8,11 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { ADMIN_EMAILS } from "@/config/admin";
 
-const ALLOWED_EMAILS = new Set([
-  "lucas.defoliveira@gmail.com",
-  "diego.fjddf@gmail.com",
-]);
+const ALLOWED_EMAILS = new Set(ADMIN_EMAILS);
 
 type TenantRow = {
   id: string;
@@ -159,6 +157,91 @@ const cleanObject = (obj: Record<string, any>) =>
     Object.entries(obj).filter(([, value]) => value !== "" && value !== null && value !== undefined),
   );
 
+const isHexColor = (value: string) => /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(value.trim());
+
+const hexToHslString = (hex: string) => {
+  const normalized = hex.replace("#", "");
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : normalized;
+  if (expanded.length !== 6) return null;
+  const num = parseInt(expanded, 16);
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const delta = max - min;
+
+  let h = 0;
+  if (delta !== 0) {
+    if (max === rn) {
+      h = ((gn - bn) / delta) % 6;
+    } else if (max === gn) {
+      h = (bn - rn) / delta + 2;
+    } else {
+      h = (rn - gn) / delta + 4;
+    }
+  }
+  h = Math.round(h * 60);
+  if (h < 0) h += 360;
+
+  const l = (max + min) / 2;
+  const s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+
+  return `${h} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+};
+
+const normalizeCssVarValue = (value: string) => {
+  if (!value) return value;
+  const trimmed = value.trim();
+  if (isHexColor(trimmed)) {
+    const hsl = hexToHslString(trimmed);
+    return hsl ?? trimmed;
+  }
+  return trimmed;
+};
+
+const ColorInput = ({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) => (
+  <div>
+    <Label htmlFor={id}>{label}</Label>
+    <div className="flex items-center gap-3">
+      <input
+        id={`${id}-picker`}
+        type="color"
+        value={isHexColor(value) ? value : "#000000"}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-10 w-12 rounded-md border border-input bg-transparent p-1"
+      />
+      <Input
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="#FFFFFF ou 210 16% 98%"
+      />
+    </div>
+  </div>
+);
+
 const Admin = () => {
   const { user, loading } = useAuth();
   const [tenants, setTenants] = useState<TenantRow[]>([]);
@@ -166,6 +249,7 @@ const Admin = () => {
   const [form, setForm] = useState<TenantFormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [loadingTenants, setLoadingTenants] = useState(false);
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
 
   const isAllowed = useMemo(() => {
     if (!user?.email) return false;
@@ -287,7 +371,7 @@ const Admin = () => {
 
     const cssVars = cleanObject(
       Object.fromEntries(
-        BASE_VAR_FIELDS.map((field) => [field, (form as any)[field]]),
+        BASE_VAR_FIELDS.map((field) => [field, normalizeCssVarValue((form as any)[field])]),
       ),
     );
 
@@ -367,6 +451,43 @@ const Admin = () => {
       toast.error("Erro ao salvar tenant.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAssetUpload = async (
+    field:
+      | "imageHero"
+      | "imageLogin"
+      | "imageOnboarding"
+      | "imageDashboard"
+      | "logoHorizontal"
+      | "logoHorizontalInverted"
+      | "logoMark"
+      | "favicon",
+    file: File,
+  ) => {
+    if (!form.slug.trim()) {
+      toast.error("Defina o slug antes de enviar arquivos.");
+      return;
+    }
+    setUploadingField(field);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const safeSlug = form.slug.trim().toLowerCase();
+      const path = `${safeSlug}/${field}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from("branding")
+        .upload(path, file, { upsert: true });
+      if (error) throw error;
+
+      const { data } = supabase.storage.from("branding").getPublicUrl(path);
+      handleChange(field, data.publicUrl);
+      toast.success("Arquivo enviado com sucesso!");
+    } catch (error) {
+      console.error("Erro ao enviar arquivo:", error);
+      toast.error("Erro ao enviar arquivo.");
+    } finally {
+      setUploadingField(null);
     }
   };
 
@@ -478,99 +599,125 @@ const Admin = () => {
                   placeholder="Nome exibido"
                 />
               </div>
-              <div>
-                <Label htmlFor="favicon">Favicon (URL)</Label>
+              <div className="space-y-2">
+                <Label htmlFor="faviconFile">Favicon</Label>
                 <Input
-                  id="favicon"
-                  value={form.favicon}
-                  onChange={(e) => handleChange("favicon", e.target.value)}
-                  placeholder="https://.../favicon.ico"
+                  id="faviconFile"
+                  type="file"
+                  accept="image/x-icon,image/png,image/svg+xml"
+                  disabled={uploadingField === "favicon"}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      void handleAssetUpload("favicon", file);
+                    }
+                  }}
                 />
+                <Input
+                  value={form.favicon}
+                  readOnly
+                  placeholder="URL será preenchida após upload"
+                />
+                {form.favicon && (
+                  <img
+                    src={form.favicon}
+                    alt="Favicon"
+                    className="h-10 w-10 object-contain rounded border bg-muted"
+                  />
+                )}
               </div>
             </div>
 
             <div className="grid sm:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="logoHorizontal">Logo horizontal</Label>
-                <Input
-                  id="logoHorizontal"
-                  value={form.logoHorizontal}
-                  onChange={(e) => handleChange("logoHorizontal", e.target.value)}
-                  placeholder="https://.../logo-horizontal.svg"
-                />
-              </div>
-              <div>
-                <Label htmlFor="logoHorizontalInverted">Logo invertida</Label>
-                <Input
-                  id="logoHorizontalInverted"
-                  value={form.logoHorizontalInverted}
-                  onChange={(e) => handleChange("logoHorizontalInverted", e.target.value)}
-                  placeholder="https://.../logo-horizontal-inverted.svg"
-                />
-              </div>
-              <div>
-                <Label htmlFor="logoMark">Logo mark</Label>
-                <Input
-                  id="logoMark"
-                  value={form.logoMark}
-                  onChange={(e) => handleChange("logoMark", e.target.value)}
-                  placeholder="https://.../logo-mark.svg"
-                />
-              </div>
+              {[
+                { key: "logoHorizontal", label: "Logo horizontal", value: form.logoHorizontal },
+                { key: "logoHorizontalInverted", label: "Logo invertida", value: form.logoHorizontalInverted },
+                { key: "logoMark", label: "Logo mark", value: form.logoMark },
+              ].map((item) => (
+                <div key={item.key} className="space-y-2">
+                  <Label htmlFor={item.key}>{item.label}</Label>
+                  <Input
+                    id={item.key}
+                    type="file"
+                    accept="image/*"
+                    disabled={uploadingField === item.key}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        void handleAssetUpload(
+                          item.key as "logoHorizontal" | "logoHorizontalInverted" | "logoMark",
+                          file,
+                        );
+                      }
+                    }}
+                  />
+                  <Input
+                    value={item.value}
+                    readOnly
+                    placeholder="URL será preenchida após upload"
+                  />
+                  {item.value && (
+                    <img
+                      src={item.value}
+                      alt={item.label}
+                      className="h-16 w-full object-contain rounded-md border bg-muted"
+                    />
+                  )}
+                </div>
+              ))}
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="imageHero">Imagem hero</Label>
-                <Input
-                  id="imageHero"
-                  value={form.imageHero}
-                  onChange={(e) => handleChange("imageHero", e.target.value)}
-                  placeholder="https://.../hero.jpg"
-                />
-              </div>
-              <div>
-                <Label htmlFor="imageLogin">Imagem login</Label>
-                <Input
-                  id="imageLogin"
-                  value={form.imageLogin}
-                  onChange={(e) => handleChange("imageLogin", e.target.value)}
-                  placeholder="https://.../login.jpg"
-                />
-              </div>
-              <div>
-                <Label htmlFor="imageOnboarding">Imagem onboarding</Label>
-                <Input
-                  id="imageOnboarding"
-                  value={form.imageOnboarding}
-                  onChange={(e) => handleChange("imageOnboarding", e.target.value)}
-                  placeholder="https://.../onboarding.jpg"
-                />
-              </div>
-              <div>
-                <Label htmlFor="imageDashboard">Imagem dashboard</Label>
-                <Input
-                  id="imageDashboard"
-                  value={form.imageDashboard}
-                  onChange={(e) => handleChange("imageDashboard", e.target.value)}
-                  placeholder="https://.../dashboard.jpg"
-                />
-              </div>
+              {[
+                { key: "imageHero", label: "Imagem hero", value: form.imageHero },
+                { key: "imageLogin", label: "Imagem login", value: form.imageLogin },
+                { key: "imageOnboarding", label: "Imagem onboarding", value: form.imageOnboarding },
+                { key: "imageDashboard", label: "Imagem dashboard", value: form.imageDashboard },
+              ].map((item) => (
+                <div key={item.key} className="space-y-2">
+                  <Label htmlFor={item.key}>{item.label}</Label>
+                  <Input
+                    id={item.key}
+                    type="file"
+                    accept="image/*"
+                    disabled={uploadingField === item.key}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        void handleAssetUpload(
+                          item.key as "imageHero" | "imageLogin" | "imageOnboarding" | "imageDashboard",
+                          file,
+                        );
+                      }
+                    }}
+                  />
+                  <Input
+                    value={item.value}
+                    readOnly
+                    placeholder="URL será preenchida após upload"
+                  />
+                  {item.value && (
+                    <img
+                      src={item.value}
+                      alt={item.label}
+                      className="h-24 w-full object-cover rounded-md border"
+                    />
+                  )}
+                </div>
+              ))}
             </div>
 
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Cores principais</h3>
               <div className="grid sm:grid-cols-3 gap-4">
                 {COLOR_FIELDS.map((field) => (
-                  <div key={field}>
-                    <Label htmlFor={field}>{field}</Label>
-                    <Input
-                      id={field}
-                      value={(form as any)[field]}
-                      onChange={(e) => handleChange(field as keyof TenantFormState, e.target.value)}
-                      placeholder="#FFFFFF ou 210 16% 98%"
-                    />
-                  </div>
+                  <ColorInput
+                    key={field}
+                    id={field}
+                    label={field}
+                    value={(form as any)[field]}
+                    onChange={(value) => handleChange(field as keyof TenantFormState, value)}
+                  />
                 ))}
               </div>
             </div>
@@ -579,15 +726,13 @@ const Admin = () => {
               <h3 className="text-lg font-semibold">Base do tema</h3>
               <div className="grid sm:grid-cols-3 gap-4">
                 {BASE_VAR_FIELDS.map((field) => (
-                  <div key={field}>
-                    <Label htmlFor={field}>{field}</Label>
-                    <Input
-                      id={field}
-                      value={(form as any)[field]}
-                      onChange={(e) => handleChange(field as keyof TenantFormState, e.target.value)}
-                      placeholder="ex.: 210 16% 98%"
-                    />
-                  </div>
+                  <ColorInput
+                    key={field}
+                    id={field}
+                    label={field}
+                    value={(form as any)[field]}
+                    onChange={(value) => handleChange(field as keyof TenantFormState, value)}
+                  />
                 ))}
               </div>
             </div>
@@ -596,15 +741,13 @@ const Admin = () => {
               <h3 className="text-lg font-semibold">Dashboard (opcional)</h3>
               <div className="grid sm:grid-cols-2 gap-4">
                 {DASHBOARD_FIELDS.map((field) => (
-                  <div key={field}>
-                    <Label htmlFor={field}>{field}</Label>
-                    <Input
-                      id={field}
-                      value={(form as any)[field]}
-                      onChange={(e) => handleChange(field as keyof TenantFormState, e.target.value)}
-                      placeholder="#FFFFFF"
-                    />
-                  </div>
+                  <ColorInput
+                    key={field}
+                    id={field}
+                    label={field}
+                    value={(form as any)[field]}
+                    onChange={(value) => handleChange(field as keyof TenantFormState, value)}
+                  />
                 ))}
               </div>
             </div>
