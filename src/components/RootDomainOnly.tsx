@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
-import { resolveRootHost, resolveTenantSlug } from "@/lib/tenant";
+import { isSubdomainRequest, resolveRootHost } from "@/lib/tenant";
 
 interface RootDomainOnlyProps {
   children: ReactNode;
@@ -8,13 +8,13 @@ interface RootDomainOnlyProps {
 
 const RootDomainOnly = ({ children }: RootDomainOnlyProps) => {
   const location = useLocation();
-  const tenantSlug = useMemo(() => resolveTenantSlug(), [
+  const isSubdomain = useMemo(() => isSubdomainRequest(), [
     location.pathname,
     location.search,
   ]);
 
   useEffect(() => {
-    if (!tenantSlug) return;
+    if (!isSubdomain) return;
     const rootHost = resolveRootHost();
     if (!rootHost) return;
 
@@ -24,9 +24,9 @@ const RootDomainOnly = ({ children }: RootDomainOnlyProps) => {
     url.pathname = location.pathname;
     url.hash = location.hash;
     window.location.replace(url.toString());
-  }, [tenantSlug, location.pathname, location.hash]);
+  }, [isSubdomain, location.pathname, location.hash]);
 
-  if (tenantSlug) return null;
+  if (isSubdomain) return null;
   return <>{children}</>;
 };
 

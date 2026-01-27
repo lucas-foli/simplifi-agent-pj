@@ -29,6 +29,7 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const pendingCompanyPayload = useRef<PendingCompanyPayload | null>(null);
+  const attemptedTenantRepair = useRef(false);
 
   useEffect(() => {
     // Get initial session
@@ -154,10 +155,38 @@ export const useAuth = () => {
         .single();
 
       if (error) throw error;
-      setProfile(data);
+      let nextProfile = data;
 
-      if (data?.user_type === 'pessoa_juridica') {
-        await fetchCompanyMemberships(userId, true, data);
+      if (!attemptedTenantRepair.current && !data?.tenant_id) {
+        const tenantSlug = resolveTenantSlug();
+        if (tenantSlug) {
+          attemptedTenantRepair.current = true;
+          const { data: tenantData } = await supabase
+            .from('tenants' as any)
+            .select('id')
+            .eq('slug', tenantSlug)
+            .eq('is_active', true)
+            .maybeSingle();
+
+          if (tenantData?.id) {
+            const { data: updatedProfile } = await supabase
+              .from('profiles')
+              .update({ tenant_id: tenantData.id })
+              .eq('id', userId)
+              .select('*')
+              .single();
+
+            if (updatedProfile) {
+              nextProfile = updatedProfile;
+            }
+          }
+        }
+      }
+
+      setProfile(nextProfile);
+
+      if (nextProfile?.user_type === 'pessoa_juridica') {
+        await fetchCompanyMemberships(userId, true, nextProfile);
       } else {
         setCompanyMemberships([]);
         setActiveCompany(null);
