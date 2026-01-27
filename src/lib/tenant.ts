@@ -20,8 +20,22 @@ export function resolveTenantSlug() {
   }
 
   const parts = host.split(".");
+  if (host.endsWith(".localhost")) return parts[0] ?? null;
   if (parts.length < 3) return null;
   return parts[0];
+}
+
+export function resolveRootHost() {
+  if (typeof window === "undefined") return null;
+  const host = window.location.hostname;
+  if (LOCAL_HOSTS.has(host) || /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+    return host;
+  }
+  if (host.endsWith(".localhost")) return "localhost";
+
+  const parts = host.split(".");
+  if (parts.length <= 2) return host;
+  return parts.slice(1).join(".");
 }
 
 function mergeBranding(overrides?: Partial<BrandingConfig> | null): BrandingConfig {

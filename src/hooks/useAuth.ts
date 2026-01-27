@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { resolveTenantSlug } from '@/lib/tenant';
 import type { User } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -185,6 +186,8 @@ export const useAuth = () => {
     };
 
     const { email, phone, password } = credentials;
+    const tenantSlug = resolveTenantSlug();
+
     const { data, error } = await supabase.auth.signUp({
       email,
       phone,
@@ -193,6 +196,7 @@ export const useAuth = () => {
         data: {
           name: userData.name,
           user_type: 'pj', // Will be converted by trigger
+          tenant_slug: tenantSlug,
         },
       },
     });
