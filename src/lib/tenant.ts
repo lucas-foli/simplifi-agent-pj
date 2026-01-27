@@ -7,6 +7,7 @@ type TenantRecord = {
 };
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
+const DEFAULT_TENANT_SLUG = (import.meta.env.VITE_DEFAULT_TENANT_SLUG ?? "").trim();
 const ADMIN_HOSTS = (import.meta.env.VITE_ADMIN_HOSTS ?? import.meta.env.VITE_ADMIN_HOST ?? "")
   .split(",")
   .map((host) => host.trim().toLowerCase())
@@ -14,22 +15,30 @@ const ADMIN_HOSTS = (import.meta.env.VITE_ADMIN_HOSTS ?? import.meta.env.VITE_AD
 
 const isAdminHost = (host: string) => ADMIN_HOSTS.includes(host.toLowerCase());
 
-export function resolveTenantSlug() {
+const resolveSubdomainSlug = () => {
   if (typeof window === "undefined") return null;
-  const url = new URL(window.location.href);
-  const queryTenant = url.searchParams.get("tenant");
-  if (queryTenant) return queryTenant.trim();
-
   const host = window.location.hostname;
   if (LOCAL_HOSTS.has(host) || /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
     return null;
   }
   if (isAdminHost(host)) return null;
-
   const parts = host.split(".");
   if (host.endsWith(".localhost")) return parts[0] ?? null;
   if (parts.length < 3) return null;
   return parts[0];
+};
+
+export function resolveTenantSlug(options?: { allowDefault?: boolean }) {
+  if (typeof window === "undefined") return null;
+  const allowDefault = options?.allowDefault !== false;
+  const url = new URL(window.location.href);
+  const queryTenant = url.searchParams.get("tenant");
+  if (queryTenant) return queryTenant.trim();
+
+  const subdomain = resolveSubdomainSlug();
+  if (subdomain) return subdomain;
+  if (!allowDefault) return null;
+  return DEFAULT_TENANT_SLUG || null;
 }
 
 export function resolveRootHost() {
@@ -45,6 +54,10 @@ export function resolveRootHost() {
   const parts = host.split(".");
   if (parts.length <= 2) return host;
   return parts.slice(1).join(".");
+}
+
+export function isSubdomainRequest() {
+  return Boolean(resolveSubdomainSlug());
 }
 
 function mergeBranding(overrides?: Partial<BrandingConfig> | null): BrandingConfig {

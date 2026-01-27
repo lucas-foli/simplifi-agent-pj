@@ -20,7 +20,7 @@ const steps = [
   { number: 4, title: "Custos Fixos" },
 ];
 
-type FixedCost = { name: string; value: string };
+type FixedCost = { id: string; name: string; value: string };
 
 const Onboarding = () => {
   const navigate = useNavigate();
@@ -80,10 +80,19 @@ const Onboarding = () => {
     setFormData((prev) => ({ ...prev, monthlyRevenue: parseCurrencyToDecimal(value) }));
   };
 
+  const createFixedCost = (overrides?: Partial<FixedCost>): FixedCost => ({
+    id: typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    name: "",
+    value: "0",
+    ...overrides,
+  });
+
   const addFixedCost = () => {
     setFormData((prev) => ({
       ...prev,
-      fixedCosts: [...prev.fixedCosts, { name: "", value: "0" }],
+      fixedCosts: [...prev.fixedCosts, createFixedCost()],
     }));
   };
 
@@ -630,7 +639,7 @@ const Onboarding = () => {
                             const name = row[descIdx]?.trim();
                             const value = row[amountIdx]?.trim().replace(/[^\d,.-]/g, "").replace(",", ".");
                             if (name && value) {
-                              newCosts.push({ name, value });
+                              newCosts.push(createFixedCost({ name, value }));
                             }
                           }
 
@@ -659,7 +668,7 @@ const Onboarding = () => {
 
                 <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 -mr-2 scrollbar-thin">
                   {formData.fixedCosts.map((cost, index) => (
-                    <div key={`${cost.name}-${index}`} className="flex gap-2">
+                    <div key={cost.id} className="flex gap-2">
                       <div className="flex-1">
                         <Input
                           value={cost.name}
