@@ -7,6 +7,12 @@ type TenantRecord = {
 };
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
+const ADMIN_HOSTS = (import.meta.env.VITE_ADMIN_HOSTS ?? import.meta.env.VITE_ADMIN_HOST ?? "")
+  .split(",")
+  .map((host) => host.trim().toLowerCase())
+  .filter(Boolean);
+
+const isAdminHost = (host: string) => ADMIN_HOSTS.includes(host.toLowerCase());
 
 export function resolveTenantSlug() {
   if (typeof window === "undefined") return null;
@@ -18,6 +24,7 @@ export function resolveTenantSlug() {
   if (LOCAL_HOSTS.has(host) || /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
     return null;
   }
+  if (isAdminHost(host)) return null;
 
   const parts = host.split(".");
   if (host.endsWith(".localhost")) return parts[0] ?? null;
@@ -31,6 +38,8 @@ export function resolveRootHost() {
   if (LOCAL_HOSTS.has(host) || /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
     return host;
   }
+  if (isAdminHost(host)) return host;
+  if (ADMIN_HOSTS.length > 0) return ADMIN_HOSTS[0];
   if (host.endsWith(".localhost")) return "localhost";
 
   const parts = host.split(".");
