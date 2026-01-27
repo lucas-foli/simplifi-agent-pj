@@ -27,6 +27,11 @@ begin
 end;
 $$;
 
+alter table public.profiles
+  add column if not exists tenant_id uuid references public.tenants(id);
+
+create index if not exists profiles_tenant_id_idx on public.profiles(tenant_id);
+
 -- Current tenant for RLS
 create or replace function public.current_tenant_id()
 returns uuid
@@ -36,11 +41,6 @@ set search_path = public
 as $$
   select tenant_id from public.profiles where id = auth.uid();
 $$;
-
-alter table public.profiles
-  add column if not exists tenant_id uuid references public.tenants(id);
-
-create index if not exists profiles_tenant_id_idx on public.profiles(tenant_id);
 
 alter table pj.companies
   add column if not exists tenant_id uuid references public.tenants(id);
