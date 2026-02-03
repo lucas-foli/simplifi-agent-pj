@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useCompanyDashboardSummary } from '@/hooks/useCompanyFinancialData';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -42,12 +43,24 @@ interface AIResponse {
 }
 
 const Chat = () => {
-  const { user, profile } = useAuth();
+  const { user, activeCompany } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  const currencyFormatter = useMemo(
+    () => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }),
+    []
+  );
+  const { data: companySummary } = useCompanyDashboardSummary(
+    activeCompany?.company_id,
+    currentMonth,
+    currentYear
+  );
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -193,11 +206,19 @@ const Chat = () => {
     }
 
     try {
+      const payload: Record<string, unknown> = {
+        message: userMessage,
+        userId: user.id,
+      };
+
+      if (activeCompany?.company_id) {
+        payload.companyId = activeCompany.company_id;
+        payload.month = currentMonth;
+        payload.year = currentYear;
+      }
+
       const { data, error } = await supabase.functions.invoke('chat-assistant', {
-        body: {
-          message: userMessage,
-          userId: user.id,
-        },
+        body: payload,
       });
 
       if (error) throw error;
@@ -215,7 +236,18 @@ const Chat = () => {
 
     const lowerMessage = userMessage.toLowerCase();
 
-    if (lowerMessage.includes('saldo') || lowerMessage.includes('quanto tenho')) {
+    if (lowerMessage.includes('saldo') || lowerMessage.includes('quanto tenho') || lowerMessage.includes('disponível')) {
+      if (companySummary) {
+        const registeredBalance = companySummary.transactionIncome - companySummary.expenses;
+        return {
+          message: `Seu saldo registrado este mês é de ${currencyFormatter.format(registeredBalance)}.`,
+          metadata: { type: 'balance_query' },
+          actions: [
+            { label: 'Ver Detalhes', action: 'navigate', data: '/company/dashboard' },
+          ],
+        };
+      }
+
       return {
         message: 'Seu saldo restante este mês é de R$ 31.597,20. Você já gastou R$ 1.302,90 em despesas variáveis.',
         metadata: { type: 'balance_query' },
@@ -226,6 +258,16 @@ const Chat = () => {
     }
 
     if (lowerMessage.includes('gasto') || lowerMessage.includes('gastei')) {
+      if (companySummary) {
+        return {
+          message: `Você gastou ${currencyFormatter.format(companySummary.expenses)} este mês.`,
+          metadata: { type: 'expenses_query' },
+          actions: [
+            { label: 'Ver Transações', action: 'navigate', data: '/company/transactions' },
+          ],
+        };
+      }
+
       return {
         message: 'Você gastou R$ 1.302,90 este mês, distribuídos em: Alimentação (R$ 222,90), Transporte (R$ 80,00) e outros.',
         metadata: { type: 'expenses_query' },
@@ -236,6 +278,16 @@ const Chat = () => {
     }
 
     if (lowerMessage.includes('adicionar') || lowerMessage.includes('registrar')) {
+      if (activeCompany?.company_id) {
+        return {
+          message: 'Claro! Vou te ajudar a adicionar uma nova despesa. Clique no botão abaixo para abrir o formulário.',
+          metadata: { type: 'add_transaction' },
+          actions: [
+            { label: 'Adicionar Despesa', action: 'navigate', data: '/company/transactions' },
+          ],
+        };
+      }
+
       return {
         message: 'Claro! Vou te ajudar a adicionar uma nova despesa. Clique no botão abaixo para abrir o formulário.',
         metadata: { type: 'add_transaction' },

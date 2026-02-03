@@ -24,7 +24,7 @@ serve(async (req) => {
   try {
     // Validate and parse request
     const requestData = await req.json();
-    const { message, userId } = validateRequest(ChatRequestSchema, requestData);
+    const { message, userId, companyId, month, year } = validateRequest(ChatRequestSchema, requestData);
 
     // Check rate limit (20 requests per minute per user)
     checkRateLimit(userId);
@@ -35,12 +35,22 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Fetch user's financial context
-    const context = await fetchFinancialContext(supabase, userId);
+    const context = companyId
+      ? await fetchCompanyFinancialContext(supabase, userId, companyId, month, year)
+      : await fetchFinancialContext(supabase, userId);
 
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     
     if (!openaiApiKey) {
       throw new Error('AI service temporarily unavailable');
+    }
+
+    const directResponse = getDirectResponse(message, context);
+
+    if (directResponse) {
+      return new Response(JSON.stringify(directResponse), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Generate AI response with financial context
@@ -88,6 +98,7 @@ async function fetchFinancialContext(supabase: any, userId: string): Promise<Fin
   const balance = monthlyIncome - fixedCosts - totalExpenses;
 
   return {
+    type: 'personal',
     monthlyIncome,
     fixedCosts,
     totalExpenses,
@@ -97,6 +108,82 @@ async function fetchFinancialContext(supabase: any, userId: string): Promise<Fin
       amount: Number(tx.amount),
       category: tx.categories?.name || 'Sem categoria',
       date: tx.transaction_date,
+    })) || [],
+  };
+}
+
+async function fetchCompanyFinancialContext(
+  supabase: any,
+  userId: string,
+  companyId: string,
+  month?: number,
+  year?: number
+): Promise<FinancialContext> {
+  const now = new Date();
+  const currentMonth = month ?? now.getMonth() + 1;
+  const currentYear = year ?? now.getFullYear();
+
+  const { data: membership, error: membershipError } = await supabase
+    .from('company_members')
+    .select('company_id')
+    .eq('company_id', companyId)
+    .eq('profile_id', userId)
+    .maybeSingle();
+
+  if (membershipError) throw membershipError;
+  if (!membership) throw new Error('Company access denied');
+
+  const { data: companyData } = await supabase
+    .from('companies')
+    .select('monthly_revenue')
+    .eq('id', companyId)
+    .single();
+
+  const monthlyRevenue = Number(companyData?.monthly_revenue ?? 0);
+
+  const { data: fixedCostsData } = await supabase
+    .from('company_fixed_costs')
+    .select('amount')
+    .eq('company_id', companyId);
+
+  const fixedCosts = fixedCostsData?.reduce((sum: number, cost: any) => sum + Number(cost.amount), 0) || 0;
+
+  const startDate = new Date(currentYear, currentMonth - 1, 1);
+  const endDate = new Date(currentYear, currentMonth, 0);
+
+  const { data: transactionsData } = await supabase
+    .from('company_transactions')
+    .select('description, amount, type, date, company_categories(name)')
+    .eq('company_id', companyId)
+    .gte('date', startDate.toISOString().split('T')[0])
+    .lte('date', endDate.toISOString().split('T')[0])
+    .order('date', { ascending: false })
+    .limit(10);
+
+  const expenses = transactionsData
+    ?.filter((transaction: any) => transaction.type === 'despesa')
+    .reduce((sum: number, transaction: any) => sum + Number(transaction.amount), 0) || 0;
+
+  const transactionIncome = transactionsData
+    ?.filter((transaction: any) => transaction.type === 'receita')
+    .reduce((sum: number, transaction: any) => sum + Number(transaction.amount), 0) || 0;
+
+  // Saldo registrado considera apenas receitas e despesas do mês
+  const balance = transactionIncome - expenses;
+
+  return {
+    type: 'company',
+    monthlyRevenue,
+    fixedCosts,
+    expenses,
+    transactionIncome,
+    balance,
+    recentTransactions: transactionsData?.map((tx: any) => ({
+      description: tx.description,
+      amount: Number(tx.amount),
+      category: tx.company_categories?.name || 'Sem categoria',
+      date: tx.date,
+      type: tx.type,
     })) || [],
   };
 }
@@ -153,24 +240,41 @@ async function callOpenAI(apiKey: string, message: string, context: FinancialCon
   }
 }
 
-function generateSimulatedResponse(message: string, context: FinancialContext) {
-  const lowerMessage = message.toLowerCase();
+const currencyFormatter = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+});
 
-  if (lowerMessage.includes('saldo') || lowerMessage.includes('quanto tenho')) {
+function formatCurrency(value: number) {
+  return currencyFormatter.format(value);
+}
+
+function getDirectResponse(message: string, context: FinancialContext) {
+  const lowerMessage = message.toLowerCase();
+  const isCompany = context.type === 'company';
+  const totalExpenses = isCompany ? context.expenses : context.totalExpenses;
+  const balanceLabel = isCompany ? 'saldo registrado' : 'saldo restante';
+  const expensesLabel = isCompany ? 'despesas do mês' : 'despesas variáveis';
+  const dashboardPath = isCompany ? '/company/dashboard' : '/dashboard';
+  const transactionsPath = isCompany ? '/company/transactions' : '/transactions';
+
+  if (lowerMessage.includes('saldo') || lowerMessage.includes('quanto tenho') || lowerMessage.includes('disponível')) {
     return {
-      message: `Seu saldo restante este mês é de R$ ${context.balance.toFixed(2)}. Você já gastou R$ ${context.totalExpenses.toFixed(2)} em despesas variáveis.`,
+      message: `Seu ${balanceLabel} este mês é de ${formatCurrency(context.balance)}. Você já registrou ${formatCurrency(totalExpenses)} em ${expensesLabel}.`,
       metadata: { type: 'balance_query' },
-      actions: [{ label: 'Ver Detalhes', action: 'navigate', data: '/dashboard' }],
+      actions: [{ label: 'Ver Detalhes', action: 'navigate', data: dashboardPath }],
     };
   }
 
-  if (lowerMessage.includes('gasto') || lowerMessage.includes('gastei')) {
+  if (lowerMessage.includes('gasto') || lowerMessage.includes('gastei') || lowerMessage.includes('despesa')) {
     const topExpenses = context.recentTransactions.slice(0, 3);
-    const expensesText = topExpenses.map(tx => `${tx.category} (R$ ${tx.amount.toFixed(2)})`).join(', ');
+    const expensesText = topExpenses.length
+      ? topExpenses.map(tx => `${tx.category} (${formatCurrency(tx.amount)})`).join(', ')
+      : 'sem categorias detalhadas no período.';
     return {
-      message: `Você gastou R$ ${context.totalExpenses.toFixed(2)} este mês, distribuídos em: ${expensesText}.`,
+      message: `Você gastou ${formatCurrency(totalExpenses)} este mês, distribuídos em: ${expensesText}`,
       metadata: { type: 'expenses_query' },
-      actions: [{ label: 'Ver Transações', action: 'navigate', data: '/transactions' }],
+      actions: [{ label: 'Ver Transações', action: 'navigate', data: transactionsPath }],
     };
   }
 
@@ -178,15 +282,11 @@ function generateSimulatedResponse(message: string, context: FinancialContext) {
     return {
       message: 'Claro! Vou te ajudar a adicionar uma nova despesa. Clique no botão abaixo para abrir o formulário.',
       metadata: { type: 'add_transaction' },
-      actions: [{ label: 'Adicionar Despesa', action: 'navigate', data: '/transactions' }],
+      actions: [{ label: 'Adicionar Despesa', action: 'navigate', data: transactionsPath }],
     };
   }
 
-  return {
-    message: `Entendi que você disse: "${message}". Como posso ajudar? Você pode me perguntar sobre seu saldo, gastos ou pedir para adicionar uma despesa.`,
-    metadata: { type: 'default' },
-    actions: [],
-  };
+  return null;
 }
 
 function detectActions(userMessage: string, aiResponse: string): Array<{ label: string; action: string; data: string }> {
