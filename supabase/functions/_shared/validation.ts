@@ -36,10 +36,26 @@ export const AmountSchema = z.number()
   .max(1000000, 'Amount too large')
   .finite('Amount must be a valid number');
 
+const MonthSchema = z.number()
+  .int('Month must be an integer')
+  .min(1, 'Month must be between 1 and 12')
+  .max(12, 'Month must be between 1 and 12');
+
+const YearSchema = z.number()
+  .int('Year must be an integer')
+  .min(2000, 'Year must be between 2000 and 2100')
+  .max(2100, 'Year must be between 2000 and 2100');
+
 // Request schemas for each Edge Function
 export const ChatRequestSchema = z.object({
   message: MessageSchema,
   userId: UUIDSchema,
+  companyId: UUIDSchema.optional(),
+  month: MonthSchema.optional(),
+  year: YearSchema.optional(),
+}).refine((data) => (data.month == null) === (data.year == null), {
+  message: 'Provide both month and year when filtering by period',
+  path: ['month'],
 });
 
 export const ClassifyTransactionRequestSchema = z.object({
