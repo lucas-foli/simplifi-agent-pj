@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { motion, AnimatePresence } from 'framer-motion';
 import { branding } from '@/config/branding';
+import LogoutButton from '@/components/LogoutButton';
 import {
   Send,
   ArrowLeft,
@@ -290,6 +291,7 @@ const Chat = () => {
               </div>
             </div>
           </div>
+          <LogoutButton />
         </div>
       </header>
 

@@ -55,6 +55,7 @@ import {
   Tooltip,
 } from 'recharts';
 import { useAuth } from '@/hooks/useAuth';
+import LogoutButton from '@/components/LogoutButton';
 import {
   useCompanyDashboardSummary,
   useCompanyFixedCosts,
@@ -263,23 +264,26 @@ const CompanyDashboard = () => {
               Visão geral financeira da empresa
             </p>
           </div>
-          {companyMemberships.length > 1 && (
-            <Select
-              value={activeCompany.company_id}
-              onValueChange={(value) => setActiveCompany(value)}
-            >
-              <SelectTrigger className="w-full md:w-72">
-                <SelectValue placeholder="Selecionar empresa" />
-              </SelectTrigger>
-              <SelectContent>
-                {companyMemberships.map((company) => (
-                  <SelectItem key={company.company_id} value={company.company_id}>
-                    {company.company.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {companyMemberships.length > 1 && (
+              <Select
+                value={activeCompany.company_id}
+                onValueChange={(value) => setActiveCompany(value)}
+              >
+                <SelectTrigger className="w-full md:w-72">
+                  <SelectValue placeholder="Selecionar empresa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companyMemberships.map((company) => (
+                    <SelectItem key={company.company_id} value={company.company_id}>
+                      {company.company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <LogoutButton />
+          </div>
         </div>
       </header>
 
