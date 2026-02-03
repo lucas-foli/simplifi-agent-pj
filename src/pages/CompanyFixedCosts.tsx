@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import LogoutButton from '@/components/LogoutButton';
 import {
   Dialog,
   DialogContent,
@@ -178,10 +179,13 @@ const CompanyFixedCosts = () => {
               </p>
             </div>
           </div>
-          <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Novo custo fixo
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Novo custo fixo
+            </Button>
+            <LogoutButton />
+          </div>
         </div>
       </header>
 

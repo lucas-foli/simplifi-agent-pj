@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Landing from "./pages/Landing";
 import AuthGateway from "./pages/AuthGateway";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Onboarding from "./pages/Onboarding";
 import Chat from "./pages/Chat";
 import CompanyDashboard from "./pages/CompanyDashboard";
@@ -31,6 +33,8 @@ const App = () => (
           <Route path="/" element={<Landing />} />
           <Route path="/auth" element={<AuthGateway />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/company/dashboard" element={
             <ProtectedRoute>

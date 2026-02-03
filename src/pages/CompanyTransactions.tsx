@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import LogoutButton from '@/components/LogoutButton';
 import {
   Dialog,
   DialogContent,
@@ -242,6 +243,8 @@ const CompanyTransactions = () => {
               <Plus className="h-4 w-4" />
               Nova transação
             </Button>
+
+            <LogoutButton />
           </div>
         </div>
       </header>

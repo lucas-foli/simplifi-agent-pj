@@ -81,6 +81,11 @@ const Login = () => {
                 required
                 disabled={loading}
               />
+              <div className="mt-2 text-right text-sm">
+                <Link to="/forgot-password" className="text-primary hover:underline font-medium">
+                  Esqueci minha senha
+                </Link>
+              </div>
             </div>
 
             {error && (
