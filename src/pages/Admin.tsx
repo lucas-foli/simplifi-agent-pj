@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { buildTenantAccessUrl, resolveTenantUrlMode } from "@/lib/tenant";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -250,6 +251,8 @@ const Admin = () => {
   const [saving, setSaving] = useState(false);
   const [loadingTenants, setLoadingTenants] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
+  const tenantUrlMode = useMemo(() => resolveTenantUrlMode(), []);
+  const tenantAccessUrl = useMemo(() => buildTenantAccessUrl(form.slug), [form.slug]);
 
   const isAllowed = useMemo(() => {
     if (!user?.email) return false;
@@ -519,7 +522,9 @@ const Admin = () => {
           <div>
             <h1 className="text-3xl font-bold">Admin de Tenants</h1>
             <p className="text-muted-foreground">
-              Gerencie branding, logos e cores via subdomínio.
+              {tenantUrlMode === "query"
+                ? "Gerencie branding, logos e cores via parâmetro ?tenant."
+                : "Gerencie branding, logos e cores via subdomínio."}
             </p>
           </div>
           <Button onClick={resetForm} variant="outline">
@@ -560,7 +565,9 @@ const Admin = () => {
             <div className="grid gap-4">
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="slug">Slug (subdomínio)</Label>
+                  <Label htmlFor="slug">
+                    {tenantUrlMode === "query" ? "Slug (tenant)" : "Slug (subdomínio)"}
+                  </Label>
                   <Input
                     id="slug"
                     value={form.slug}
@@ -577,6 +584,20 @@ const Admin = () => {
                     placeholder="ACME Ltda"
                   />
                 </div>
+              </div>
+              <div>
+                <Label htmlFor="tenantUrl">URL do tenant</Label>
+                <Input
+                  id="tenantUrl"
+                  value={tenantAccessUrl ?? ""}
+                  readOnly
+                  placeholder="Defina o slug para gerar a URL"
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  {tenantUrlMode === "query"
+                    ? "Ambientes vercel.app/localhost usam ?tenant= no endereço."
+                    : "Use o subdomínio para acessar este tenant."}
+                </p>
               </div>
               <div className="flex items-center gap-3">
                 <Switch
