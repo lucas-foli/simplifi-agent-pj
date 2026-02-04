@@ -63,6 +63,7 @@ import {
   useCompanyTransactionsByCategory,
   useSetCompanyMonthlyRevenue,
 } from '@/hooks/useCompanyFinancialData';
+import { branding } from '@/config/branding';
 
 const COLORS = [
   '#0B59A3',
@@ -126,6 +127,8 @@ const CompanyDashboard = () => {
   );
 
   const setCompanyRevenue = useSetCompanyMonthlyRevenue(activeCompany?.company_id);
+  const logoSrc = branding.logo?.mark || branding.logo?.horizontal;
+  const logoAlt = branding.brandName || activeCompany?.company?.name || 'Logo';
 
   useEffect(() => {
     if (summary?.revenue !== undefined) {
@@ -257,7 +260,15 @@ const CompanyDashboard = () => {
         <div className="container mx-auto px-4 py-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
-              <Building2 className="h-6 w-6 text-primary" />
+              {logoSrc ? (
+                <img
+                  src={logoSrc}
+                  alt={`${logoAlt} logotipo`}
+                  className="h-6 w-auto max-w-[120px] object-contain"
+                />
+              ) : (
+                <Building2 className="h-6 w-6 text-primary" />
+              )}
               {activeCompany.company.name}
             </h1>
             <p className="text-muted-foreground text-sm">
