@@ -18,7 +18,7 @@ import {
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCompanyDashboardSummary } from '@/hooks/useCompanyFinancialData';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -193,7 +193,17 @@ const Chat = () => {
       }
     } catch (error) {
       console.error('Error processing message:', error);
-      toast.error('Erro ao processar mensagem');
+      toast.error('Não foi possível obter resposta do assistente');
+      const fallbackText = 'Não foi possível obter resposta do assistente agora. Tente novamente.';
+      const assistantMsg = await saveChatMessage('assistant', fallbackText, { type: 'error' });
+      if (assistantMsg) {
+        setMessages((prev) => [...prev, {
+          id: assistantMsg.id,
+          role: assistantMsg.role as 'user' | 'assistant',
+          message: assistantMsg.content,
+          created_at: assistantMsg.created_at,
+        }]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -205,7 +215,7 @@ const Chat = () => {
       throw new Error('User not authenticated');
     }
 
-    try {
+    const invokeWithSession = async (accessToken: string): Promise<AIResponse> => {
       const payload: Record<string, unknown> = {
         message: userMessage,
         userId: user.id,
@@ -219,89 +229,44 @@ const Chat = () => {
 
       const { data, error } = await supabase.functions.invoke('chat-assistant', {
         body: payload,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
       });
 
       if (error) throw error;
       return data;
+    };
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Sessão expirada. Faça login novamente.');
+      }
+
+      try {
+        return await invokeWithSession(session.access_token);
+      } catch (error) {
+        const status = (error as any)?.context?.status;
+        const message = (error as any)?.message ?? '';
+        const shouldRefresh = status === 401 || /jwt|token/i.test(message);
+
+        if (!shouldRefresh) {
+          throw error;
+        }
+
+        const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError || !refreshed.session?.access_token) {
+          throw error;
+        }
+
+        return await invokeWithSession(refreshed.session.access_token);
+      }
     } catch (error) {
       console.error('Error calling chat assistant:', error);
-      // Fallback to simulated response if Edge Function fails
-      return simulateAIResponse(userMessage);
+      throw error;
     }
-  };
-
-  // Fallback: Simulação de resposta caso Edge Function falhe
-  const simulateAIResponse = async (userMessage: string): Promise<AIResponse> => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const lowerMessage = userMessage.toLowerCase();
-
-    if (lowerMessage.includes('saldo') || lowerMessage.includes('quanto tenho') || lowerMessage.includes('disponível')) {
-      if (companySummary) {
-        const registeredBalance = companySummary.transactionIncome - companySummary.expenses;
-        return {
-          message: `Seu saldo registrado este mês é de ${currencyFormatter.format(registeredBalance)}.`,
-          metadata: { type: 'balance_query' },
-          actions: [
-            { label: 'Ver Detalhes', action: 'navigate', data: '/company/dashboard' },
-          ],
-        };
-      }
-
-      return {
-        message: 'Seu saldo restante este mês é de R$ 31.597,20. Você já gastou R$ 1.302,90 em despesas variáveis.',
-        metadata: { type: 'balance_query' },
-        actions: [
-          { label: 'Ver Detalhes', action: 'navigate', data: '/dashboard' },
-        ],
-      };
-    }
-
-    if (lowerMessage.includes('gasto') || lowerMessage.includes('gastei')) {
-      if (companySummary) {
-        return {
-          message: `Você gastou ${currencyFormatter.format(companySummary.expenses)} este mês.`,
-          metadata: { type: 'expenses_query' },
-          actions: [
-            { label: 'Ver Transações', action: 'navigate', data: '/company/transactions' },
-          ],
-        };
-      }
-
-      return {
-        message: 'Você gastou R$ 1.302,90 este mês, distribuídos em: Alimentação (R$ 222,90), Transporte (R$ 80,00) e outros.',
-        metadata: { type: 'expenses_query' },
-        actions: [
-          { label: 'Ver Transações', action: 'navigate', data: '/transactions' },
-        ],
-      };
-    }
-
-    if (lowerMessage.includes('adicionar') || lowerMessage.includes('registrar')) {
-      if (activeCompany?.company_id) {
-        return {
-          message: 'Claro! Vou te ajudar a adicionar uma nova despesa. Clique no botão abaixo para abrir o formulário.',
-          metadata: { type: 'add_transaction' },
-          actions: [
-            { label: 'Adicionar Despesa', action: 'navigate', data: '/company/transactions' },
-          ],
-        };
-      }
-
-      return {
-        message: 'Claro! Vou te ajudar a adicionar uma nova despesa. Clique no botão abaixo para abrir o formulário.',
-        metadata: { type: 'add_transaction' },
-        actions: [
-          { label: 'Adicionar Despesa', action: 'navigate', data: '/transactions' },
-        ],
-      };
-    }
-
-    return {
-      message: `Entendi que você disse: "${userMessage}". Como posso ajudar? Você pode me perguntar sobre seu saldo, gastos ou pedir para adicionar uma despesa.`,
-      metadata: { type: 'default' },
-      actions: [],
-    };
   };
 
   const handleAction = (action: string, data?: string) => {

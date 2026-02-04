@@ -13,6 +13,7 @@ export interface PersonalFinancialContext {
   type: 'personal';
   monthlyIncome: number;
   fixedCosts: number;
+  hasFixedCosts: boolean;
   totalExpenses: number;
   balance: number;
   recentTransactions: BaseTransaction[];
@@ -22,6 +23,7 @@ export interface CompanyFinancialContext {
   type: 'company';
   monthlyRevenue: number;
   fixedCosts: number;
+  hasFixedCosts: boolean;
   expenses: number;
   transactionIncome: number;
   balance: number;
@@ -35,7 +37,7 @@ function buildPersonalPrompt(context: PersonalFinancialContext): string {
 
 Contexto financeiro do usuário (mês atual):
 - Receita mensal: R$ ${context.monthlyIncome.toFixed(2)}
-- Custos fixos: R$ ${context.fixedCosts.toFixed(2)}
+- Custos fixos: ${context.hasFixedCosts ? `R$ ${context.fixedCosts.toFixed(2)}` : 'não informados'}
 - Gastos variáveis: R$ ${context.totalExpenses.toFixed(2)}
 - Saldo restante: R$ ${context.balance.toFixed(2)}
 
@@ -47,10 +49,13 @@ INSTRUÇÕES:
 2. Use linguagem clara e acessível
 3. Se apropriado, sugira ações específicas (ex: "reduza gastos em X", "você está gastando muito com Y")
 4. Sempre que mencionar valores, use o formato brasileiro (R$ X.XXX,XX)
-5. Se o usuário perguntar sobre economia, dê dicas práticas baseadas nos dados dele
-6. Se o saldo estiver negativo, alerte com empatia e sugira soluções
-7. Elogie quando o usuário estiver economizando bem
-8. Mantenha respostas concisas (máximo 3-4 parágrafos)
+5. Se o usuário perguntar sobre saldo/valor disponível, cite explicitamente os custos fixos (com valor ou "não informados")
+6. Se o usuário perguntar sobre economia, dê dicas práticas baseadas nos dados dele
+7. Se custos fixos não estiverem informados, deixe isso claro e pergunte se ele quer considerar um valor
+8. Se o usuário informar um valor de custos fixos na conversa, use esse valor nos cálculos e deixe explícito que foi informado na conversa
+9. Se o saldo estiver negativo, alerte com empatia e sugira soluções
+10. Elogie quando o usuário estiver economizando bem
+11. Mantenha respostas concisas (máximo 3-4 parágrafos)
 
 EXEMPLOS DE BOM COMPORTAMENTO:
 - "Você gastou R$ 1.500 em alimentação este mês, que é 30% da sua receita. Considere cozinhar mais em casa para economizar."
@@ -63,7 +68,7 @@ function buildCompanyPrompt(context: CompanyFinancialContext): string {
 
 Contexto financeiro da empresa (mês atual):
 - Faturamento base: R$ ${context.monthlyRevenue.toFixed(2)}
-- Custos fixos: R$ ${context.fixedCosts.toFixed(2)}
+- Custos fixos: ${context.hasFixedCosts ? `R$ ${context.fixedCosts.toFixed(2)}` : 'não informados'}
 - Despesas do mês: R$ ${context.expenses.toFixed(2)}
 - Receitas registradas: R$ ${context.transactionIncome.toFixed(2)}
 - Saldo registrado: R$ ${context.balance.toFixed(2)}
@@ -76,8 +81,11 @@ INSTRUÇÕES:
 2. Use linguagem clara e acessível
 3. Se apropriado, sugira ações específicas (ex: "reduza custos em X", "a margem está apertada em Y")
 4. Sempre que mencionar valores, use o formato brasileiro (R$ X.XXX,XX)
-5. Se o saldo estiver negativo, alerte com empatia e sugira soluções
-6. Mantenha respostas concisas (máximo 3-4 parágrafos)`;
+5. Se o usuário perguntar sobre saldo/valor disponível, cite explicitamente os custos fixos (com valor ou "não informados")
+6. Se custos fixos não estiverem informados, deixe isso claro e pergunte se ele quer considerar um valor
+7. Se o usuário informar um valor de custos fixos na conversa, use esse valor nos cálculos e deixe explícito que foi informado na conversa
+8. Se o saldo estiver negativo, alerte com empatia e sugira soluções
+9. Mantenha respostas concisas (máximo 3-4 parágrafos)`;
 }
 
 export function buildSystemPrompt(context: FinancialContext): string {

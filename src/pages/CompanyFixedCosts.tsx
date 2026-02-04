@@ -37,8 +37,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-const paymentMethodOptions = ['Pix', 'Cartão de Crédito', 'Cartão de Débito', 'TED'];
-
 const CompanyFixedCosts = () => {
   const navigate = useNavigate();
   const {
@@ -55,7 +53,6 @@ const CompanyFixedCosts = () => {
     description: '',
     amount: '',
     category_id: '',
-    payment_method: '',
   });
 
   useEffect(() => {
@@ -83,7 +80,7 @@ const CompanyFixedCosts = () => {
   const total = filteredCosts.reduce((acc, cost) => acc + Number(cost.amount), 0);
 
   const resetForm = () => {
-    setFormState({ description: '', amount: '', category_id: '', payment_method: '' });
+    setFormState({ description: '', amount: '', category_id: '' });
     setEditingId(null);
   };
 
@@ -107,8 +104,7 @@ const CompanyFixedCosts = () => {
             description: formState.description,
             amount,
             category_id: formState.category_id || null,
-            payment_method: formState.payment_method || null,
-          } as any,
+          },
         });
         toast.success('Custo fixo atualizado!');
       } else {
@@ -116,8 +112,7 @@ const CompanyFixedCosts = () => {
           description: formState.description,
           amount,
           category_id: formState.category_id || null,
-          payment_method: formState.payment_method || null,
-        } as any);
+        });
         toast.success('Custo fixo criado!');
       }
 
@@ -244,7 +239,6 @@ const CompanyFixedCosts = () => {
                             description: cost.description,
                             amount: Number(cost.amount).toString(),
                             category_id: cost.category_id ?? '',
-                            payment_method: ((cost as any).payment_method as string | null) ?? '',
                           });
                           setIsDialogOpen(true);
                         }}
@@ -343,29 +337,6 @@ const CompanyFixedCosts = () => {
               </Select>
             </div>
 
-            <div className="grid gap-1.5">
-              <Label>Forma de pagamento</Label>
-              <Select
-                value={formState.payment_method || undefined}
-                onValueChange={(value) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    payment_method: value,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a forma de pagamento" />
-                </SelectTrigger>
-                <SelectContent>
-                  {paymentMethodOptions.map((method) => (
-                    <SelectItem key={method} value={method}>
-                      {method}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
