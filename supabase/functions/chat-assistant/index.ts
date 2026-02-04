@@ -34,6 +34,31 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Manual auth validation (used when verify_jwt is disabled)
+    const authHeader = req.headers.get('authorization') ?? req.headers.get('Authorization');
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.replace('Bearer ', '') : null;
+    if (!token) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (user.id !== userId) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Fetch user's financial context
     const context = companyId
       ? await fetchCompanyFinancialContext(supabase, userId, companyId, month, year)
@@ -77,9 +102,9 @@ async function fetchFinancialContext(supabase: any, userId: string): Promise<Fin
     .single();
 
   // Fetch fixed costs (all fixed costs for user)
-  const { data: costsData } = await supabase
+  const { data: costsData, count: fixedCostsCount } = await supabase
     .from('fixed_costs')
-    .select('amount')
+    .select('amount', { count: 'exact' })
     .eq('user_id', userId);
 
   // Fetch transactions for current month
@@ -94,6 +119,7 @@ async function fetchFinancialContext(supabase: any, userId: string): Promise<Fin
   // Values are already stored as decimals (reais) in the database, not cents!
   const monthlyIncome = profileData?.monthly_income ? Number(profileData.monthly_income) : 0;
   const fixedCosts = costsData?.reduce((sum: number, cost: any) => sum + Number(cost.amount), 0) || 0;
+  const hasFixedCosts = (fixedCostsCount ?? 0) > 0;
   const totalExpenses = transactionsData?.reduce((sum: number, tx: any) => sum + Number(tx.amount), 0) || 0;
   const balance = monthlyIncome - fixedCosts - totalExpenses;
 
@@ -101,6 +127,7 @@ async function fetchFinancialContext(supabase: any, userId: string): Promise<Fin
     type: 'personal',
     monthlyIncome,
     fixedCosts,
+    hasFixedCosts,
     totalExpenses,
     balance,
     recentTransactions: transactionsData?.map((tx: any) => ({
@@ -141,12 +168,13 @@ async function fetchCompanyFinancialContext(
 
   const monthlyRevenue = Number(companyData?.monthly_revenue ?? 0);
 
-  const { data: fixedCostsData } = await supabase
+  const { data: fixedCostsData, count: companyFixedCostsCount } = await supabase
     .from('company_fixed_costs')
-    .select('amount')
+    .select('amount', { count: 'exact' })
     .eq('company_id', companyId);
 
   const fixedCosts = fixedCostsData?.reduce((sum: number, cost: any) => sum + Number(cost.amount), 0) || 0;
+  const hasFixedCosts = (companyFixedCostsCount ?? 0) > 0;
 
   const startDate = new Date(currentYear, currentMonth - 1, 1);
   const endDate = new Date(currentYear, currentMonth, 0);
@@ -175,6 +203,7 @@ async function fetchCompanyFinancialContext(
     type: 'company',
     monthlyRevenue,
     fixedCosts,
+    hasFixedCosts,
     expenses,
     transactionIncome,
     balance,
@@ -186,6 +215,22 @@ async function fetchCompanyFinancialContext(
       type: tx.type,
     })) || [],
   };
+}
+
+const balanceIntentRegex = /(saldo|quanto\s+(ainda\s+)?tenho|quanto\s+resta|dispon[ií]vel)/i;
+
+function hasFixedCostsMention(text: string) {
+  return /custo(s)?\s+fixo(s)?/i.test(text);
+}
+
+function buildFixedCostsNote(context: FinancialContext) {
+  const fixedCostsNote = context.hasFixedCosts
+    ? `Custos fixos: ${formatCurrency(context.fixedCosts)}.`
+    : 'Não encontrei custos fixos cadastrados. Quer informar um valor para eu considerar?';
+  const companyFixedCostsImpact = context.type === 'company' && context.hasFixedCosts
+    ? `Saldo considerando custos fixos: ${formatCurrency(context.balance - context.fixedCosts)}.`
+    : '';
+  return [fixedCostsNote, companyFixedCostsImpact].filter(Boolean).join(' ');
 }
 
 async function callOpenAI(apiKey: string, message: string, context: FinancialContext) {
@@ -224,7 +269,11 @@ async function callOpenAI(apiKey: string, message: string, context: FinancialCon
       throw new Error('Invalid AI response');
     }
 
-    const aiMessage = data.choices[0].message.content || 'Desculpe, não consegui processar sua mensagem.';
+    let aiMessage = data.choices[0].message.content || 'Desculpe, não consegui processar sua mensagem.';
+
+    if (balanceIntentRegex.test(message) && !hasFixedCostsMention(aiMessage)) {
+      aiMessage = `${aiMessage.trim()} ${buildFixedCostsNote(context)}`.trim();
+    }
 
     // Detect if should suggest actions
     const actions = detectActions(message, aiMessage);
@@ -251,16 +300,25 @@ function formatCurrency(value: number) {
 
 function getDirectResponse(message: string, context: FinancialContext) {
   const lowerMessage = message.toLowerCase();
+  if (lowerMessage.includes('custo fixo') || lowerMessage.includes('custos fixos') || lowerMessage.includes('consider')) {
+    return null;
+  }
   const isCompany = context.type === 'company';
   const totalExpenses = isCompany ? context.expenses : context.totalExpenses;
   const balanceLabel = isCompany ? 'saldo registrado' : 'saldo restante';
   const expensesLabel = isCompany ? 'despesas do mês' : 'despesas variáveis';
   const dashboardPath = isCompany ? '/company/dashboard' : '/dashboard';
   const transactionsPath = isCompany ? '/company/transactions' : '/transactions';
+  const fixedCostsNote = context.hasFixedCosts
+    ? ` Custos fixos: ${formatCurrency(context.fixedCosts)}.`
+    : ' Não encontrei custos fixos cadastrados. Quer informar um valor para eu considerar?';
+  const companyFixedCostsImpact = isCompany && context.hasFixedCosts
+    ? ` Considerando custos fixos, o saldo fica ${formatCurrency(context.balance - context.fixedCosts)}.`
+    : '';
 
-  if (lowerMessage.includes('saldo') || lowerMessage.includes('quanto tenho') || lowerMessage.includes('disponível')) {
+  if (balanceIntentRegex.test(lowerMessage)) {
     return {
-      message: `Seu ${balanceLabel} este mês é de ${formatCurrency(context.balance)}. Você já registrou ${formatCurrency(totalExpenses)} em ${expensesLabel}.`,
+      message: `Seu ${balanceLabel} este mês é de ${formatCurrency(context.balance)}. Você já registrou ${formatCurrency(totalExpenses)} em ${expensesLabel}.${fixedCostsNote}${companyFixedCostsImpact}`,
       metadata: { type: 'balance_query' },
       actions: [{ label: 'Ver Detalhes', action: 'navigate', data: dashboardPath }],
     };
@@ -272,7 +330,7 @@ function getDirectResponse(message: string, context: FinancialContext) {
       ? topExpenses.map(tx => `${tx.category} (${formatCurrency(tx.amount)})`).join(', ')
       : 'sem categorias detalhadas no período.';
     return {
-      message: `Você gastou ${formatCurrency(totalExpenses)} este mês, distribuídos em: ${expensesText}`,
+      message: `Você gastou ${formatCurrency(totalExpenses)} este mês, distribuídos em: ${expensesText}.${fixedCostsNote}${companyFixedCostsImpact}`,
       metadata: { type: 'expenses_query' },
       actions: [{ label: 'Ver Transações', action: 'navigate', data: transactionsPath }],
     };
