@@ -62,6 +62,39 @@ await supabase.functions.invoke('send-whatsapp-message', {
 });
 ```
 
+### 3. `whatsapp-webhook`
+Webhook para receber mensagens do WhatsApp (Meta Cloud API), registrar no histórico e sincronizar transações.
+
+**Recursos:**
+- ✅ Verificação de webhook (`GET`)
+- ✅ Recebe mensagens de texto
+- ✅ Vincula número via código de pareamento
+- ✅ Registra mensagens em `conversations` e `messages`
+- ✅ Tenta registrar transação automaticamente
+
+**Variáveis de ambiente necessárias:**
+
+```
+META_WHATSAPP_TOKEN=EAAG...
+META_WHATSAPP_PHONE_NUMBER_ID=1234567890
+META_WHATSAPP_VERIFY_TOKEN=seu-token-de-verificacao
+```
+
+**Configuração do webhook (Meta):**
+- URL: `https://<seu-projeto>.functions.supabase.co/whatsapp-webhook`
+- Verify Token: mesmo valor de `META_WHATSAPP_VERIFY_TOKEN`
+
+### 4. `whatsapp-link`
+Gera um código de pareamento para vincular o WhatsApp do usuário ao app.
+
+**Exemplo de uso (frontend):**
+
+```ts
+const { data, error } = await supabase.functions.invoke('whatsapp-link', {
+  body: { companyId: '<UUID-opcional>' },
+});
+```
+
 ## 🚀 Como fazer Deploy
 
 ### Pré-requisitos
@@ -211,7 +244,8 @@ Se não quiser pagar, a função já tem **fallback para respostas simuladas** b
 ## 📚 Próximas Funções
 
 - [ ] `classify-transaction` - Classificação automática de despesas
-- [ ] `process-whatsapp` - Webhook para WhatsApp via n8n
+- [x] `whatsapp-webhook` - Webhook para WhatsApp (Meta Cloud API)
+- [x] `whatsapp-link` - Pareamento de números via código
 - [ ] `generate-forecast` - Previsão de gastos futuros
 - [ ] `generate-report` - Geração de relatórios PDF
 
