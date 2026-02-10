@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1?target=deno';
+import { createClient } from 'jsr:@supabase/supabase-js@2.45.1';
 import { buildSystemPrompt, AI_CONFIG, type FinancialContext } from '../chat-assistant/prompt.ts';
 import { checkRateLimit, createErrorResponse } from '../_shared/validation.ts';
 
@@ -737,22 +737,32 @@ function formatCurrency(value: number) {
 }
 
 function extractTextMessages(payload: any): WhatsAppTextMessage[] {
-  const entries = Array.isArray(payload?.entry) ? payload.entry : [];
   const messages: WhatsAppTextMessage[] = [];
 
+  // Official Meta webhook format
+  const entries = Array.isArray(payload?.entry) ? payload.entry : [];
   for (const entry of entries) {
     const changes = Array.isArray(entry?.changes) ? entry.changes : [];
     for (const change of changes) {
       const value = change?.value;
-      const eventMessages = Array.isArray(value?.messages) ? value.messages : [];
-
-      for (const msg of eventMessages) {
-        if (msg?.type === 'text' && msg?.text?.body) {
-          messages.push(msg as WhatsAppTextMessage);
-        }
-      }
+      collectTextMessages(value?.messages, messages);
     }
   }
 
+  // Some brokers/webhooks forward only the "value" object
+  collectTextMessages(payload?.messages, messages);
+
+  // Some integrations wrap the original payload under "body"
+  collectTextMessages(payload?.body?.messages, messages);
+
   return messages;
+}
+
+function collectTextMessages(source: any, target: WhatsAppTextMessage[]) {
+  const eventMessages = Array.isArray(source) ? source : [];
+  for (const msg of eventMessages) {
+    if (msg?.type === 'text' && msg?.text?.body) {
+      target.push(msg as WhatsAppTextMessage);
+    }
+  }
 }
