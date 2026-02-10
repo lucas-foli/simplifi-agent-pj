@@ -51,6 +51,10 @@ CREATE INDEX IF NOT EXISTS whatsapp_links_company_id_idx
 CREATE INDEX IF NOT EXISTS whatsapp_links_pairing_code_idx
   ON public.whatsapp_links(pairing_code);
 
+CREATE UNIQUE INDEX IF NOT EXISTS whatsapp_links_pairing_code_pending_unique
+  ON public.whatsapp_links(pairing_code)
+  WHERE status = 'pending';
+
 CREATE UNIQUE INDEX IF NOT EXISTS whatsapp_links_phone_unique
   ON public.whatsapp_links(phone)
   WHERE phone IS NOT NULL AND status = 'linked';

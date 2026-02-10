@@ -12,9 +12,13 @@ const token = Deno.env.get('META_WHATSAPP_TOKEN');
 const phoneNumberId = Deno.env.get('META_WHATSAPP_PHONE_NUMBER_ID');
 const apiVersion = Deno.env.get('META_WHATSAPP_API_VERSION') ?? 'v20.0';
 const verifyToken = Deno.env.get('META_WHATSAPP_VERIFY_TOKEN');
+const appSecret = Deno.env.get('META_WHATSAPP_APP_SECRET');
 
 if (!token || !phoneNumberId) {
   console.warn('[WhatsApp] Missing META_WHATSAPP_TOKEN or META_WHATSAPP_PHONE_NUMBER_ID.');
+}
+if (!appSecret) {
+  console.warn('[WhatsApp] Missing META_WHATSAPP_APP_SECRET for webhook signature validation.');
 }
 
 serve(async (req) => {
@@ -43,11 +47,38 @@ serve(async (req) => {
   }
 
   try {
+    if (!appSecret) {
+      return new Response(JSON.stringify({ error: 'Webhook not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const rawBody = await req.text();
+    const signatureHeader = req.headers.get('x-hub-signature-256')
+      ?? req.headers.get('X-Hub-Signature-256');
+    const signatureValid = await verifyMetaSignature(rawBody, signatureHeader, appSecret);
+    if (!signatureValid) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    let payload: any = {};
+    try {
+      payload = rawBody ? JSON.parse(rawBody) : {};
+    } catch {
+      return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const payload = await req.json();
     const messages = extractTextMessages(payload);
 
     if (messages.length === 0) {
@@ -399,7 +430,7 @@ function extractTransactionFromMessage(message: string) {
 }
 
 function extractAmount(message: string): { value: number; raw: string } | null {
-  const regex = /(?:R\$\s*)?(\d{1,3}(?:[.\s]\d{3})*(?:,\d{2})|\d+(?:[.,]\d{2})?)/i;
+  const regex = /(?:R\$\s*)?((?:\d{1,3}(?:[.\s]\d{3})+|\d+)(?:[.,]\d{2})?)/i;
   const match = message.match(regex);
   if (!match) {
     return null;
@@ -413,6 +444,20 @@ function extractAmount(message: string): { value: number; raw: string } | null {
     normalized = normalized.replace(/\./g, '').replace(',', '.');
   } else if (normalized.includes(',')) {
     normalized = normalized.replace(',', '.');
+  } else if (normalized.includes('.')) {
+    const parts = normalized.split('.');
+    if (parts.length > 2) {
+      normalized = parts.join('');
+    } else {
+      const [intPart, fracPart] = parts;
+      if (fracPart && fracPart.length === 3) {
+        normalized = `${intPart}${fracPart}`;
+      } else if (fracPart) {
+        normalized = `${intPart}.${fracPart}`;
+      } else {
+        normalized = intPart;
+      }
+    }
   }
 
   const value = Number(normalized);
@@ -765,4 +810,54 @@ function collectTextMessages(source: any, target: WhatsAppTextMessage[]) {
       target.push(msg as WhatsAppTextMessage);
     }
   }
+}
+
+async function verifyMetaSignature(
+  rawBody: string,
+  signatureHeader: string | null,
+  secret: string
+): Promise<boolean> {
+  if (!signatureHeader) {
+    return false;
+  }
+
+  const [algo, signature] = signatureHeader.split('=');
+  if (algo !== 'sha256' || !signature) {
+    return false;
+  }
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const mac = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(rawBody)
+  );
+  const expected = toHex(mac);
+  return timingSafeEqual(signature.toLowerCase(), expected.toLowerCase());
+}
+
+function toHex(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let hex = '';
+  for (const byte of bytes) {
+    hex += byte.toString(16).padStart(2, '0');
+  }
+  return hex;
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
 }

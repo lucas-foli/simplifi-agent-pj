@@ -77,6 +77,7 @@ Webhook para receber mensagens do WhatsApp (Meta Cloud API), registrar no histó
 ```
 META_WHATSAPP_TOKEN=EAAG...
 META_WHATSAPP_PHONE_NUMBER_ID=1234567890
+META_WHATSAPP_APP_SECRET=seu-app-secret
 META_WHATSAPP_VERIFY_TOKEN=seu-token-de-verificacao
 ```
 

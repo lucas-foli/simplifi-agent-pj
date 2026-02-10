@@ -65,9 +65,6 @@ serve(async (req) => {
       }
     }
 
-    const code = generatePairingCode();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-
     const { data: existing } = await supabase
       .from('whatsapp_links')
       .select('id')
@@ -77,32 +74,14 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    if (existing?.id) {
-      const { error: updateError } = await supabase
-        .from('whatsapp_links')
-        .update({
-          status: 'pending',
-          pairing_code: code,
-          pairing_expires_at: expiresAt,
-          phone: null,
-          verified_at: null,
-        })
-        .eq('id', existing.id);
-
-      if (updateError) throw updateError;
-    } else {
-      const { error: insertError } = await supabase
-        .from('whatsapp_links')
-        .insert({
-          profile_id: user.id,
-          company_id: companyId,
-          status: 'pending',
-          pairing_code: code,
-          pairing_expires_at: expiresAt,
-        });
-
-      if (insertError) throw insertError;
-    }
+    const { code, expiresAt } = await persistPairingCode(
+      supabase,
+      {
+        profileId: user.id,
+        companyId,
+        existingId: existing?.id ?? null,
+      }
+    );
 
     return new Response(JSON.stringify({ code, expiresAt }), {
       status: 200,
@@ -115,4 +94,56 @@ serve(async (req) => {
 
 function generatePairingCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+async function persistPairingCode(
+  supabase: any,
+  params: { profileId: string; companyId: string | null; existingId: string | null }
+): Promise<{ code: string; expiresAt: string }> {
+  const maxAttempts = 5;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const code = generatePairingCode();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+    if (params.existingId) {
+      const { error } = await supabase
+        .from('whatsapp_links')
+        .update({
+          status: 'pending',
+          pairing_code: code,
+          pairing_expires_at: expiresAt,
+          phone: null,
+          verified_at: null,
+        })
+        .eq('id', params.existingId);
+
+      if (!error) {
+        return { code, expiresAt };
+      }
+
+      if (error.code !== '23505') {
+        throw error;
+      }
+    } else {
+      const { error } = await supabase
+        .from('whatsapp_links')
+        .insert({
+          profile_id: params.profileId,
+          company_id: params.companyId,
+          status: 'pending',
+          pairing_code: code,
+          pairing_expires_at: expiresAt,
+        });
+
+      if (!error) {
+        return { code, expiresAt };
+      }
+
+      if (error.code !== '23505') {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error('Unable to generate pairing code');
 }
