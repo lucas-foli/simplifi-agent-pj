@@ -225,9 +225,17 @@ const Landing = () => {
               />
               <span className="font-semibold text-foreground">{branding.brandName}</span>
             </div>
-            <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} {branding.brandName}. Seu contador digital.
-            </p>
+            <div className="flex flex-col sm:flex-row items-center gap-2 text-sm text-muted-foreground">
+              <Link to="/termos" className="hover:text-foreground transition-smooth">
+                Termos de Uso
+              </Link>
+              <span className="hidden sm:inline">•</span>
+              <Link to="/privacidade" className="hover:text-foreground transition-smooth">
+                Política de Privacidade
+              </Link>
+              <span className="hidden sm:inline">•</span>
+              <span>© {new Date().getFullYear()} {branding.brandName}. Seu contador digital.</span>
+            </div>
           </div>
         </div>
       </footer>
