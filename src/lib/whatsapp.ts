@@ -12,6 +12,11 @@ export type WhatsAppMessagePayload = {
   type?: 'text' | 'template';
 };
 
+export type WhatsAppLinkResponse = {
+  code: string;
+  expiresAt: string;
+};
+
 export async function sendWhatsAppMessage(payload: WhatsAppMessagePayload) {
   const body = {
     ...payload,
@@ -27,4 +32,18 @@ export async function sendWhatsAppMessage(payload: WhatsAppMessagePayload) {
   }
 
   return data as { success: boolean; messageId: string | null };
+}
+
+export async function createWhatsAppLink(companyId?: string) {
+  const { data, error } = await supabase.functions.invoke('whatsapp-link', {
+    body: {
+      companyId: companyId ?? null,
+    },
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data as WhatsAppLinkResponse;
 }
