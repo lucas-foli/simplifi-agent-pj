@@ -26,7 +26,7 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  if (req.method === 'GET') {
+  if (req.method === 'GET' || req.method === 'POST') {
     const url = new URL(req.url);
     const mode = url.searchParams.get('hub.mode');
     const challenge = url.searchParams.get('hub.challenge');
@@ -35,8 +35,9 @@ serve(async (req) => {
     if (mode === 'subscribe' && challenge && verifyToken && providedToken === verifyToken) {
       return new Response(challenge, { status: 200 });
     }
-
-    return new Response('Verification failed', { status: 403 });
+    if (mode === 'subscribe') {
+      return new Response('Verification failed', { status: 403 });
+    }
   }
 
   if (req.method !== 'POST') {
