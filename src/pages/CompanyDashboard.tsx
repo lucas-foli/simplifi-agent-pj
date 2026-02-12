@@ -39,6 +39,7 @@ import {
   ChevronLeft,
   ChevronRight,
   DollarSign,
+  MessageCircle,
   PieChart as PieChartIcon,
   Receipt,
   TrendingDown,
@@ -56,6 +57,7 @@ import {
 } from 'recharts';
 import { useAuth } from '@/hooks/useAuth';
 import LogoutButton from '@/components/LogoutButton';
+import { supabase } from '@/lib/supabase';
 import {
   useCompanyDashboardSummary,
   useCompanyFixedCosts,
@@ -64,6 +66,12 @@ import {
   useSetCompanyMonthlyRevenue,
 } from '@/hooks/useCompanyFinancialData';
 import { branding } from '@/config/branding';
+import {
+  createWhatsAppLink,
+  fetchLatestWhatsAppLink,
+  type WhatsAppLinkRecord,
+  type WhatsAppLinkResponse,
+} from '@/lib/whatsapp';
 
 const COLORS = [
   '#0B59A3',
@@ -95,6 +103,12 @@ const CompanyDashboard = () => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isRevenueDialogOpen, setIsRevenueDialogOpen] = useState(false);
   const [revenueInput, setRevenueInput] = useState('');
+  const [isWhatsAppDialogOpen, setIsWhatsAppDialogOpen] = useState(false);
+  const [whatsappLink, setWhatsappLink] = useState<WhatsAppLinkResponse | null>(null);
+  const [whatsappStatus, setWhatsappStatus] = useState<WhatsAppLinkRecord | null>(null);
+  const [whatsappStatusLoading, setWhatsappStatusLoading] = useState(false);
+  const [whatsappLoading, setWhatsappLoading] = useState(false);
+  const [whatsappError, setWhatsappError] = useState('');
 
   const { month: selectedMonth, year: selectedYear } = selectedDate;
 
@@ -169,6 +183,22 @@ const CompanyDashboard = () => {
     'pt-BR',
     { month: 'long', year: 'numeric' }
   );
+  const whatsappExpiryLabel = whatsappLink?.expiresAt
+    ? new Date(whatsappLink.expiresAt).toLocaleString('pt-BR')
+    : null;
+  const whatsappStatusExpiryLabel = whatsappStatus?.pairing_expires_at
+    ? new Date(whatsappStatus.pairing_expires_at).toLocaleString('pt-BR')
+    : null;
+  const whatsappPhoneSuffix = whatsappStatus?.phone
+    ? whatsappStatus.phone.slice(-4)
+    : null;
+  const whatsappStatusLabel = whatsappStatus
+    ? whatsappStatus.status === 'linked'
+      ? `Conectado${whatsappPhoneSuffix ? ` • final ${whatsappPhoneSuffix}` : ''}`
+      : whatsappStatus.status === 'pending'
+        ? 'Pendente de confirmação'
+        : 'Vínculo revogado'
+    : 'Não conectado';
 
   const handleRevenueSave = async () => {
     if (!activeCompany?.company_id) return;
@@ -188,6 +218,91 @@ const CompanyDashboard = () => {
       toast.error('Não foi possível atualizar o faturamento');
     }
   };
+
+  const handleAuthExpired = async () => {
+    await supabase.auth.signOut();
+    toast.error('Sessão expirada. Faça login novamente.');
+    navigate('/login');
+  };
+
+  const isAuthError = (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error ?? '');
+    const status = (error as any)?.status ?? (error as any)?.context?.status;
+    return status === 401 || /jwt expired|not authenticated/i.test(message);
+  };
+
+  const isInvalidJwtError = (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error ?? '');
+    return /invalid jwt/i.test(message);
+  };
+
+  const loadWhatsAppStatus = async () => {
+    if (!activeCompany?.company_id) {
+      setWhatsappStatus(null);
+      return;
+    }
+
+    setWhatsappStatusLoading(true);
+    try {
+      const status = await fetchLatestWhatsAppLink(activeCompany.company_id);
+      setWhatsappStatus(status);
+    } catch (error) {
+      console.error('Erro ao carregar status WhatsApp:', error);
+      if (isAuthError(error)) {
+        await handleAuthExpired();
+        return;
+      }
+      if (isInvalidJwtError(error)) {
+        setWhatsappError(
+          'JWT inválido para este projeto. Verifique VITE_SUPABASE_URL/ANON_KEY do PJ.'
+        );
+        toast.error('JWT inválido');
+        setWhatsappStatus(null);
+        return;
+      }
+      setWhatsappStatus(null);
+    } finally {
+      setWhatsappStatusLoading(false);
+    }
+  };
+
+  const handleGenerateWhatsAppLink = async () => {
+    if (whatsappLoading) return;
+    setWhatsappLoading(true);
+    setWhatsappError('');
+    try {
+      if (!activeCompany?.company_id) {
+        throw new Error('Empresa não encontrada. Finalize o cadastro PJ.');
+      }
+
+      const link = await createWhatsAppLink(activeCompany.company_id);
+      setWhatsappLink(link);
+      await loadWhatsAppStatus();
+      toast.success('Código gerado! Envie no WhatsApp para concluir o vínculo.');
+    } catch (error) {
+      console.error('Erro ao gerar código WhatsApp:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao gerar código';
+      if (isAuthError(error)) {
+        await handleAuthExpired();
+        return;
+      }
+      if (isInvalidJwtError(error)) {
+        setWhatsappError(
+          'JWT inválido para este projeto. Verifique VITE_SUPABASE_URL/ANON_KEY do PJ.'
+        );
+        toast.error('JWT inválido');
+        return;
+      }
+      setWhatsappError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setWhatsappLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadWhatsAppStatus();
+  }, [activeCompany?.company_id]);
 
   if (loading || companyLoading) {
     return (
@@ -534,12 +649,26 @@ const CompanyDashboard = () => {
               <CardDescription>Atalhos para começar a usar o assistente PJ</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs">
+                <span className="text-muted-foreground">Status do WhatsApp</span>
+                <span className="font-medium text-foreground">
+                  {whatsappStatusLoading ? 'Carregando...' : whatsappStatusLabel}
+                </span>
+              </div>
               <Button className="w-full justify-between" onClick={() => navigate('/company/transactions')}>
                 Registrar nova transação
                 <ArrowRight className="h-4 w-4" />
               </Button>
               <Button variant="outline" className="w-full justify-between" onClick={() => navigate('/company/fixed-costs')}>
                 Adicionar custo fixo
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-between"
+                onClick={() => setIsWhatsAppDialogOpen(true)}
+              >
+                Conectar WhatsApp
                 <ArrowRight className="h-4 w-4" />
               </Button>
               <Button variant="ghost" className="w-full justify-between" onClick={() => navigate('/chat')}>
@@ -579,6 +708,68 @@ const CompanyDashboard = () => {
             </Button>
             <Button onClick={handleRevenueSave} disabled={setCompanyRevenue.isPending}>
               {setCompanyRevenue.isPending ? 'Salvando...' : 'Salvar alterações'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isWhatsAppDialogOpen} onOpenChange={setIsWhatsAppDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Conectar WhatsApp</DialogTitle>
+            <DialogDescription>
+              Gere um código e envie para o WhatsApp do SimplifiQA para concluir o vínculo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+              <MessageCircle className="h-5 w-5 text-primary mt-0.5" />
+              <div className="space-y-1">
+                <p>1) Gere o código.</p>
+                <p>2) Envie para o número do SimplifiQA.</p>
+                <p>3) Aguarde a confirmação automática.</p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs">
+              <span className="text-muted-foreground">Status atual</span>
+              <span className="font-medium text-foreground">
+                {whatsappStatusLoading ? 'Carregando...' : whatsappStatusLabel}
+              </span>
+            </div>
+
+            {whatsappLink ? (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                <p className="text-xs text-muted-foreground mb-1">Seu código</p>
+                <div className="text-2xl font-mono tracking-widest text-primary">
+                  {whatsappLink.code}
+                </div>
+                {whatsappExpiryLabel && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Expira em {whatsappExpiryLabel}.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhum código gerado ainda.</p>
+            )}
+
+            {whatsappStatus?.status === 'pending' && whatsappStatusExpiryLabel && (
+              <p className="text-xs text-muted-foreground">
+                Código pendente expira em {whatsappStatusExpiryLabel}.
+              </p>
+            )}
+
+            {whatsappError && (
+              <p className="text-xs text-danger">{whatsappError}</p>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setIsWhatsAppDialogOpen(false)}>
+              Fechar
+            </Button>
+            <Button onClick={handleGenerateWhatsAppLink} disabled={whatsappLoading}>
+              {whatsappLoading ? 'Gerando...' : whatsappLink ? 'Gerar novo código' : 'Gerar código'}
             </Button>
           </DialogFooter>
         </DialogContent>

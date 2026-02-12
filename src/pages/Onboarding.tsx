@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertCircle, ArrowLeft, ArrowRight, Building2, Check, Receipt, Upload } from "lucide-react";
-import { useState } from "react";
+import { AlertCircle, ArrowLeft, ArrowRight, Building2, Check, MessageCircle, Receipt, Upload } from "lucide-react";
+import { useEffect, useState } from "react";
 import InputMask from "react-input-mask";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import { createWhatsAppLink, type WhatsAppLinkResponse } from "@/lib/whatsapp";
 // import { branding } from "@/config/branding";
 
 const steps = [
@@ -18,6 +19,7 @@ const steps = [
   { number: 2, title: "Responsável" },
   { number: 3, title: "Empresa" },
   { number: 4, title: "Custos Fixos" },
+  { number: 5, title: "WhatsApp" },
 ];
 
 type FixedCost = { id: string; name: string; value: string };
@@ -37,6 +39,11 @@ const Onboarding = () => {
   const [verificationSent, setVerificationSent] = useState(false);
   const [authVerified, setAuthVerified] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
+  const [completedCompanyId, setCompletedCompanyId] = useState<string | null>(null);
+  const [whatsappLink, setWhatsappLink] = useState<WhatsAppLinkResponse | null>(null);
+  const [whatsappLoading, setWhatsappLoading] = useState(false);
+  const [whatsappError, setWhatsappError] = useState("");
+  const [whatsappAutoAttempted, setWhatsappAutoAttempted] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -321,7 +328,8 @@ const Onboarding = () => {
 
       await refreshCompanyMemberships();
       toast.success("Conta criada com sucesso!");
-      navigate("/company/dashboard");
+      setCompletedCompanyId(ensuredCompanyId ?? null);
+      setStep(5);
     } catch (error) {
       console.error("Erro ao criar conta:", error);
       const errorMessage = error instanceof Error ? error.message : "Erro ao criar conta";
@@ -331,8 +339,93 @@ const Onboarding = () => {
     }
   };
 
+  const handleGenerateWhatsAppLink = async () => {
+    if (whatsappLoading) return;
+    setWhatsappLoading(true);
+    setWhatsappError("");
+    try {
+      if (!completedCompanyId) {
+        throw new Error("Não foi possível identificar a empresa para vincular o WhatsApp.");
+      }
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (!refreshed?.session) {
+          throw new Error("Sessão expirada. Faça login novamente.");
+        }
+      }
+
+      const link = await createWhatsAppLink(completedCompanyId);
+      setWhatsappLink(link);
+      toast.success("Código gerado! Envie no WhatsApp para concluir o vínculo.");
+    } catch (error) {
+      console.error("Erro ao gerar código WhatsApp:", error);
+      const errorMessage = error instanceof Error ? error.message : "Erro ao gerar código";
+      if (isAuthError(error)) {
+        await handleAuthExpired();
+        return;
+      }
+      if (isInvalidJwtError(error)) {
+        const message = error instanceof Error ? error.message : "JWT inválido";
+        setWhatsappError(
+          "JWT inválido para este projeto. Verifique VITE_SUPABASE_URL/ANON_KEY do PJ."
+        );
+        toast.error(message);
+        return;
+      }
+      setWhatsappError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setWhatsappLoading(false);
+    }
+  };
+
+  const handleFinishOnboarding = () => {
+    navigate("/company/dashboard");
+  };
+
+  const handleAuthExpired = async () => {
+    await supabase.auth.signOut();
+    toast.error("Sessão expirada. Faça login novamente.");
+    navigate("/login");
+  };
+
+  const isAuthError = (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    const status = (error as any)?.status ?? (error as any)?.context?.status;
+    return status === 401 || /jwt expired|not authenticated/i.test(message);
+  };
+
+  const isInvalidJwtError = (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    return /invalid jwt/i.test(message);
+  };
+
+  useEffect(() => {
+    if (
+      step === 5 &&
+      completedCompanyId &&
+      !whatsappLink &&
+      !whatsappLoading &&
+      !whatsappAutoAttempted
+    ) {
+      setWhatsappAutoAttempted(true);
+      handleGenerateWhatsAppLink();
+    }
+  }, [
+    step,
+    completedCompanyId,
+    whatsappLink,
+    whatsappLoading,
+    whatsappAutoAttempted,
+  ]);
+
   const isPasswordValid = formData.password.length >= 6 && formData.password === formData.confirmPassword;
   const isContactValid = Boolean(formData.email) && !emailError;
+  const whatsappExpiryLabel = whatsappLink?.expiresAt
+    ? new Date(whatsappLink.expiresAt).toLocaleString("pt-BR")
+    : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20 flex items-center justify-center p-4">
@@ -720,6 +813,72 @@ const Onboarding = () => {
                       {!loading && <Check className="h-4 w-4" />}
                     </Button>
                   </div>
+                </div>
+              </motion.div>
+            )}
+
+            {step === 5 && (
+              <motion.div
+                key="step5"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <h2 className="text-2xl font-bold text-foreground mb-2">Conectar WhatsApp</h2>
+                <p className="text-muted-foreground mb-6">
+                  Gere um código de pareamento e envie no WhatsApp do SimplifiQA para concluir a conexão.
+                </p>
+
+                <div className="p-4 rounded-lg border border-border bg-muted/30">
+                  <div className="flex items-start gap-3">
+                    <MessageCircle className="h-6 w-6 text-primary mt-1" />
+                    <div className="space-y-1 text-sm text-muted-foreground">
+                      <p>1) Clique em “Gerar código”.</p>
+                      <p>2) Envie o código para o número do WhatsApp do SimplifiQA.</p>
+                      <p>3) Aguarde a confirmação automática.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 space-y-2">
+                  {whatsappLink ? (
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                      <p className="text-xs text-muted-foreground mb-1">Seu código</p>
+                      <div className="text-2xl font-mono tracking-widest text-primary">
+                        {whatsappLink.code}
+                      </div>
+                      {whatsappExpiryLabel && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Expira em {whatsappExpiryLabel}.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum código gerado ainda.
+                    </p>
+                  )}
+
+                  {whatsappError && (
+                    <div className="flex items-center gap-2 text-xs text-danger">
+                      <AlertCircle className="h-3 w-3" />
+                      {whatsappError}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 sm:items-center mt-8">
+                  <Button
+                    onClick={handleGenerateWhatsAppLink}
+                    disabled={whatsappLoading}
+                    className="gap-2"
+                  >
+                    {whatsappLoading ? "Gerando..." : whatsappLink ? "Gerar novo código" : "Gerar código"}
+                  </Button>
+                  <Button variant="outline" onClick={handleFinishOnboarding}>
+                    Ir para o painel
+                  </Button>
                 </div>
               </motion.div>
             )}
