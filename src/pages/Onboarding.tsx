@@ -362,16 +362,16 @@ const Onboarding = () => {
     } catch (error) {
       console.error("Erro ao gerar código WhatsApp:", error);
       const errorMessage = error instanceof Error ? error.message : "Erro ao gerar código";
-      if (isAuthError(error)) {
-        await handleAuthExpired();
-        return;
-      }
       if (isInvalidJwtError(error)) {
         const message = error instanceof Error ? error.message : "JWT inválido";
         setWhatsappError(
           "JWT inválido para este projeto. Verifique VITE_SUPABASE_URL/ANON_KEY do PJ."
         );
         toast.error(message);
+        return;
+      }
+      if (isAuthError(error)) {
+        await handleAuthExpired();
         return;
       }
       setWhatsappError(errorMessage);
@@ -391,15 +391,15 @@ const Onboarding = () => {
     navigate("/login");
   };
 
-  const isAuthError = (error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error ?? "");
-    const status = (error as any)?.status ?? (error as any)?.context?.status;
-    return status === 401 || /jwt expired|not authenticated/i.test(message);
-  };
-
   const isInvalidJwtError = (error: unknown) => {
     const message = error instanceof Error ? error.message : String(error ?? "");
     return /invalid jwt/i.test(message);
+  };
+
+  const isAuthError = (error: unknown) => {
+    if (isInvalidJwtError(error)) return false;
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    return /jwt expired|not authenticated/i.test(message);
   };
 
   useEffect(() => {

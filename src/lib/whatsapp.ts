@@ -77,7 +77,7 @@ export async function createWhatsAppLink(companyId?: string) {
   } catch (error) {
     const status = (error as any)?.context?.status ?? (error as any)?.status;
     const message = (error as any)?.message ?? '';
-    const shouldRefresh = status === 401 || /invalid jwt|jwt expired|not authenticated/i.test(message);
+    const shouldRefresh = /jwt expired|not authenticated/i.test(message);
     if (!shouldRefresh) {
       throw error;
     }
