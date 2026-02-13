@@ -11,16 +11,20 @@ type LinkRequest = {
   companyId?: string | null;
 };
 
+function jsonResponse(body: Record<string, unknown>, status: number) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ error: 'Method not allowed' }, 405);
   }
 
   try {
@@ -31,18 +35,12 @@ serve(async (req) => {
     const authHeader = req.headers.get('authorization') ?? req.headers.get('Authorization');
     const token = authHeader?.startsWith('Bearer ') ? authHeader.replace('Bearer ', '') : null;
     if (!token) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'Unauthorized' }, 401);
     }
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'Unauthorized' }, 401);
     }
 
     const payload = await req.json().catch(() => ({} as LinkRequest));
@@ -55,24 +53,15 @@ serve(async (req) => {
       .maybeSingle();
 
     if (profileError || !profile) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'Unauthorized' }, 401);
     }
 
     if (!profile.tenant_id) {
-      return new Response(JSON.stringify({ error: 'Tenant not set' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'Tenant not set' }, 400);
     }
 
     if (profile.user_type === 'pessoa_juridica' && !companyId) {
-      return new Response(JSON.stringify({ error: 'Company is required for PJ users' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'Company is required for PJ users' }, 400);
     }
 
     if (companyId) {
@@ -85,21 +74,23 @@ serve(async (req) => {
 
       if (membershipError) throw membershipError;
       if (!membership) {
-        return new Response(JSON.stringify({ error: 'Company access denied' }), {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return jsonResponse({ error: 'Company access denied' }, 403);
       }
     }
 
-    const { data: existing } = await supabase
+    let existingQuery = supabase
       .from('whatsapp_links')
       .select('id')
       .eq('profile_id', user.id)
-      .is('company_id', companyId)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    existingQuery = companyId
+      ? existingQuery.eq('company_id', companyId)
+      : existingQuery.is('company_id', null);
+
+    const { data: existing } = await existingQuery;
 
     const { code, expiresAt } = await persistPairingCode(
       supabase,
@@ -110,11 +101,16 @@ serve(async (req) => {
       }
     );
 
-    return new Response(JSON.stringify({ code, expiresAt }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ code, expiresAt }, 200);
   } catch (error) {
+    const dbCode = (error as any)?.code;
+    const dbMessage = (error as any)?.message ?? '';
+    if (dbCode === '23514' && /tenant/i.test(dbMessage)) {
+      return jsonResponse({ error: 'Tenant validation failed. Check profile/company tenant_id.' }, 400);
+    }
+    if (dbCode === '23503' && /company/i.test(dbMessage)) {
+      return jsonResponse({ error: 'Company not found or invalid.' }, 400);
+    }
     return createErrorResponse(error, corsHeaders);
   }
 });
