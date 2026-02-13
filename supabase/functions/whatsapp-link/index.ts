@@ -48,6 +48,33 @@ serve(async (req) => {
     const payload = await req.json().catch(() => ({} as LinkRequest));
     const companyId = typeof payload?.companyId === 'string' ? payload.companyId : null;
 
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('user_type, tenant_id')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (profileError || !profile) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!profile.tenant_id) {
+      return new Response(JSON.stringify({ error: 'Tenant not set' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (profile.user_type === 'pessoa_juridica' && !companyId) {
+      return new Response(JSON.stringify({ error: 'Company is required for PJ users' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (companyId) {
       const { data: membership, error: membershipError } = await supabase
         .from('company_members')
