@@ -80,7 +80,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const messages = extractTextMessages(payload);
+    const messages = extractMessages(payload);
 
     if (messages.length === 0) {
       return new Response(JSON.stringify({ status: 'ok' }), {
@@ -91,7 +91,7 @@ serve(async (req) => {
 
     for (const message of messages) {
       try {
-        await handleInboundMessage(supabase, message);
+        await handleInboundMessage(supabase, message as WhatsAppMessage);
       } catch (error) {
         console.error('[WhatsApp] Failed to handle message:', error);
       }
@@ -116,11 +116,34 @@ type WhatsAppTextMessage = {
   };
 };
 
-async function handleInboundMessage(supabase: any, message: WhatsAppTextMessage) {
-  const from = normalizePhoneNumber(message.from);
-  const body = message.text?.body?.trim() ?? '';
+type WhatsAppImageMessage = {
+  id: string;
+  from: string;
+  timestamp: string;
+  type: 'image';
+  image: {
+    id: string;
+    mime_type: string;
+    caption?: string;
+  };
+};
 
-  if (!from || !body) {
+type WhatsAppMessage = WhatsAppTextMessage | WhatsAppImageMessage;
+
+async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
+  const from = normalizePhoneNumber(message.from);
+
+  if (!from) {
+    return;
+  }
+
+  const isImage = message.type === 'image';
+  const body = isImage
+    ? (message as WhatsAppImageMessage).image?.caption?.trim() ?? ''
+    : (message as WhatsAppTextMessage).text?.body?.trim() ?? '';
+
+  // Text messages require a body; image messages can proceed without caption
+  if (!isImage && !body) {
     return;
   }
 
@@ -131,22 +154,39 @@ async function handleInboundMessage(supabase: any, message: WhatsAppTextMessage)
 
   const linked = await findLinkedAccount(supabase, from);
   if (!linked) {
-    await handleUnlinkedMessage(supabase, from, body);
+    if (isImage) {
+      await sendWhatsAppText(
+        from,
+        'Para conectar seu WhatsApp ao SimplifiQA, gere um código no app e envie aqui.'
+      );
+    } else {
+      await handleUnlinkedMessage(supabase, from, body);
+    }
     return;
   }
 
   checkRateLimit(linked.profile_id, { maxRequests: 30, windowMs: 60_000 });
 
   const conversationId = await ensureConversation(supabase, linked, from);
-  await saveConversationMessage(supabase, conversationId, 'user', body);
+  const userMessageText = isImage ? `[Imagem recebida]${body ? ` ${body}` : ''}` : body;
+  await saveConversationMessage(supabase, conversationId, 'user', userMessageText);
 
-  const transactionResult = await maybeSaveTransaction(supabase, linked, body);
+  let transactionResult: TransactionResult | null = null;
+
+  if (isImage) {
+    transactionResult = await handleImageTransaction(supabase, linked, message as WhatsAppImageMessage);
+  } else {
+    transactionResult = await maybeSaveTransaction(supabase, linked, body);
+  }
 
   const context = linked.company_id
     ? await fetchCompanyFinancialContext(supabase, linked.profile_id, linked.company_id)
     : await fetchFinancialContext(supabase, linked.profile_id);
 
-  const assistantMessage = await buildAssistantResponse(body, context);
+  // For images, only add assistant response if no transactions were extracted
+  const assistantMessage = (!isImage || !transactionResult)
+    ? await buildAssistantResponse(body || 'Recebi uma imagem', context)
+    : null;
 
   const combinedResponse = [transactionResult?.confirmation, assistantMessage]
     .filter(Boolean)
@@ -342,131 +382,583 @@ type TransactionResult = {
   confirmation: string;
 };
 
-async function maybeSaveTransaction(supabase: any, link: any, message: string): Promise<TransactionResult | null> {
-  const parsed = extractTransactionFromMessage(message);
-  if (!parsed) {
-    return null;
+// ============================================================================
+// Image Processing (WhatsApp → OpenAI Vision → Transactions)
+// ============================================================================
+
+async function downloadWhatsAppMedia(mediaId: string): Promise<{ data: ArrayBuffer; mimeType: string }> {
+  if (!token) {
+    throw new Error('Missing META_WHATSAPP_TOKEN');
   }
 
-  const categoryName = classifyCategory(parsed.description);
-  const categoryId = categoryName
-    ? await findCategoryId(supabase, link, categoryName)
-    : null;
+  // Step 1: Get the media URL from Meta API
+  const metaUrl = `https://graph.facebook.com/${apiVersion}/${mediaId}`;
+  const metaResponse = await fetch(metaUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
-  const date = new Date().toISOString().split('T')[0];
-
-  if (link.company_id) {
-    const { error } = await supabase
-      .from('company_transactions')
-      .insert({
-        company_id: link.company_id,
-        description: parsed.description,
-        amount: parsed.amount,
-        type: parsed.type,
-        date,
-        category_id: categoryId,
-        created_by: link.profile_id,
-      });
-
-    if (error) {
-      console.error('[WhatsApp] Failed to insert company transaction:', error);
-      return null;
-    }
-  } else {
-    const { error } = await supabase
-      .from('transactions')
-      .insert({
-        user_id: link.profile_id,
-        description: parsed.description,
-        amount: parsed.amount,
-        type: parsed.type,
-        date,
-        category_id: categoryId,
-      });
-
-    if (error) {
-      console.error('[WhatsApp] Failed to insert transaction:', error);
-      return null;
-    }
+  if (!metaResponse.ok) {
+    const err = await metaResponse.text().catch(() => '');
+    console.error('[WhatsApp] Failed to get media URL:', metaResponse.status, err);
+    throw new Error('Failed to retrieve media info');
   }
 
-  const typeLabel = parsed.type === 'receita' ? 'Receita' : 'Despesa';
-  const categoryLabel = categoryName ? ` • ${categoryName}` : '';
-  const confirmation = `✅ ${typeLabel} registrada: ${formatCurrency(parsed.amount)} - ${parsed.description}${categoryLabel}.`;
+  const metaData = await metaResponse.json();
+  const downloadUrl = metaData.url;
+  const mimeType = metaData.mime_type ?? 'image/jpeg';
 
-  return { confirmation };
+  if (!downloadUrl) {
+    throw new Error('No download URL in media response');
+  }
+
+  // Step 2: Download the actual media file
+  const mediaResponse = await fetch(downloadUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!mediaResponse.ok) {
+    throw new Error(`Failed to download media: ${mediaResponse.status}`);
+  }
+
+  const data = await mediaResponse.arrayBuffer();
+  return { data, mimeType };
 }
 
-function extractTransactionFromMessage(message: string) {
-  const amount = extractAmount(message);
-  if (!amount) {
-    return null;
+async function extractTransactionsFromImage(
+  imageData: ArrayBuffer,
+  mimeType: string,
+  openaiKey: string
+): Promise<Array<{ date: string; description: string; amount: number }>> {
+  const uint8Array = new Uint8Array(imageData);
+
+  // Check file size (max 5MB)
+  const sizeMB = uint8Array.length / (1024 * 1024);
+  if (sizeMB > 5) {
+    throw new Error(`Imagem muito grande: ${sizeMB.toFixed(1)}MB (máx 5MB)`);
   }
 
-  const normalized = message.toLowerCase();
-  const incomeRegex = /(recebi|receita|ganhei|vendi|entrada|credito|crédito)/i;
-  const expenseRegex = /(paguei|gastei|comprei|despesa|debito|débito|saquei)/i;
+  // Convert to base64 in chunks
+  let base64 = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.slice(i, i + chunkSize);
+    base64 += String.fromCharCode(...chunk);
+  }
+  base64 = btoa(base64);
 
-  let type: 'receita' | 'despesa' = 'despesa';
-  if (incomeRegex.test(normalized) && !expenseRegex.test(normalized)) {
-    type = 'receita';
-  } else if (expenseRegex.test(normalized) && !incomeRegex.test(normalized)) {
-    type = 'despesa';
+  const normalizedMime = mimeType.includes('png') ? 'image/png' : 'image/jpeg';
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${openaiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `Extraia TODAS as transações desta imagem (comprovante, extrato, nota fiscal, etc.).
+Retorne APENAS um array JSON no formato:
+[{"date": "YYYY-MM-DD", "description": "texto", "amount": number}]
+
+Regras:
+- Use números negativos para despesas/pagamentos
+- Use números positivos para receitas/créditos
+- Se a data não estiver visível, use "${new Date().toISOString().split('T')[0]}"
+- Descrição deve ser clara e concisa
+- Retorne APENAS o JSON, sem nenhum outro texto`,
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${normalizedMime};base64,${base64}`,
+              },
+            },
+          ],
+        },
+      ],
+      max_tokens: 2000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.text().catch(() => '');
+    console.error('[WhatsApp] OpenAI Vision error:', response.status, errorData);
+    throw new Error('Falha ao processar imagem');
   }
 
-  let description = message;
-  description = description.replace(amount.raw, '').replace(/r\$/gi, '').trim();
-  description = description.replace(incomeRegex, '').replace(expenseRegex, '').trim();
-  description = description.replace(/^(no|na|em|para|por)\s+/i, '').trim();
+  const result = await response.json();
+  const content = result.choices?.[0]?.message?.content ?? '[]';
 
-  if (description.length < 3) {
-    description = 'Transação via WhatsApp';
+  const jsonMatch = content.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) {
+    return [];
   }
 
-  return {
-    amount: amount.value,
-    description: capitalizeSentence(description),
-    type,
-  };
+  return JSON.parse(jsonMatch[0]);
 }
 
-function extractAmount(message: string): { value: number; raw: string } | null {
-  const regex = /(?:R\$\s*)?((?:\d{1,3}(?:[.\s]\d{3})+|\d+)(?:[.,]\d{2})?)/i;
-  const match = message.match(regex);
-  if (!match) {
-    return null;
+async function handleImageTransaction(
+  supabase: any,
+  link: any,
+  message: WhatsAppImageMessage
+): Promise<TransactionResult | null> {
+  const openaiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!openaiKey) {
+    return { confirmation: 'Processamento de imagens indisponível no momento.' };
   }
 
-  const raw = match[0];
-  const numericPart = match[1];
+  const mediaId = message.image?.id;
+  if (!mediaId) {
+    return { confirmation: 'Não consegui acessar a imagem. Tente enviar novamente.' };
+  }
 
-  let normalized = numericPart.replace(/\s/g, '');
-  if (normalized.includes(',') && normalized.includes('.')) {
-    normalized = normalized.replace(/\./g, '').replace(',', '.');
-  } else if (normalized.includes(',')) {
-    normalized = normalized.replace(',', '.');
-  } else if (normalized.includes('.')) {
-    const parts = normalized.split('.');
-    if (parts.length > 2) {
-      normalized = parts.join('');
+  let imageData: ArrayBuffer;
+  let mimeType: string;
+  try {
+    const media = await downloadWhatsAppMedia(mediaId);
+    imageData = media.data;
+    mimeType = media.mimeType;
+  } catch (error) {
+    console.error('[WhatsApp] Media download failed:', error);
+    return { confirmation: 'Não consegui baixar a imagem. Tente enviar novamente.' };
+  }
+
+  let rawTransactions: Array<{ date: string; description: string; amount: number }>;
+  try {
+    rawTransactions = await extractTransactionsFromImage(imageData, mimeType, openaiKey);
+  } catch (error) {
+    console.error('[WhatsApp] Image extraction failed:', error);
+    return { confirmation: 'Não consegui extrair transações da imagem. Tente enviar uma foto mais nítida.' };
+  }
+
+  if (rawTransactions.length === 0) {
+    return { confirmation: 'Não encontrei transações nesta imagem. Envie uma foto de um comprovante, extrato ou nota fiscal.' };
+  }
+
+  const confirmations: string[] = [];
+  let savedCount = 0;
+
+  for (const raw of rawTransactions) {
+    const rawAmount = typeof raw.amount === 'number' ? raw.amount : parseFloat(String(raw.amount));
+    if (Number.isNaN(rawAmount) || rawAmount === 0) continue;
+
+    const amount = Math.abs(rawAmount);
+    const type: 'receita' | 'despesa' = rawAmount > 0 ? 'receita' : 'despesa';
+    const description = raw.description || 'Transação via imagem';
+    const date = raw.date || new Date().toISOString().split('T')[0];
+
+    const categoryName = classifyCategory(description);
+    const categoryId = categoryName
+      ? await findCategoryId(supabase, link, categoryName)
+      : null;
+
+    if (link.company_id) {
+      const { error } = await supabase
+        .from('company_transactions')
+        .insert({
+          company_id: link.company_id,
+          description,
+          amount,
+          type,
+          date,
+          category_id: categoryId,
+          created_by: link.profile_id,
+        });
+
+      if (error) {
+        console.error('[WhatsApp] Failed to insert company transaction from image:', error);
+        continue;
+      }
     } else {
-      const [intPart, fracPart] = parts;
-      if (fracPart && fracPart.length === 3) {
-        normalized = `${intPart}${fracPart}`;
-      } else if (fracPart) {
-        normalized = `${intPart}.${fracPart}`;
-      } else {
-        normalized = intPart;
+      const { error } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: link.profile_id,
+          description,
+          amount,
+          type,
+          date,
+          category_id: categoryId,
+        });
+
+      if (error) {
+        console.error('[WhatsApp] Failed to insert transaction from image:', error);
+        continue;
       }
     }
+
+    savedCount++;
+    const typeLabel = type === 'receita' ? 'Receita' : 'Despesa';
+    const categoryLabel = categoryName ? ` • ${categoryName}` : '';
+    confirmations.push(`  ${savedCount}. ${typeLabel}: ${formatCurrency(amount)} - ${description}${categoryLabel}`);
   }
 
-  const value = Number(normalized);
-  if (Number.isNaN(value) || value <= 0) {
+  if (savedCount === 0) {
+    return { confirmation: 'Encontrei dados na imagem mas não consegui salvar as transações. Tente novamente.' };
+  }
+
+  const header = savedCount === 1
+    ? '✅ Transação extraída da imagem:'
+    : `✅ ${savedCount} transações extraídas da imagem:`;
+
+  return { confirmation: `${header}\n${confirmations.join('\n')}` };
+}
+
+// ============================================================================
+// Two-Stage Transaction Extraction (Heuristic + AI Refinement)
+// ============================================================================
+
+type TransactionProposal = {
+  amount: number;
+  description: string;
+  type: 'despesa' | 'receita';
+  date: string;
+  category_name: string | null;
+};
+
+function looksLikeTransaction(text: string): boolean {
+  const lower = text.toLowerCase();
+  const hasMoney = /\b(r\$)\s*\d/.test(lower) || /\b\d{1,3}(?:[.\s]\d{3})*(?:[.,]\d{2})\b/.test(lower);
+  const keywords = ['gastei', 'paguei', 'comprei', 'pix', 'debitei', 'cartão', 'cartao', 'recebi', 'ganhei', 'vendi'];
+  return hasMoney || keywords.some((k) => lower.includes(k));
+}
+
+async function maybeSaveTransaction(supabase: any, link: any, message: string): Promise<TransactionResult | null> {
+  if (!looksLikeTransaction(message)) {
     return null;
   }
 
-  return { value, raw };
+  const now = new Date();
+  const candidates = extractTransactionCandidates(message);
+  const openaiKey = Deno.env.get('OPENAI_API_KEY');
+  const categoryNames = Object.keys(CATEGORY_KEYWORDS);
+
+  let proposals: TransactionProposal[];
+
+  if (candidates.length > 1) {
+    // Multiple transactions in one message
+    const heuristics = candidates
+      .map((c) => extractTransactionHeuristic(c, now))
+      .filter((h) => h.amount > 0 && h.description);
+    proposals = openaiKey
+      ? await extractTransactionsWithAI(openaiKey, message, categoryNames, heuristics)
+      : heuristics;
+  } else {
+    // Single transaction
+    const heuristic = extractTransactionHeuristic(message, now);
+    const single = openaiKey
+      ? await extractTransactionWithAI(openaiKey, message, categoryNames, heuristic)
+      : heuristic;
+    proposals = [single];
+  }
+
+  const valid = proposals.filter((p) => p.amount > 0 && p.description);
+  if (valid.length === 0) {
+    return null;
+  }
+
+  const confirmations: string[] = [];
+  let savedCount = 0;
+
+  for (const proposal of valid.slice(0, 10)) {
+    const categoryName = proposal.category_name || classifyCategory(proposal.description);
+    const categoryId = categoryName
+      ? await findCategoryId(supabase, link, categoryName)
+      : null;
+
+    if (link.company_id) {
+      const { error } = await supabase
+        .from('company_transactions')
+        .insert({
+          company_id: link.company_id,
+          description: proposal.description,
+          amount: proposal.amount,
+          type: proposal.type,
+          date: proposal.date,
+          category_id: categoryId,
+          created_by: link.profile_id,
+        });
+
+      if (error) {
+        console.error('[WhatsApp] Failed to insert company transaction:', error);
+        continue;
+      }
+    } else {
+      const { error } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: link.profile_id,
+          description: proposal.description,
+          amount: proposal.amount,
+          type: proposal.type,
+          date: proposal.date,
+          category_id: categoryId,
+        });
+
+      if (error) {
+        console.error('[WhatsApp] Failed to insert transaction:', error);
+        continue;
+      }
+    }
+
+    savedCount++;
+    const typeLabel = proposal.type === 'receita' ? 'Receita' : 'Despesa';
+    const categoryLabel = categoryName ? ` • ${categoryName}` : '';
+    if (valid.length === 1) {
+      confirmations.push(`✅ ${typeLabel} registrada: ${formatCurrency(proposal.amount)} - ${proposal.description}${categoryLabel}.`);
+    } else {
+      confirmations.push(`  ${savedCount}. ${typeLabel}: ${formatCurrency(proposal.amount)} - ${proposal.description}${categoryLabel}`);
+    }
+  }
+
+  if (savedCount === 0) {
+    return null;
+  }
+
+  if (valid.length > 1) {
+    const header = `✅ ${savedCount} transações registradas:`;
+    return { confirmation: `${header}\n${confirmations.join('\n')}` };
+  }
+
+  return { confirmation: confirmations[0] };
+}
+
+// ── Heuristic extraction ──
+
+function extractTransactionHeuristic(text: string, now: Date): TransactionProposal {
+  const amount = parseBRLAmount(text) ?? 0;
+  const lower = text.toLowerCase();
+  const type: 'despesa' | 'receita' =
+    (lower.includes('recebi') || lower.includes('ganhei') || lower.includes('vendi'))
+      ? 'receita'
+      : 'despesa';
+  const date = inferDate(text, now);
+  const description = inferDescription(text);
+  const category_name = classifyCategory(description);
+
+  return { amount, description, type, date, category_name };
+}
+
+function parseBRLAmount(text: string): number | null {
+  const normalized = text.replace(/\s+/g, ' ');
+
+  // Prefer patterns like "R$ 1.234,56"
+  const m1 = normalized.match(/r\$\s*([0-9]{1,3}(?:\.[0-9]{3})*(?:,[0-9]{2})?)/i);
+  if (m1) return brNumberToFloat(m1[1]);
+
+  // Fallback: "123,45" or "1.234,56" standalone
+  const m2 = normalized.match(/\b([0-9]{1,3}(?:\.[0-9]{3})*(?:,[0-9]{2})|[0-9]+[.,][0-9]{2})\b/);
+  if (m2) return brNumberToFloat(m2[1]);
+
+  return null;
+}
+
+function brNumberToFloat(value: string): number {
+  const v = value.replace(/\./g, '').replace(',', '.');
+  return Number(v);
+}
+
+function inferDate(text: string, now: Date): string {
+  const lower = text.toLowerCase();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+
+  if (lower.includes('ontem')) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  }
+  if (lower.includes('hoje')) return today.toISOString().slice(0, 10);
+
+  const dmy = lower.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/);
+  if (dmy) {
+    const day = Number(dmy[1]);
+    const month = Number(dmy[2]);
+    const yearRaw = dmy[3] ? Number(dmy[3]) : now.getFullYear();
+    const year = yearRaw < 100 ? 2000 + yearRaw : yearRaw;
+    const d = new Date(year, month - 1, day, 12, 0, 0);
+    if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  }
+
+  return today.toISOString().slice(0, 10);
+}
+
+function inferDescription(text: string): string {
+  const cleaned = text
+    .replace(/^\s*(gastei|paguei|comprei|recebi|ganhei|vendi|saquei)\s+/i, '')
+    .replace(/r\$\s*[0-9.,\s]+/gi, '')
+    .replace(/\b(hoje|ontem)\b/gi, '')
+    .replace(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g, '')
+    .replace(/^(no|na|em|para|por|de)\s+/i, '')
+    .trim();
+  if (cleaned.length < 3) return 'Transação via WhatsApp';
+  return capitalizeSentence(cleaned.slice(0, 500));
+}
+
+// ── Multiple transaction detection ──
+
+function extractTransactionCandidates(text: string): string[] {
+  // Check for numbered items: "1) ...", "2. ..."
+  const numbered = extractNumberedItems(text);
+  let candidates = numbered.length > 1 ? numbered : text.split(/\n+/);
+
+  // Try semicolons
+  if (candidates.length <= 1 && text.includes(';')) {
+    candidates = text.split(';');
+  }
+
+  const cleaned = candidates
+    .map((c) => c.replace(/^\s*[-•]\s+/, '').trim())
+    .filter(Boolean);
+
+  const withAmount = cleaned.filter((c) => parseBRLAmount(c) !== null);
+  if (withAmount.length > 1) {
+    return Array.from(new Set(withAmount));
+  }
+
+  return [text];
+}
+
+function extractNumberedItems(text: string): string[] {
+  const items: string[] = [];
+  const regex = /(?:^|\n)\s*\d+[.)]\s+([\s\S]*?)(?=(?:\n\s*\d+[.)]\s+|$))/g;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    items.push(match[1].trim());
+  }
+  return items;
+}
+
+// ── AI-enhanced extraction ──
+
+async function extractTransactionWithAI(
+  apiKey: string,
+  text: string,
+  allowedCategories: string[],
+  fallback: TransactionProposal,
+): Promise<TransactionProposal> {
+  const nowIso = new Date().toISOString().slice(0, 10);
+  const system = `Você extrai UMA transação a partir do texto do usuário.
+Retorne APENAS um JSON válido (sem markdown) seguindo este schema:
+{
+  "amount": number,
+  "description": string,
+  "type": "despesa"|"receita",
+  "date": "YYYY-MM-DD",
+  "category_name"?: string
+}
+Regras:
+- amount em reais (ex.: 42.9 para R$ 42,90)
+- Se data não aparecer, use hoje (${nowIso})
+- category_name deve ser uma destas (se fizer sentido): ${allowedCategories.join(', ')}
+`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: AI_CONFIG.model,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: text },
+        ],
+        temperature: 0,
+        max_tokens: 200,
+      }),
+    });
+
+    if (!response.ok) return fallback;
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content || typeof content !== 'string') return fallback;
+
+    const parsed = JSON.parse(content);
+    if (!parsed.amount || !parsed.description) return fallback;
+
+    return {
+      amount: Number(parsed.amount),
+      description: String(parsed.description).slice(0, 500),
+      type: parsed.type === 'receita' ? 'receita' : 'despesa',
+      date: parsed.date ?? nowIso,
+      category_name: parsed.category_name ?? null,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+async function extractTransactionsWithAI(
+  apiKey: string,
+  text: string,
+  allowedCategories: string[],
+  fallback: TransactionProposal[],
+): Promise<TransactionProposal[]> {
+  const nowIso = new Date().toISOString().slice(0, 10);
+  const system = `Você extrai UMA OU MAIS transações a partir do texto do usuário.
+Retorne APENAS um JSON válido (sem markdown) com um array de objetos seguindo este schema:
+[
+  {
+    "amount": number,
+    "description": string,
+    "type": "despesa"|"receita",
+    "date": "YYYY-MM-DD",
+    "category_name"?: string
+  }
+]
+Regras:
+- amount em reais (ex.: 42.9 para R$ 42,90)
+- Se data não aparecer, use hoje (${nowIso})
+- category_name deve ser uma destas (se fizer sentido): ${allowedCategories.join(', ')}
+- Se houver só uma transação, retorne um array com 1 item.
+`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: AI_CONFIG.model,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: text },
+        ],
+        temperature: 0,
+        max_tokens: 500,
+      }),
+    });
+
+    if (!response.ok) return fallback;
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content || typeof content !== 'string') return fallback;
+
+    const parsed = JSON.parse(content);
+    const items = Array.isArray(parsed) ? parsed : [parsed];
+
+    return items
+      .filter((item: any) => item.amount && item.description)
+      .map((item: any) => ({
+        amount: Number(item.amount),
+        description: String(item.description).slice(0, 500),
+        type: item.type === 'receita' ? 'receita' : 'despesa',
+        date: item.date ?? nowIso,
+        category_name: item.category_name ?? null,
+      }));
+  } catch {
+    return fallback;
+  }
 }
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
@@ -782,8 +1274,8 @@ function formatCurrency(value: number) {
   return currencyFormatter.format(value);
 }
 
-function extractTextMessages(payload: any): WhatsAppTextMessage[] {
-  const messages: WhatsAppTextMessage[] = [];
+function extractMessages(payload: any): WhatsAppMessage[] {
+  const messages: WhatsAppMessage[] = [];
 
   // Official Meta webhook format
   const entries = Array.isArray(payload?.entry) ? payload.entry : [];
@@ -791,24 +1283,26 @@ function extractTextMessages(payload: any): WhatsAppTextMessage[] {
     const changes = Array.isArray(entry?.changes) ? entry.changes : [];
     for (const change of changes) {
       const value = change?.value;
-      collectTextMessages(value?.messages, messages);
+      collectMessages(value?.messages, messages);
     }
   }
 
   // Some brokers/webhooks forward only the "value" object
-  collectTextMessages(payload?.messages, messages);
+  collectMessages(payload?.messages, messages);
 
   // Some integrations wrap the original payload under "body"
-  collectTextMessages(payload?.body?.messages, messages);
+  collectMessages(payload?.body?.messages, messages);
 
   return messages;
 }
 
-function collectTextMessages(source: any, target: WhatsAppTextMessage[]) {
+function collectMessages(source: any, target: WhatsAppMessage[]) {
   const eventMessages = Array.isArray(source) ? source : [];
   for (const msg of eventMessages) {
     if (msg?.type === 'text' && msg?.text?.body) {
       target.push(msg as WhatsAppTextMessage);
+    } else if (msg?.type === 'image' && msg?.image?.id) {
+      target.push(msg as WhatsAppImageMessage);
     }
   }
 }
