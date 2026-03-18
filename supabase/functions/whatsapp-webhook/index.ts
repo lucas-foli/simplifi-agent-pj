@@ -80,7 +80,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const messages = extractTextMessages(payload);
+    const messages = extractMessages(payload);
 
     if (messages.length === 0) {
       return new Response(JSON.stringify({ status: 'ok' }), {
@@ -91,7 +91,7 @@ serve(async (req) => {
 
     for (const message of messages) {
       try {
-        await handleInboundMessage(supabase, message);
+        await handleInboundMessage(supabase, message as WhatsAppMessage);
       } catch (error) {
         console.error('[WhatsApp] Failed to handle message:', error);
       }
@@ -116,11 +116,34 @@ type WhatsAppTextMessage = {
   };
 };
 
-async function handleInboundMessage(supabase: any, message: WhatsAppTextMessage) {
-  const from = normalizePhoneNumber(message.from);
-  const body = message.text?.body?.trim() ?? '';
+type WhatsAppImageMessage = {
+  id: string;
+  from: string;
+  timestamp: string;
+  type: 'image';
+  image: {
+    id: string;
+    mime_type: string;
+    caption?: string;
+  };
+};
 
-  if (!from || !body) {
+type WhatsAppMessage = WhatsAppTextMessage | WhatsAppImageMessage;
+
+async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
+  const from = normalizePhoneNumber(message.from);
+
+  if (!from) {
+    return;
+  }
+
+  const isImage = message.type === 'image';
+  const body = isImage
+    ? (message as WhatsAppImageMessage).image?.caption?.trim() ?? ''
+    : (message as WhatsAppTextMessage).text?.body?.trim() ?? '';
+
+  // Text messages require a body; image messages can proceed without caption
+  if (!isImage && !body) {
     return;
   }
 
@@ -131,22 +154,39 @@ async function handleInboundMessage(supabase: any, message: WhatsAppTextMessage)
 
   const linked = await findLinkedAccount(supabase, from);
   if (!linked) {
-    await handleUnlinkedMessage(supabase, from, body);
+    if (isImage) {
+      await sendWhatsAppText(
+        from,
+        'Para conectar seu WhatsApp ao SimplifiQA, gere um código no app e envie aqui.'
+      );
+    } else {
+      await handleUnlinkedMessage(supabase, from, body);
+    }
     return;
   }
 
   checkRateLimit(linked.profile_id, { maxRequests: 30, windowMs: 60_000 });
 
   const conversationId = await ensureConversation(supabase, linked, from);
-  await saveConversationMessage(supabase, conversationId, 'user', body);
+  const userMessageText = isImage ? `[Imagem recebida]${body ? ` ${body}` : ''}` : body;
+  await saveConversationMessage(supabase, conversationId, 'user', userMessageText);
 
-  const transactionResult = await maybeSaveTransaction(supabase, linked, body);
+  let transactionResult: TransactionResult | null = null;
+
+  if (isImage) {
+    transactionResult = await handleImageTransaction(supabase, linked, message as WhatsAppImageMessage);
+  } else {
+    transactionResult = await maybeSaveTransaction(supabase, linked, body);
+  }
 
   const context = linked.company_id
     ? await fetchCompanyFinancialContext(supabase, linked.profile_id, linked.company_id)
     : await fetchFinancialContext(supabase, linked.profile_id);
 
-  const assistantMessage = await buildAssistantResponse(body, context);
+  // For images, only add assistant response if no transactions were extracted
+  const assistantMessage = (!isImage || !transactionResult)
+    ? await buildAssistantResponse(body || 'Recebi uma imagem', context)
+    : null;
 
   const combinedResponse = [transactionResult?.confirmation, assistantMessage]
     .filter(Boolean)
@@ -341,6 +381,234 @@ async function sendWhatsAppText(to: string, message: string): Promise<string | n
 type TransactionResult = {
   confirmation: string;
 };
+
+// ============================================================================
+// Image Processing (WhatsApp → OpenAI Vision → Transactions)
+// ============================================================================
+
+async function downloadWhatsAppMedia(mediaId: string): Promise<{ data: ArrayBuffer; mimeType: string }> {
+  if (!token) {
+    throw new Error('Missing META_WHATSAPP_TOKEN');
+  }
+
+  // Step 1: Get the media URL from Meta API
+  const metaUrl = `https://graph.facebook.com/${apiVersion}/${mediaId}`;
+  const metaResponse = await fetch(metaUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!metaResponse.ok) {
+    const err = await metaResponse.text().catch(() => '');
+    console.error('[WhatsApp] Failed to get media URL:', metaResponse.status, err);
+    throw new Error('Failed to retrieve media info');
+  }
+
+  const metaData = await metaResponse.json();
+  const downloadUrl = metaData.url;
+  const mimeType = metaData.mime_type ?? 'image/jpeg';
+
+  if (!downloadUrl) {
+    throw new Error('No download URL in media response');
+  }
+
+  // Step 2: Download the actual media file
+  const mediaResponse = await fetch(downloadUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!mediaResponse.ok) {
+    throw new Error(`Failed to download media: ${mediaResponse.status}`);
+  }
+
+  const data = await mediaResponse.arrayBuffer();
+  return { data, mimeType };
+}
+
+async function extractTransactionsFromImage(
+  imageData: ArrayBuffer,
+  mimeType: string,
+  openaiKey: string
+): Promise<Array<{ date: string; description: string; amount: number }>> {
+  const uint8Array = new Uint8Array(imageData);
+
+  // Check file size (max 5MB)
+  const sizeMB = uint8Array.length / (1024 * 1024);
+  if (sizeMB > 5) {
+    throw new Error(`Imagem muito grande: ${sizeMB.toFixed(1)}MB (máx 5MB)`);
+  }
+
+  // Convert to base64 in chunks
+  let base64 = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.slice(i, i + chunkSize);
+    base64 += String.fromCharCode(...chunk);
+  }
+  base64 = btoa(base64);
+
+  const normalizedMime = mimeType.includes('png') ? 'image/png' : 'image/jpeg';
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${openaiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `Extraia TODAS as transações desta imagem (comprovante, extrato, nota fiscal, etc.).
+Retorne APENAS um array JSON no formato:
+[{"date": "YYYY-MM-DD", "description": "texto", "amount": number}]
+
+Regras:
+- Use números negativos para despesas/pagamentos
+- Use números positivos para receitas/créditos
+- Se a data não estiver visível, use "${new Date().toISOString().split('T')[0]}"
+- Descrição deve ser clara e concisa
+- Retorne APENAS o JSON, sem nenhum outro texto`,
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${normalizedMime};base64,${base64}`,
+              },
+            },
+          ],
+        },
+      ],
+      max_tokens: 2000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.text().catch(() => '');
+    console.error('[WhatsApp] OpenAI Vision error:', response.status, errorData);
+    throw new Error('Falha ao processar imagem');
+  }
+
+  const result = await response.json();
+  const content = result.choices?.[0]?.message?.content ?? '[]';
+
+  const jsonMatch = content.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) {
+    return [];
+  }
+
+  return JSON.parse(jsonMatch[0]);
+}
+
+async function handleImageTransaction(
+  supabase: any,
+  link: any,
+  message: WhatsAppImageMessage
+): Promise<TransactionResult | null> {
+  const openaiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!openaiKey) {
+    return { confirmation: 'Processamento de imagens indisponível no momento.' };
+  }
+
+  const mediaId = message.image?.id;
+  if (!mediaId) {
+    return { confirmation: 'Não consegui acessar a imagem. Tente enviar novamente.' };
+  }
+
+  let imageData: ArrayBuffer;
+  let mimeType: string;
+  try {
+    const media = await downloadWhatsAppMedia(mediaId);
+    imageData = media.data;
+    mimeType = media.mimeType;
+  } catch (error) {
+    console.error('[WhatsApp] Media download failed:', error);
+    return { confirmation: 'Não consegui baixar a imagem. Tente enviar novamente.' };
+  }
+
+  let rawTransactions: Array<{ date: string; description: string; amount: number }>;
+  try {
+    rawTransactions = await extractTransactionsFromImage(imageData, mimeType, openaiKey);
+  } catch (error) {
+    console.error('[WhatsApp] Image extraction failed:', error);
+    return { confirmation: 'Não consegui extrair transações da imagem. Tente enviar uma foto mais nítida.' };
+  }
+
+  if (rawTransactions.length === 0) {
+    return { confirmation: 'Não encontrei transações nesta imagem. Envie uma foto de um comprovante, extrato ou nota fiscal.' };
+  }
+
+  const confirmations: string[] = [];
+  let savedCount = 0;
+
+  for (const raw of rawTransactions) {
+    const rawAmount = typeof raw.amount === 'number' ? raw.amount : parseFloat(String(raw.amount));
+    if (Number.isNaN(rawAmount) || rawAmount === 0) continue;
+
+    const amount = Math.abs(rawAmount);
+    const type: 'receita' | 'despesa' = rawAmount > 0 ? 'receita' : 'despesa';
+    const description = raw.description || 'Transação via imagem';
+    const date = raw.date || new Date().toISOString().split('T')[0];
+
+    const categoryName = classifyCategory(description);
+    const categoryId = categoryName
+      ? await findCategoryId(supabase, link, categoryName)
+      : null;
+
+    if (link.company_id) {
+      const { error } = await supabase
+        .from('company_transactions')
+        .insert({
+          company_id: link.company_id,
+          description,
+          amount,
+          type,
+          date,
+          category_id: categoryId,
+          created_by: link.profile_id,
+        });
+
+      if (error) {
+        console.error('[WhatsApp] Failed to insert company transaction from image:', error);
+        continue;
+      }
+    } else {
+      const { error } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: link.profile_id,
+          description,
+          amount,
+          type,
+          date,
+          category_id: categoryId,
+        });
+
+      if (error) {
+        console.error('[WhatsApp] Failed to insert transaction from image:', error);
+        continue;
+      }
+    }
+
+    savedCount++;
+    const typeLabel = type === 'receita' ? 'Receita' : 'Despesa';
+    const categoryLabel = categoryName ? ` • ${categoryName}` : '';
+    confirmations.push(`  ${savedCount}. ${typeLabel}: ${formatCurrency(amount)} - ${description}${categoryLabel}`);
+  }
+
+  if (savedCount === 0) {
+    return { confirmation: 'Encontrei dados na imagem mas não consegui salvar as transações. Tente novamente.' };
+  }
+
+  const header = savedCount === 1
+    ? '✅ Transação extraída da imagem:'
+    : `✅ ${savedCount} transações extraídas da imagem:`;
+
+  return { confirmation: `${header}\n${confirmations.join('\n')}` };
+}
 
 async function maybeSaveTransaction(supabase: any, link: any, message: string): Promise<TransactionResult | null> {
   const parsed = extractTransactionFromMessage(message);
@@ -782,8 +1050,8 @@ function formatCurrency(value: number) {
   return currencyFormatter.format(value);
 }
 
-function extractTextMessages(payload: any): WhatsAppTextMessage[] {
-  const messages: WhatsAppTextMessage[] = [];
+function extractMessages(payload: any): WhatsAppMessage[] {
+  const messages: WhatsAppMessage[] = [];
 
   // Official Meta webhook format
   const entries = Array.isArray(payload?.entry) ? payload.entry : [];
@@ -791,24 +1059,26 @@ function extractTextMessages(payload: any): WhatsAppTextMessage[] {
     const changes = Array.isArray(entry?.changes) ? entry.changes : [];
     for (const change of changes) {
       const value = change?.value;
-      collectTextMessages(value?.messages, messages);
+      collectMessages(value?.messages, messages);
     }
   }
 
   // Some brokers/webhooks forward only the "value" object
-  collectTextMessages(payload?.messages, messages);
+  collectMessages(payload?.messages, messages);
 
   // Some integrations wrap the original payload under "body"
-  collectTextMessages(payload?.body?.messages, messages);
+  collectMessages(payload?.body?.messages, messages);
 
   return messages;
 }
 
-function collectTextMessages(source: any, target: WhatsAppTextMessage[]) {
+function collectMessages(source: any, target: WhatsAppMessage[]) {
   const eventMessages = Array.isArray(source) ? source : [];
   for (const msg of eventMessages) {
     if (msg?.type === 'text' && msg?.text?.body) {
       target.push(msg as WhatsAppTextMessage);
+    } else if (msg?.type === 'image' && msg?.image?.id) {
+      target.push(msg as WhatsAppImageMessage);
     }
   }
 }
