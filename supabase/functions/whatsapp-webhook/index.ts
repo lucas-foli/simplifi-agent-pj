@@ -172,14 +172,32 @@ async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
   await saveConversationMessage(supabase, conversationId, 'user', userMessageText);
 
   // Check for pending action (undo/edit/confirm flow) — text only
+  // Skip if the message looks like a new transaction (user wants to log something new)
   if (!isImage && body) {
-    const pending = await getLatestPendingAction(supabase, linked.profile_id, from);
-    if (pending) {
-      const reply = await handlePendingConfirmation(supabase, linked, from, body, pending);
-      const outId = await sendWhatsAppText(from, reply);
-      await saveConversationMessage(supabase, conversationId, 'assistant', reply);
-      if (outId) await recordOutboundEvent(supabase, outId, from, { text: reply });
-      return;
+    const isPendingCommand = isAffirmation(body) || isRejection(body)
+      || parseEditCommand(body) !== null || parseRemoveCommand(body) !== null;
+    const isNewTransaction = !isPendingCommand && looksLikeTransaction(body);
+
+    if (!isNewTransaction) {
+      const pending = await getLatestPendingAction(supabase, linked.profile_id, from);
+      if (pending) {
+        // If it's not a recognized command either, auto-close the pending and proceed
+        if (!isPendingCommand) {
+          await supabase.from('whatsapp_pending_actions').update({ status: 'executed' }).eq('id', pending.id);
+        } else {
+          const reply = await handlePendingConfirmation(supabase, linked, from, body, pending);
+          const outId = await sendWhatsAppText(from, reply);
+          await saveConversationMessage(supabase, conversationId, 'assistant', reply);
+          if (outId) await recordOutboundEvent(supabase, outId, from, { text: reply });
+          return;
+        }
+      }
+    } else {
+      // New transaction — auto-close any existing pending action
+      const pending = await getLatestPendingAction(supabase, linked.profile_id, from);
+      if (pending) {
+        await supabase.from('whatsapp_pending_actions').update({ status: 'executed' }).eq('id', pending.id);
+      }
     }
   }
 
@@ -1025,8 +1043,11 @@ function inferDescription(text: string): string {
   const cleaned = text
     .replace(/^\s*(gastei|paguei|comprei|recebi|ganhei|vendi|saquei)\s+/i, '')
     .replace(/r\$\s*[0-9.,\s]+/gi, '')
+    // Strip standalone amounts like "500,32" or "3.250,00" or "299,9"
+    .replace(/\b\d{1,3}(?:\.\d{3})*(?:,[0-9]{1,2})\b/g, '')
     .replace(/\b(hoje|ontem)\b/gi, '')
     .replace(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g, '')
+    .replace(/^[\s\-–—]+|[\s\-–—]+$/g, '')
     .replace(/^(no|na|em|para|por|de)\s+/i, '')
     .trim();
   if (cleaned.length < 3) return 'Transação via WhatsApp';
