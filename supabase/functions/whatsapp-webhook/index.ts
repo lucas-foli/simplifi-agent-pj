@@ -171,12 +171,24 @@ async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
   const userMessageText = isImage ? `[Imagem recebida]${body ? ` ${body}` : ''}` : body;
   await saveConversationMessage(supabase, conversationId, 'user', userMessageText);
 
+  // Check for pending action (undo/edit/confirm flow) — text only
+  if (!isImage && body) {
+    const pending = await getLatestPendingAction(supabase, linked.profile_id, from);
+    if (pending) {
+      const reply = await handlePendingConfirmation(supabase, linked, from, body, pending);
+      const outId = await sendWhatsAppText(from, reply);
+      await saveConversationMessage(supabase, conversationId, 'assistant', reply);
+      if (outId) await recordOutboundEvent(supabase, outId, from, { text: reply });
+      return;
+    }
+  }
+
   let transactionResult: TransactionResult | null = null;
 
   if (isImage) {
     transactionResult = await handleImageTransaction(supabase, linked, message as WhatsAppImageMessage);
   } else {
-    transactionResult = await maybeSaveTransaction(supabase, linked, body);
+    transactionResult = await maybeSaveTransaction(supabase, linked, body, from);
   }
 
   const context = linked.company_id
@@ -629,7 +641,7 @@ function looksLikeTransaction(text: string): boolean {
   return hasMoney || keywords.some((k) => lower.includes(k));
 }
 
-async function maybeSaveTransaction(supabase: any, link: any, message: string): Promise<TransactionResult | null> {
+async function maybeSaveTransaction(supabase: any, link: any, message: string, phone: string): Promise<TransactionResult | null> {
   if (!looksLikeTransaction(message)) {
     return null;
   }
@@ -642,7 +654,6 @@ async function maybeSaveTransaction(supabase: any, link: any, message: string): 
   let proposals: TransactionProposal[];
 
   if (candidates.length > 1) {
-    // Multiple transactions in one message
     const heuristics = candidates
       .map((c) => extractTransactionHeuristic(c, now))
       .filter((h) => h.amount > 0 && h.description);
@@ -650,7 +661,6 @@ async function maybeSaveTransaction(supabase: any, link: any, message: string): 
       ? await extractTransactionsWithAI(openaiKey, message, categoryNames, heuristics)
       : heuristics;
   } else {
-    // Single transaction
     const heuristic = extractTransactionHeuristic(message, now);
     const single = openaiKey
       ? await extractTransactionWithAI(openaiKey, message, categoryNames, heuristic)
@@ -663,6 +673,7 @@ async function maybeSaveTransaction(supabase: any, link: any, message: string): 
     return null;
   }
 
+  const savedTransactions: Array<{ id: string; proposal: TransactionProposal; categoryName: string | null }> = [];
   const confirmations: string[] = [];
   let savedCount = 0;
 
@@ -672,10 +683,9 @@ async function maybeSaveTransaction(supabase: any, link: any, message: string): 
       ? await findCategoryId(supabase, link, categoryName)
       : null;
 
-    if (link.company_id) {
-      const { error } = await supabase
-        .from('company_transactions')
-        .insert({
+    const table = link.company_id ? 'company_transactions' : 'transactions';
+    const insert = link.company_id
+      ? {
           company_id: link.company_id,
           description: proposal.description,
           amount: proposal.amount,
@@ -683,31 +693,30 @@ async function maybeSaveTransaction(supabase: any, link: any, message: string): 
           date: proposal.date,
           category_id: categoryId,
           created_by: link.profile_id,
-        });
-
-      if (error) {
-        console.error('[WhatsApp] Failed to insert company transaction:', error);
-        continue;
-      }
-    } else {
-      const { error } = await supabase
-        .from('transactions')
-        .insert({
+        }
+      : {
           user_id: link.profile_id,
           description: proposal.description,
           amount: proposal.amount,
           type: proposal.type,
           date: proposal.date,
           category_id: categoryId,
-        });
+        };
 
-      if (error) {
-        console.error('[WhatsApp] Failed to insert transaction:', error);
-        continue;
-      }
+    const { data, error } = await supabase
+      .from(table)
+      .insert(insert)
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error(`[WhatsApp] Failed to insert ${table}:`, error);
+      continue;
     }
 
     savedCount++;
+    savedTransactions.push({ id: data.id, proposal, categoryName });
+
     const typeLabel = proposal.type === 'receita' ? 'Receita' : 'Despesa';
     const categoryLabel = categoryName ? ` • ${categoryName}` : '';
     if (valid.length === 1) {
@@ -721,12 +730,236 @@ async function maybeSaveTransaction(supabase: any, link: any, message: string): 
     return null;
   }
 
+  // Create pending action for undo/edit
+  const pendingPayload = savedTransactions.length === 1
+    ? {
+        saved_transaction_id: savedTransactions[0].id,
+        table: link.company_id ? 'company_transactions' : 'transactions',
+        ...savedTransactions[0].proposal,
+      }
+    : {
+        transactions: savedTransactions.map((t) => ({
+          saved_transaction_id: t.id,
+          ...t.proposal,
+        })),
+        saved_transaction_ids: savedTransactions.map((t) => t.id),
+        table: link.company_id ? 'company_transactions' : 'transactions',
+        original_text: message,
+      };
+
+  await supabase.from('whatsapp_pending_actions').insert({
+    profile_id: link.profile_id,
+    company_id: link.company_id ?? null,
+    phone,
+    kind: 'create_transaction',
+    payload: pendingPayload,
+    expires_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+  });
+
+  const undoHint = '\n\n_Responda *não* para desfazer, *editar* para corrigir._';
+
   if (valid.length > 1) {
     const header = `✅ ${savedCount} transações registradas:`;
-    return { confirmation: `${header}\n${confirmations.join('\n')}` };
+    return { confirmation: `${header}\n${confirmations.join('\n')}${undoHint}` };
   }
 
-  return { confirmation: confirmations[0] };
+  return { confirmation: confirmations[0] + undoHint };
+}
+
+// ============================================================================
+// Pending Actions (Undo / Edit / Confirm)
+// ============================================================================
+
+async function getLatestPendingAction(supabase: any, profileId: string, phone: string) {
+  const { data } = await supabase
+    .from('whatsapp_pending_actions')
+    .select('*')
+    .eq('profile_id', profileId)
+    .eq('phone', phone)
+    .eq('status', 'pending')
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data as any | null;
+}
+
+function isAffirmation(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return ['sim', 'confirmar', 'confirmo', 'ok', 'isso', 'isso mesmo', '1'].includes(t);
+}
+
+function isRejection(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return ['não', 'nao', 'cancelar', 'cancela', 'desfazer', '2'].includes(t);
+}
+
+function parseEditCommand(text: string): { index: number | null; text: string } | null {
+  const trimmed = text.trim();
+  const withIndex = trimmed.match(/^(editar|edit)\s+(\d+)\s+([\s\S]+)$/i);
+  if (withIndex) {
+    return { index: Number(withIndex[2]), text: withIndex[3].trim() };
+  }
+  const single = trimmed.match(/^(editar|edit)\s+([\s\S]+)$/i);
+  if (single) {
+    return { index: null, text: single[2].trim() };
+  }
+  return null;
+}
+
+function parseRemoveCommand(text: string): number | null {
+  const trimmed = text.trim();
+  const withIndex = trimmed.match(/^(remover|remova|excluir|apagar|delete)\s+(\d+)\s*$/i);
+  if (withIndex) return Number(withIndex[2]);
+  const single = trimmed.match(/^(remover|remova|excluir|apagar|delete)\s*$/i);
+  if (single) return 0;
+  return null;
+}
+
+async function handlePendingConfirmation(
+  supabase: any,
+  link: any,
+  phone: string,
+  text: string,
+  pending: any,
+): Promise<string> {
+  const payload = pending.payload ?? {};
+  const batch = Array.isArray(payload.transactions) ? payload.transactions : null;
+  const table = payload.table || (link.company_id ? 'company_transactions' : 'transactions');
+  const editCommand = parseEditCommand(text);
+  const removeIndex = parseRemoveCommand(text);
+
+  // ── Batch path ──
+  if (batch?.length) {
+    if (isAffirmation(text)) {
+      await supabase.from('whatsapp_pending_actions').update({ status: 'executed' }).eq('id', pending.id);
+      return 'Ok, mantidos ✅';
+    }
+
+    if (isRejection(text)) {
+      const ids = (payload.saved_transaction_ids ?? batch.map((t: any) => t.saved_transaction_id)).filter(Boolean);
+      if (ids.length) {
+        await supabase.from(table).delete().in('id', ids);
+      }
+      await supabase.from('whatsapp_pending_actions').update({ status: 'canceled' }).eq('id', pending.id);
+      return 'Apagado ✅';
+    }
+
+    if (removeIndex !== null) {
+      if (removeIndex === 0) {
+        // Delete all
+        const ids = (payload.saved_transaction_ids ?? batch.map((t: any) => t.saved_transaction_id)).filter(Boolean);
+        if (ids.length) await supabase.from(table).delete().in('id', ids);
+        await supabase.from('whatsapp_pending_actions').update({ status: 'canceled' }).eq('id', pending.id);
+        return 'Apagado ✅';
+      }
+      if (removeIndex < 1 || removeIndex > batch.length) {
+        return `Item inválido. Informe um número entre 1 e ${batch.length}.`;
+      }
+      const target = batch[removeIndex - 1];
+      if (target.saved_transaction_id) {
+        await supabase.from(table).delete().eq('id', target.saved_transaction_id);
+      }
+      const updatedBatch = batch.filter((_: any, idx: number) => idx !== removeIndex - 1);
+      if (!updatedBatch.length) {
+        await supabase.from('whatsapp_pending_actions').update({ status: 'canceled' }).eq('id', pending.id);
+        return 'Apagado ✅';
+      }
+      await supabase.from('whatsapp_pending_actions')
+        .update({
+          payload: {
+            ...payload,
+            transactions: updatedBatch,
+            saved_transaction_ids: updatedBatch.map((t: any) => t.saved_transaction_id).filter(Boolean),
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', pending.id);
+      return `Removido ✅ item ${removeIndex}.`;
+    }
+
+    if (editCommand) {
+      if (editCommand.index === null) {
+        return 'Para editar um item, envie: *editar* 2 <novo texto>';
+      }
+      if (editCommand.index < 1 || editCommand.index > batch.length) {
+        return `Item inválido. Informe um número entre 1 e ${batch.length}.`;
+      }
+      const target = batch[editCommand.index - 1];
+      const now = new Date();
+      const updated = extractTransactionHeuristic(editCommand.text, now);
+      if (!updated.amount || !updated.description) {
+        return 'Não consegui entender. Envie valor e descrição (ex.: "R$ 18,90 mercado").';
+      }
+      if (target.saved_transaction_id) {
+        await supabase.from(table).update({
+          description: updated.description,
+          amount: updated.amount,
+          type: updated.type,
+          date: updated.date,
+        }).eq('id', target.saved_transaction_id);
+      }
+      const updatedBatch = [...batch];
+      updatedBatch[editCommand.index - 1] = { ...updated, saved_transaction_id: target.saved_transaction_id };
+      await supabase.from('whatsapp_pending_actions')
+        .update({ payload: { ...payload, transactions: updatedBatch }, updated_at: new Date().toISOString() })
+        .eq('id', pending.id);
+      return `Atualizado ✅ ${formatCurrency(updated.amount)} · ${updated.description}`;
+    }
+
+    // Unrecognized — show summary again
+    const lines = batch.map((t: any, i: number) => `${i + 1}) ${formatCurrency(t.amount)} · ${t.description}`).join('\n');
+    return `${lines}\n\n_Responda *sim* para manter, *não* para apagar, *editar* N <texto>, ou *remover* N._`;
+  }
+
+  // ── Single transaction path ──
+
+  if (isAffirmation(text)) {
+    await supabase.from('whatsapp_pending_actions').update({ status: 'executed' }).eq('id', pending.id);
+    return 'Ok, mantido ✅';
+  }
+
+  if (isRejection(text)) {
+    if (payload.saved_transaction_id) {
+      await supabase.from(table).delete().eq('id', payload.saved_transaction_id);
+    }
+    await supabase.from('whatsapp_pending_actions').update({ status: 'canceled' }).eq('id', pending.id);
+    return 'Apagado ✅';
+  }
+
+  if (editCommand) {
+    if (editCommand.index !== null) {
+      return 'Para editar, envie: *editar* <novo texto>';
+    }
+    const now = new Date();
+    const updated = extractTransactionHeuristic(editCommand.text, now);
+    if (!updated.amount || !updated.description) {
+      return 'Não consegui entender. Envie valor e descrição (ex.: "R$ 18,90 mercado").';
+    }
+    if (payload.saved_transaction_id) {
+      await supabase.from(table).update({
+        description: updated.description,
+        amount: updated.amount,
+        type: updated.type,
+        date: updated.date,
+      }).eq('id', payload.saved_transaction_id);
+    }
+    await supabase.from('whatsapp_pending_actions')
+      .update({ payload: { ...payload, ...updated, saved_transaction_id: payload.saved_transaction_id }, updated_at: new Date().toISOString() })
+      .eq('id', pending.id);
+    return `Atualizado ✅ ${formatCurrency(updated.amount)} · ${updated.description}`;
+  }
+
+  if (removeIndex !== null) {
+    if (payload.saved_transaction_id) {
+      await supabase.from(table).delete().eq('id', payload.saved_transaction_id);
+    }
+    await supabase.from('whatsapp_pending_actions').update({ status: 'canceled' }).eq('id', pending.id);
+    return 'Apagado ✅';
+  }
+
+  // Unrecognized — show summary
+  return `${formatCurrency(payload.amount)} · ${payload.description}\n\n_Responda *sim* para manter, *não* para apagar, ou *editar* <novo texto>._`;
 }
 
 // ── Heuristic extraction ──
