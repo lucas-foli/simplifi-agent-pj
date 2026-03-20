@@ -814,10 +814,17 @@ function isRejection(text: string): boolean {
 
 function parseEditCommand(text: string): { index: number | null; text: string } | null {
   const trimmed = text.trim();
+  // "editar 2 Internet 350,00"
   const withIndex = trimmed.match(/^(editar|edit)\s+(\d+)\s+([\s\S]+)$/i);
   if (withIndex) {
     return { index: Number(withIndex[2]), text: withIndex[3].trim() };
   }
+  // "Editar Amazon Prime 1300 para Amazon Prime" → extract text after "para"
+  const withPara = trimmed.match(/^(editar|edit)\s+.+\s+para\s+([\s\S]+)$/i);
+  if (withPara) {
+    return { index: null, text: withPara[2].trim() };
+  }
+  // "editar Internet"
   const single = trimmed.match(/^(editar|edit)\s+([\s\S]+)$/i);
   if (single) {
     return { index: null, text: single[2].trim() };
@@ -1016,13 +1023,17 @@ function extractTransactionHeuristic(text: string, now: Date): TransactionPropos
 function parseBRLAmount(text: string): number | null {
   const normalized = text.replace(/\s+/g, ' ');
 
-  // Prefer patterns like "R$ 1.234,56"
-  const m1 = normalized.match(/r\$\s*([0-9]{1,3}(?:\.[0-9]{3})*(?:,[0-9]{2})?)/i);
+  // Prefer patterns like "R$ 1.234,56" or "R$ 13000"
+  const m1 = normalized.match(/r\$\s*([0-9]{1,3}(?:\.[0-9]{3})*(?:,[0-9]{1,2})?)/i);
   if (m1) return brNumberToFloat(m1[1]);
 
-  // Fallback: "123,45" or "1.234,56" standalone
-  const m2 = normalized.match(/\b([0-9]{1,3}(?:\.[0-9]{3})*(?:,[0-9]{2})|[0-9]+[.,][0-9]{2})\b/);
+  // "1.234,56" or "123,45" with decimals
+  const m2 = normalized.match(/\b([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{1,2})\b/);
   if (m2) return brNumberToFloat(m2[1]);
+
+  // Whole numbers: "13000", "500" (at least 2 digits to avoid matching random single digits)
+  const m3 = normalized.match(/\b([0-9]{2,})\b/);
+  if (m3) return Number(m3[1]);
 
   return null;
 }
@@ -1060,8 +1071,9 @@ function inferDescription(text: string): string {
   const cleaned = text
     .replace(/^\s*(gastei|paguei|comprei|recebi|ganhei|vendi|saquei)\s+/i, '')
     .replace(/r\$\s*[0-9.,\s]+/gi, '')
-    // Strip standalone amounts like "500,32" or "3.250,00" or "299,9"
+    // Strip standalone amounts: "500,32", "3.250,00", "299,9", "13000"
     .replace(/\b\d{1,3}(?:\.\d{3})*(?:,[0-9]{1,2})\b/g, '')
+    .replace(/\b\d{2,}\b/g, '')
     .replace(/\b(hoje|ontem)\b/gi, '')
     .replace(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g, '')
     .replace(/^[\s\-–—]+|[\s\-–—]+$/g, '')
