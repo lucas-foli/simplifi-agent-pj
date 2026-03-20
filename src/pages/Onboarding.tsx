@@ -835,7 +835,17 @@ const Onboarding = () => {
                     <MessageCircle className="h-6 w-6 text-primary mt-1" />
                     <div className="space-y-1 text-sm text-muted-foreground">
                       <p>1) Clique em “Gerar código”.</p>
-                      <p>2) Envie o código para o número do WhatsApp do SimplifiQA.</p>
+                      <p>
+                        2) Envie o código para o nosso WhatsApp:{' '}
+                        <a
+                          href="https://wa.me/556132462163"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary font-medium hover:underline"
+                        >
+                          +55 61 3246-2163
+                        </a>
+                      </p>
                       <p>3) Aguarde a confirmação automática.</p>
                     </div>
                   </div>
