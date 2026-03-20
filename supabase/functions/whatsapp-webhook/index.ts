@@ -572,7 +572,9 @@ async function handleImageTransaction(
   }
 
   const confirmations: string[] = [];
+  const savedTransactions: Array<{ id: string; description: string; amount: number; type: string; date: string }> = [];
   let savedCount = 0;
+  const tableName = link.company_id ? 'company_transactions' : 'transactions';
 
   for (const raw of rawTransactions) {
     const rawAmount = typeof raw.amount === 'number' ? raw.amount : parseFloat(String(raw.amount));
@@ -588,10 +590,8 @@ async function handleImageTransaction(
       ? await findCategoryId(supabase, link, categoryName)
       : null;
 
-    if (link.company_id) {
-      const { error } = await supabase
-        .from('company_transactions')
-        .insert({
+    const insert = link.company_id
+      ? {
           company_id: link.company_id,
           description,
           amount,
@@ -599,31 +599,29 @@ async function handleImageTransaction(
           date,
           category_id: categoryId,
           created_by: link.profile_id,
-        });
-
-      if (error) {
-        console.error('[WhatsApp] Failed to insert company transaction from image:', error);
-        continue;
-      }
-    } else {
-      const { error } = await supabase
-        .from('transactions')
-        .insert({
+        }
+      : {
           user_id: link.profile_id,
           description,
           amount,
           type,
           date,
           category_id: categoryId,
-        });
+        };
 
-      if (error) {
-        console.error('[WhatsApp] Failed to insert transaction from image:', error);
-        continue;
-      }
+    const { data, error } = await supabase
+      .from(tableName)
+      .insert(insert)
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error(`[WhatsApp] Failed to insert ${tableName} from image:`, error);
+      continue;
     }
 
     savedCount++;
+    savedTransactions.push({ id: data.id, description, amount, type, date });
     const typeLabel = type === 'receita' ? 'Receita' : 'Despesa';
     const categoryLabel = categoryName ? ` • ${categoryName}` : '';
     confirmations.push(`  ${savedCount}. ${typeLabel}: ${formatCurrency(amount)} - ${description}${categoryLabel}`);
@@ -633,11 +631,39 @@ async function handleImageTransaction(
     return { confirmation: 'Encontrei dados na imagem mas não consegui salvar as transações. Tente novamente.' };
   }
 
+  // Create pending action for undo/edit
+  const from = normalizePhoneNumber(message.from);
+  const pendingPayload = savedTransactions.length === 1
+    ? {
+        saved_transaction_id: savedTransactions[0].id,
+        table: tableName,
+        ...savedTransactions[0],
+      }
+    : {
+        transactions: savedTransactions.map((t) => ({
+          saved_transaction_id: t.id,
+          ...t,
+        })),
+        saved_transaction_ids: savedTransactions.map((t) => t.id),
+        table: tableName,
+      };
+
+  await supabase.from('whatsapp_pending_actions').insert({
+    profile_id: link.profile_id,
+    company_id: link.company_id ?? null,
+    phone: from,
+    kind: 'create_transaction',
+    payload: pendingPayload,
+    expires_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+  });
+
+  const undoHint = '\n\n_Responda *não* para desfazer, *editar* para corrigir._';
+
   const header = savedCount === 1
     ? '✅ Transação extraída da imagem:'
     : `✅ ${savedCount} transações extraídas da imagem:`;
 
-  return { confirmation: `${header}\n${confirmations.join('\n')}` };
+  return { confirmation: `${header}\n${confirmations.join('\n')}${undoHint}` };
 }
 
 // ============================================================================
@@ -921,28 +947,27 @@ async function handlePendingConfirmation(
     }
 
     if (editCommand) {
-      if (editCommand.index === null) {
-        return 'Para editar um item, envie: *editar* 2 <novo texto>';
+      // Resolve index: by number or by description match
+      let editIndex = editCommand.index;
+      if (editIndex === null) {
+        // Try to match by description text
+        const descLower = editCommand.text.toLowerCase();
+        const matched = batch.findIndex((t: any) => t.description?.toLowerCase().includes(descLower));
+        if (matched === -1) {
+          return 'Qual item? Envie: *editar* 2 <novo texto>';
+        }
+        editIndex = matched + 1;
       }
-      if (editCommand.index < 1 || editCommand.index > batch.length) {
+      if (editIndex < 1 || editIndex > batch.length) {
         return `Item inválido. Informe um número entre 1 e ${batch.length}.`;
       }
-      const target = batch[editCommand.index - 1];
-      const now = new Date();
-      const parsed = extractTransactionHeuristic(editCommand.text, now);
-      // Allow description-only edits: keep original amount if no new amount found
-      const updatedFields = {
-        description: parsed.description && parsed.description !== 'Transação via WhatsApp'
-          ? parsed.description : target.description,
-        amount: parsed.amount > 0 ? parsed.amount : target.amount,
-        type: parsed.amount > 0 ? parsed.type : target.type,
-        date: parsed.date,
-      };
+      const target = batch[editIndex - 1];
+      const updatedFields = await parseEditFields(editCommand.text, target);
       if (target.saved_transaction_id) {
         await supabase.from(table).update(updatedFields).eq('id', target.saved_transaction_id);
       }
       const updatedBatch = [...batch];
-      updatedBatch[editCommand.index - 1] = { ...target, ...updatedFields };
+      updatedBatch[editIndex - 1] = { ...target, ...updatedFields };
       await supabase.from('whatsapp_pending_actions')
         .update({ payload: { ...payload, transactions: updatedBatch }, updated_at: new Date().toISOString() })
         .eq('id', pending.id);
@@ -970,19 +995,7 @@ async function handlePendingConfirmation(
   }
 
   if (editCommand) {
-    if (editCommand.index !== null) {
-      return 'Para editar, envie: *editar* <novo texto>';
-    }
-    const now = new Date();
-    const parsed = extractTransactionHeuristic(editCommand.text, now);
-    // Allow description-only edits: keep original amount if no new amount found
-    const updatedFields = {
-      description: parsed.description && parsed.description !== 'Transação via WhatsApp'
-        ? parsed.description : payload.description,
-      amount: parsed.amount > 0 ? parsed.amount : payload.amount,
-      type: parsed.amount > 0 ? parsed.type : payload.type,
-      date: parsed.date,
-    };
+    const updatedFields = await parseEditFields(editCommand.text, payload);
     if (payload.saved_transaction_id) {
       await supabase.from(table).update(updatedFields).eq('id', payload.saved_transaction_id);
     }
@@ -1002,6 +1015,73 @@ async function handlePendingConfirmation(
 
   // Unrecognized — show summary
   return `${formatCurrency(payload.amount)} · ${payload.description}\n\n_Responda *sim* para manter, *não* para apagar, ou *editar* <novo texto>._`;
+}
+
+async function parseEditFields(
+  text: string,
+  original: any,
+): Promise<{ description: string; amount: number; type: 'despesa' | 'receita'; date: string }> {
+  const openaiKey = Deno.env.get('OPENAI_API_KEY');
+
+  if (openaiKey) {
+    try {
+      const nowIso = new Date().toISOString().slice(0, 10);
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify({
+          model: AI_CONFIG.model,
+          messages: [
+            {
+              role: 'system',
+              content: `O usuário está editando uma transação existente. A transação atual é:
+- Descrição: "${original.description}"
+- Valor: ${original.amount}
+- Tipo: ${original.type}
+- Data: ${original.date ?? nowIso}
+
+O usuário enviou uma correção. Extraia os novos valores. Se o usuário só informou descrição, mantenha o valor original. Se só informou valor, mantenha a descrição original.
+
+Retorne APENAS JSON: {"description": string, "amount": number, "type": "despesa"|"receita", "date": "YYYY-MM-DD"}`,
+            },
+            { role: 'user', content: text },
+          ],
+          temperature: 0,
+          max_tokens: 150,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data?.choices?.[0]?.message?.content;
+        if (content) {
+          const parsed = JSON.parse(content);
+          return {
+            description: String(parsed.description || original.description).slice(0, 500),
+            amount: Number(parsed.amount) || original.amount,
+            type: parsed.type === 'receita' ? 'receita' : 'despesa',
+            date: parsed.date || original.date || nowIso,
+          };
+        }
+      }
+    } catch {
+      // Fall through to heuristic
+    }
+  }
+
+  // Heuristic fallback
+  const now = new Date();
+  const parsed = extractTransactionHeuristic(text, now);
+  return {
+    description: parsed.description && parsed.description !== 'Transação via WhatsApp'
+      ? parsed.description : original.description,
+    amount: parsed.amount > 0 ? parsed.amount : original.amount,
+    type: parsed.amount > 0 ? parsed.type : original.type,
+    date: parsed.date || original.date,
+  };
 }
 
 // ── Heuristic extraction ──
@@ -1417,7 +1497,7 @@ async function fetchCompanyFinancialContext(
     ?.filter((transaction: any) => transaction.type === 'receita')
     .reduce((sum: number, transaction: any) => sum + Number(transaction.amount), 0) || 0;
 
-  const balance = transactionIncome - expenses;
+  const balance = monthlyRevenue + transactionIncome - fixedCosts - expenses;
 
   return {
     type: 'company',
