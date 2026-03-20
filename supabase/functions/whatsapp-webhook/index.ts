@@ -814,10 +814,17 @@ function isRejection(text: string): boolean {
 
 function parseEditCommand(text: string): { index: number | null; text: string } | null {
   const trimmed = text.trim();
+  // "editar 2 Internet 350,00"
   const withIndex = trimmed.match(/^(editar|edit)\s+(\d+)\s+([\s\S]+)$/i);
   if (withIndex) {
     return { index: Number(withIndex[2]), text: withIndex[3].trim() };
   }
+  // "Editar Amazon Prime 1300 para Amazon Prime" → extract text after "para"
+  const withPara = trimmed.match(/^(editar|edit)\s+.+\s+para\s+([\s\S]+)$/i);
+  if (withPara) {
+    return { index: null, text: withPara[2].trim() };
+  }
+  // "editar Internet"
   const single = trimmed.match(/^(editar|edit)\s+([\s\S]+)$/i);
   if (single) {
     return { index: null, text: single[2].trim() };
@@ -825,12 +832,17 @@ function parseEditCommand(text: string): { index: number | null; text: string } 
   return null;
 }
 
-function parseRemoveCommand(text: string): number | null {
+function parseRemoveCommand(text: string): { index: number; description: string | null } | null {
   const trimmed = text.trim();
+  // "apagar 2" or "remover 3"
   const withIndex = trimmed.match(/^(remover|remova|excluir|apagar|delete)\s+(\d+)\s*$/i);
-  if (withIndex) return Number(withIndex[2]);
+  if (withIndex) return { index: Number(withIndex[2]), description: null };
+  // "apagar" alone → delete all (index 0)
   const single = trimmed.match(/^(remover|remova|excluir|apagar|delete)\s*$/i);
-  if (single) return 0;
+  if (single) return { index: 0, description: null };
+  // "apagar Ajaw" or "remover Internet" → match by description
+  const withDesc = trimmed.match(/^(remover|remova|excluir|apagar|delete)\s+(.+)$/i);
+  if (withDesc) return { index: -1, description: withDesc[2].trim() };
   return null;
 }
 
@@ -845,7 +857,7 @@ async function handlePendingConfirmation(
   const batch = Array.isArray(payload.transactions) ? payload.transactions : null;
   const table = payload.table || (link.company_id ? 'company_transactions' : 'transactions');
   const editCommand = parseEditCommand(text);
-  const removeIndex = parseRemoveCommand(text);
+  const removeCmd = parseRemoveCommand(text);
 
   // ── Batch path ──
   if (batch?.length) {
@@ -863,22 +875,34 @@ async function handlePendingConfirmation(
       return 'Apagado ✅';
     }
 
-    if (removeIndex !== null) {
-      if (removeIndex === 0) {
+    if (removeCmd !== null) {
+      if (removeCmd.index === 0) {
         // Delete all
         const ids = (payload.saved_transaction_ids ?? batch.map((t: any) => t.saved_transaction_id)).filter(Boolean);
         if (ids.length) await supabase.from(table).delete().in('id', ids);
         await supabase.from('whatsapp_pending_actions').update({ status: 'canceled' }).eq('id', pending.id);
         return 'Apagado ✅';
       }
-      if (removeIndex < 1 || removeIndex > batch.length) {
+
+      // Resolve index: by number or by description match
+      let resolvedIndex = removeCmd.index;
+      if (removeCmd.index === -1 && removeCmd.description) {
+        const descLower = removeCmd.description.toLowerCase();
+        resolvedIndex = batch.findIndex((t: any) => t.description?.toLowerCase().includes(descLower));
+        if (resolvedIndex === -1) {
+          return `Não encontrei item "${removeCmd.description}". Use *remover* N com o número do item.`;
+        }
+        resolvedIndex += 1; // convert to 1-based
+      }
+
+      if (resolvedIndex < 1 || resolvedIndex > batch.length) {
         return `Item inválido. Informe um número entre 1 e ${batch.length}.`;
       }
-      const target = batch[removeIndex - 1];
+      const target = batch[resolvedIndex - 1];
       if (target.saved_transaction_id) {
         await supabase.from(table).delete().eq('id', target.saved_transaction_id);
       }
-      const updatedBatch = batch.filter((_: any, idx: number) => idx !== removeIndex - 1);
+      const updatedBatch = batch.filter((_: any, idx: number) => idx !== resolvedIndex - 1);
       if (!updatedBatch.length) {
         await supabase.from('whatsapp_pending_actions').update({ status: 'canceled' }).eq('id', pending.id);
         return 'Apagado ✅';
@@ -893,7 +917,7 @@ async function handlePendingConfirmation(
           updated_at: new Date().toISOString(),
         })
         .eq('id', pending.id);
-      return `Removido ✅ item ${removeIndex}.`;
+      return `Removido ✅ ${target.description ?? `item ${resolvedIndex}`}.`;
     }
 
     if (editCommand) {
@@ -905,24 +929,24 @@ async function handlePendingConfirmation(
       }
       const target = batch[editCommand.index - 1];
       const now = new Date();
-      const updated = extractTransactionHeuristic(editCommand.text, now);
-      if (!updated.amount || !updated.description) {
-        return 'Não consegui entender. Envie valor e descrição (ex.: "R$ 18,90 mercado").';
-      }
+      const parsed = extractTransactionHeuristic(editCommand.text, now);
+      // Allow description-only edits: keep original amount if no new amount found
+      const updatedFields = {
+        description: parsed.description && parsed.description !== 'Transação via WhatsApp'
+          ? parsed.description : target.description,
+        amount: parsed.amount > 0 ? parsed.amount : target.amount,
+        type: parsed.amount > 0 ? parsed.type : target.type,
+        date: parsed.date,
+      };
       if (target.saved_transaction_id) {
-        await supabase.from(table).update({
-          description: updated.description,
-          amount: updated.amount,
-          type: updated.type,
-          date: updated.date,
-        }).eq('id', target.saved_transaction_id);
+        await supabase.from(table).update(updatedFields).eq('id', target.saved_transaction_id);
       }
       const updatedBatch = [...batch];
-      updatedBatch[editCommand.index - 1] = { ...updated, saved_transaction_id: target.saved_transaction_id };
+      updatedBatch[editCommand.index - 1] = { ...target, ...updatedFields };
       await supabase.from('whatsapp_pending_actions')
         .update({ payload: { ...payload, transactions: updatedBatch }, updated_at: new Date().toISOString() })
         .eq('id', pending.id);
-      return `Atualizado ✅ ${formatCurrency(updated.amount)} · ${updated.description}`;
+      return `Atualizado ✅ ${formatCurrency(updatedFields.amount)} · ${updatedFields.description}`;
     }
 
     // Unrecognized — show summary again
@@ -950,25 +974,25 @@ async function handlePendingConfirmation(
       return 'Para editar, envie: *editar* <novo texto>';
     }
     const now = new Date();
-    const updated = extractTransactionHeuristic(editCommand.text, now);
-    if (!updated.amount || !updated.description) {
-      return 'Não consegui entender. Envie valor e descrição (ex.: "R$ 18,90 mercado").';
-    }
+    const parsed = extractTransactionHeuristic(editCommand.text, now);
+    // Allow description-only edits: keep original amount if no new amount found
+    const updatedFields = {
+      description: parsed.description && parsed.description !== 'Transação via WhatsApp'
+        ? parsed.description : payload.description,
+      amount: parsed.amount > 0 ? parsed.amount : payload.amount,
+      type: parsed.amount > 0 ? parsed.type : payload.type,
+      date: parsed.date,
+    };
     if (payload.saved_transaction_id) {
-      await supabase.from(table).update({
-        description: updated.description,
-        amount: updated.amount,
-        type: updated.type,
-        date: updated.date,
-      }).eq('id', payload.saved_transaction_id);
+      await supabase.from(table).update(updatedFields).eq('id', payload.saved_transaction_id);
     }
     await supabase.from('whatsapp_pending_actions')
-      .update({ payload: { ...payload, ...updated, saved_transaction_id: payload.saved_transaction_id }, updated_at: new Date().toISOString() })
+      .update({ payload: { ...payload, ...updatedFields, saved_transaction_id: payload.saved_transaction_id }, updated_at: new Date().toISOString() })
       .eq('id', pending.id);
-    return `Atualizado ✅ ${formatCurrency(updated.amount)} · ${updated.description}`;
+    return `Atualizado ✅ ${formatCurrency(updatedFields.amount)} · ${updatedFields.description}`;
   }
 
-  if (removeIndex !== null) {
+  if (removeCmd !== null) {
     if (payload.saved_transaction_id) {
       await supabase.from(table).delete().eq('id', payload.saved_transaction_id);
     }
@@ -999,13 +1023,17 @@ function extractTransactionHeuristic(text: string, now: Date): TransactionPropos
 function parseBRLAmount(text: string): number | null {
   const normalized = text.replace(/\s+/g, ' ');
 
-  // Prefer patterns like "R$ 1.234,56"
-  const m1 = normalized.match(/r\$\s*([0-9]{1,3}(?:\.[0-9]{3})*(?:,[0-9]{2})?)/i);
+  // "R$ 1.234,56" or "R$ 13000" — R$ prefix makes any number an amount
+  const m1 = normalized.match(/r\$\s*([0-9]{1,3}(?:\.[0-9]{3})*(?:,[0-9]{1,2})?)/i);
   if (m1) return brNumberToFloat(m1[1]);
 
-  // Fallback: "123,45" or "1.234,56" standalone
-  const m2 = normalized.match(/\b([0-9]{1,3}(?:\.[0-9]{3})*(?:,[0-9]{2})|[0-9]+[.,][0-9]{2})\b/);
+  // "1.234,56" or "123,45" — comma decimals are clearly BRL amounts
+  const m2 = normalized.match(/\b([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{1,2})\b/);
   if (m2) return brNumberToFloat(m2[1]);
+
+  // Whole numbers only when preceded by a separator: "- 13000", "– 500"
+  const m3 = normalized.match(/[-–—]\s*([0-9]{2,})\s*$/);
+  if (m3) return Number(m3[1]);
 
   return null;
 }
@@ -1043,8 +1071,10 @@ function inferDescription(text: string): string {
   const cleaned = text
     .replace(/^\s*(gastei|paguei|comprei|recebi|ganhei|vendi|saquei)\s+/i, '')
     .replace(/r\$\s*[0-9.,\s]+/gi, '')
-    // Strip standalone amounts like "500,32" or "3.250,00" or "299,9"
+    // Strip BRL-formatted amounts: "500,32", "3.250,00", "299,9"
     .replace(/\b\d{1,3}(?:\.\d{3})*(?:,[0-9]{1,2})\b/g, '')
+    // Strip separator + whole number at end: "- 13000"
+    .replace(/[-–—]\s*\d{2,}\s*$/, '')
     .replace(/\b(hoje|ontem)\b/gi, '')
     .replace(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g, '')
     .replace(/^[\s\-–—]+|[\s\-–—]+$/g, '')
