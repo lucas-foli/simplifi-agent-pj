@@ -1023,16 +1023,16 @@ function extractTransactionHeuristic(text: string, now: Date): TransactionPropos
 function parseBRLAmount(text: string): number | null {
   const normalized = text.replace(/\s+/g, ' ');
 
-  // Prefer patterns like "R$ 1.234,56" or "R$ 13000"
+  // "R$ 1.234,56" or "R$ 13000" — R$ prefix makes any number an amount
   const m1 = normalized.match(/r\$\s*([0-9]{1,3}(?:\.[0-9]{3})*(?:,[0-9]{1,2})?)/i);
   if (m1) return brNumberToFloat(m1[1]);
 
-  // "1.234,56" or "123,45" with decimals
+  // "1.234,56" or "123,45" — comma decimals are clearly BRL amounts
   const m2 = normalized.match(/\b([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{1,2})\b/);
   if (m2) return brNumberToFloat(m2[1]);
 
-  // Whole numbers: "13000", "500" (at least 2 digits to avoid matching random single digits)
-  const m3 = normalized.match(/\b([0-9]{2,})\b/);
+  // Whole numbers only when preceded by a separator: "- 13000", "– 500"
+  const m3 = normalized.match(/[-–—]\s*([0-9]{2,})\s*$/);
   if (m3) return Number(m3[1]);
 
   return null;
@@ -1071,9 +1071,10 @@ function inferDescription(text: string): string {
   const cleaned = text
     .replace(/^\s*(gastei|paguei|comprei|recebi|ganhei|vendi|saquei)\s+/i, '')
     .replace(/r\$\s*[0-9.,\s]+/gi, '')
-    // Strip standalone amounts: "500,32", "3.250,00", "299,9", "13000"
+    // Strip BRL-formatted amounts: "500,32", "3.250,00", "299,9"
     .replace(/\b\d{1,3}(?:\.\d{3})*(?:,[0-9]{1,2})\b/g, '')
-    .replace(/\b\d{2,}\b/g, '')
+    // Strip separator + whole number at end: "- 13000"
+    .replace(/[-–—]\s*\d{2,}\s*$/, '')
     .replace(/\b(hoje|ontem)\b/gi, '')
     .replace(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g, '')
     .replace(/^[\s\-–—]+|[\s\-–—]+$/g, '')
