@@ -31,6 +31,7 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
+  MessageSquare,
   Plus,
   Trash2,
 } from 'lucide-react';
@@ -242,6 +243,13 @@ const CompanyTransactions = () => {
             <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
               <Plus className="h-4 w-4" />
               Nova transação
+            </Button>
+
+            <Button variant="outline" size="sm" className="gap-2" asChild>
+              <a href="https://wa.me/556132462163" target="_blank" rel="noopener noreferrer">
+                <MessageSquare className="h-4 w-4 text-green-600" />
+                <span className="hidden sm:inline">Via WhatsApp</span>
+              </a>
             </Button>
 
             <LogoutButton />

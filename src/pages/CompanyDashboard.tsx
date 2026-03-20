@@ -40,6 +40,7 @@ import {
   ChevronRight,
   DollarSign,
   MessageCircle,
+  MessageSquare,
   PieChart as PieChartIcon,
   Receipt,
   TrendingDown,
@@ -659,18 +660,33 @@ const CompanyDashboard = () => {
                 Registrar nova transação
                 <ArrowRight className="h-4 w-4" />
               </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-between"
+                asChild
+              >
+                <a href="https://wa.me/556132462163" target="_blank" rel="noopener noreferrer">
+                  <span className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-green-600" />
+                    Registrar via WhatsApp
+                  </span>
+                  <ArrowRight className="h-4 w-4" />
+                </a>
+              </Button>
               <Button variant="outline" className="w-full justify-between" onClick={() => navigate('/company/fixed-costs')}>
                 Adicionar custo fixo
                 <ArrowRight className="h-4 w-4" />
               </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-between"
-                onClick={() => setIsWhatsAppDialogOpen(true)}
-              >
-                Conectar WhatsApp
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+              {whatsappStatus?.status !== 'linked' && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-between"
+                  onClick={() => setIsWhatsAppDialogOpen(true)}
+                >
+                  Conectar WhatsApp
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              )}
               <Button variant="ghost" className="w-full justify-between" onClick={() => navigate('/chat')}>
                 Consultar assistente financeiro
                 <ArrowRight className="h-4 w-4" />

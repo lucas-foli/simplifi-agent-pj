@@ -202,12 +202,20 @@ const Landing = () => {
               <p className="text-base sm:text-lg mb-6 sm:mb-8 text-primary-foreground/90 px-4">
                 Comece agora e tenha controle total do seu dinheiro em minutos
               </p>
-              <Link to="/onboarding" className="inline-block w-full sm:w-auto px-4">
-                <Button size="lg" variant="secondary" className="gap-2 shadow-lg w-full sm:w-auto">
-                  Criar Conta Gratuita
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center px-4">
+                <Link to="/onboarding" className="w-full sm:w-auto">
+                  <Button size="lg" variant="secondary" className="gap-2 shadow-lg w-full">
+                    Criar Conta Gratuita
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <a href="https://wa.me/556132462163" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto">
+                  <Button size="lg" variant="outline" className="gap-2 w-full border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10">
+                    <MessageSquare className="h-4 w-4" />
+                    Falar via WhatsApp
+                  </Button>
+                </a>
+              </div>
             </motion.div>
           </div>
         </div>
