@@ -26,7 +26,7 @@ type FixedCost = { id: string; name: string; value: string };
 
 const Onboarding = () => {
   const navigate = useNavigate();
-  const { signUp, refreshCompanyMemberships } = useAuth();
+  const { user, companyMemberships, loading: authLoading_, signUp, refreshCompanyMemberships } = useAuth();
 
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -55,6 +55,12 @@ const Onboarding = () => {
     monthlyRevenue: "",
     fixedCosts: [] as FixedCost[],
   });
+
+  useEffect(() => {
+    if (!authLoading_ && user && companyMemberships.length > 0) {
+      navigate("/company/dashboard", { replace: true });
+    }
+  }, [authLoading_, user, companyMemberships, navigate]);
 
   const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
