@@ -47,6 +47,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import {
   Cell,
@@ -439,8 +440,8 @@ const CompanyDashboard = () => {
                   className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground hover:border-primary/50 transition-smooth"
                 >
                   <CalendarIcon className="h-4 w-4" />
-                  {format(new Date(selectedYear, selectedMonth - 1), 'MMMM yyyy', {
-                    locale: undefined,
+                  {format(new Date(selectedYear, selectedMonth - 1), "MMMM 'de' yyyy", {
+                    locale: ptBR,
                   })}
                 </button>
               </PopoverTrigger>
