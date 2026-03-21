@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import { translateAuthError } from "@/lib/authErrors";
 import { createWhatsAppLink, type WhatsAppLinkResponse } from "@/lib/whatsapp";
 // import { branding } from "@/config/branding";
 
@@ -195,7 +196,7 @@ const Onboarding = () => {
     } catch (error) {
       console.error("Erro ao enviar código:", error);
       const errorMessage = error instanceof Error ? error.message : "Erro ao enviar código";
-      toast.error(errorMessage);
+      toast.error(translateAuthError(errorMessage));
     } finally {
       setAuthLoading(false);
     }
@@ -228,8 +229,9 @@ const Onboarding = () => {
     } catch (error) {
       console.error("Erro ao validar código:", error);
       const errorMessage = error instanceof Error ? error.message : "Erro ao validar código";
-      setVerificationError(errorMessage);
-      toast.error(errorMessage);
+      const translated = translateAuthError(errorMessage);
+      setVerificationError(translated);
+      toast.error(translated);
     } finally {
       setAuthLoading(false);
     }

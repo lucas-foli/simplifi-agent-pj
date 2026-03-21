@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
+import { translateAuthError } from '@/lib/authErrors';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -39,8 +40,9 @@ const ForgotPassword = () => {
     } catch (err) {
       console.error('Reset password error:', err);
       const message = err instanceof Error ? err.message : 'Não foi possível enviar o e-mail de recuperação.';
-      setError(message);
-      toast.error('Erro ao enviar o link de recuperação.');
+      const translated = translateAuthError(message);
+      setError(translated);
+      toast.error(translated);
     } finally {
       setLoading(false);
     }

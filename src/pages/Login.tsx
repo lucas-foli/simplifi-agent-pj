@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { translateAuthError } from '@/lib/authErrors';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -30,8 +31,9 @@ const Login = () => {
     } catch (err) {
       console.error('Login error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer login';
-      setError(errorMessage);
-      toast.error('Erro ao fazer login');
+      const translated = translateAuthError(errorMessage);
+      setError(translated);
+      toast.error(translated);
     } finally {
       setLoading(false);
     }
