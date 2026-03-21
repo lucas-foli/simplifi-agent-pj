@@ -552,7 +552,7 @@ const CompanyDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="border-border/60">
+          <Card className="hidden md:block border-border/60">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div>
                 <CardTitle className="text-lg flex items-center gap-2">
