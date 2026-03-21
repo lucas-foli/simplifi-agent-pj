@@ -68,6 +68,7 @@ const CompanyTransactions = () => {
     payment_method: '',
     notes: '',
   });
+  const [amountError, setAmountError] = useState('');
 
   useEffect(() => {
     if (!loading && profile && profile.user_type !== 'pessoa_juridica') {
@@ -149,6 +150,7 @@ const CompanyTransactions = () => {
       } as any);
       toast.success('Transação registrada!');
       setIsDialogOpen(false);
+      setAmountError('');
       setNewTransaction({
         description: '',
         amount: '',
@@ -379,13 +381,24 @@ const CompanyTransactions = () => {
                 id="amount"
                 type="number"
                 step="0.01"
+                min="0.01"
                 value={newTransaction.amount}
-                onChange={(event) => setNewTransaction((prev) => ({
-                  ...prev,
-                  amount: event.target.value,
-                }))}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setNewTransaction((prev) => ({ ...prev, amount: value }));
+                  const num = Number(value);
+                  if (value && (!Number.isNaN(num) && num <= 0)) {
+                    setAmountError('O valor deve ser maior que zero');
+                  } else {
+                    setAmountError('');
+                  }
+                }}
                 placeholder="1000.00"
+                className={amountError ? 'border-destructive' : ''}
               />
+              {amountError && (
+                <p className="text-xs text-destructive mt-1">{amountError}</p>
+              )}
             </div>
 
             <div className="grid gap-1.5">
@@ -482,7 +495,7 @@ const CompanyTransactions = () => {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleCreate} disabled={createTransaction.isPending}>
+            <Button onClick={handleCreate} disabled={createTransaction.isPending || !!amountError}>
               {createTransaction.isPending ? 'Salvando...' : 'Registrar'}
             </Button>
           </DialogFooter>
