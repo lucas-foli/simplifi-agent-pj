@@ -8,6 +8,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -58,6 +68,7 @@ const CompanyTransactions = () => {
   const now = new Date();
   const [selectedDate, setSelectedDate] = useState({ month: now.getMonth() + 1, year: now.getFullYear() });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [newTransaction, setNewTransaction] = useState({
     description: '',
@@ -164,14 +175,20 @@ const CompanyTransactions = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Deseja remover esta transação?')) return;
+  const handleDelete = (id: string) => {
+    setDeletingId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingId) return;
     try {
-      await deleteTransaction.mutateAsync(id);
+      await deleteTransaction.mutateAsync(deletingId);
       toast.success('Transação removida');
     } catch (error) {
       console.error('Erro ao remover transação:', error);
       toast.error('Não foi possível remover a transação');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -488,6 +505,26 @@ const CompanyTransactions = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deletingId} onOpenChange={(open) => { if (!open) setDeletingId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover transação</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja remover esta transação? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
