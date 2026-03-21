@@ -15,6 +15,8 @@ import { translateAuthError } from "@/lib/authErrors";
 import { createWhatsAppLink, type WhatsAppLinkResponse } from "@/lib/whatsapp";
 // import { branding } from "@/config/branding";
 
+const ONBOARDING_STORAGE_KEY = "simplifiqa_pj_onboarding";
+
 const steps = [
   { number: 1, title: "Bem-vindo" },
   { number: 2, title: "Responsável" },
@@ -29,7 +31,16 @@ const Onboarding = () => {
   const navigate = useNavigate();
   const { user, companyMemberships, loading: authLoading_, signUp, refreshCompanyMemberships } = useAuth();
 
-  const [step, setStep] = useState(1);
+  const savedState = (() => {
+    try {
+      const raw = sessionStorage.getItem(ONBOARDING_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const [step, setStep] = useState(savedState?.step ?? 1);
   const [loading, setLoading] = useState(false);
 
   const [emailError, setEmailError] = useState("");
@@ -47,13 +58,13 @@ const Onboarding = () => {
   const [whatsappAutoAttempted, setWhatsappAutoAttempted] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
+    name: savedState?.name ?? "",
+    email: savedState?.email ?? "",
     password: "",
     confirmPassword: "",
-    companyName: "",
-    cnpj: "",
-    monthlyRevenue: "",
+    companyName: savedState?.companyName ?? "",
+    cnpj: savedState?.cnpj ?? "",
+    monthlyRevenue: savedState?.monthlyRevenue ?? "",
     fixedCosts: [] as FixedCost[],
   });
 
@@ -62,6 +73,36 @@ const Onboarding = () => {
       navigate("/company/dashboard", { replace: true });
     }
   }, [authLoading_, user, companyMemberships, navigate]);
+
+  // Validate restored step: if step >= 3, verify session exists
+  useEffect(() => {
+    if (savedState?.step && savedState.step >= 3) {
+      supabase.auth.getSession().then(({ data }) => {
+        if (!data.session) {
+          setStep(2);
+        }
+      });
+    }
+  }, []);
+
+  // Persist safe form fields to sessionStorage
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        ONBOARDING_STORAGE_KEY,
+        JSON.stringify({
+          step,
+          name: formData.name,
+          email: formData.email,
+          companyName: formData.companyName,
+          cnpj: formData.cnpj,
+          monthlyRevenue: formData.monthlyRevenue,
+        }),
+      );
+    } catch {
+      // sessionStorage full or unavailable
+    }
+  }, [step, formData.name, formData.email, formData.companyName, formData.cnpj, formData.monthlyRevenue]);
 
   const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -331,6 +372,7 @@ const Onboarding = () => {
 
       await refreshCompanyMemberships();
       toast.success("Conta criada com sucesso!");
+      sessionStorage.removeItem(ONBOARDING_STORAGE_KEY);
       setCompletedCompanyId(ensuredCompanyId ?? null);
       setStep(5);
     } catch (error) {
