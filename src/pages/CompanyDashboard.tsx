@@ -505,7 +505,7 @@ const CompanyDashboard = () => {
         </section>
 
         <section className="grid gap-4 lg:grid-cols-3">
-          <Card className="lg:col-span-2 border-border/60">
+          <Card className="lg:col-span-2 order-2 lg:order-1 border-border/60">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div>
                 <CardTitle className="text-lg">Últimas movimentações</CardTitle>
@@ -552,7 +552,7 @@ const CompanyDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="hidden md:block border-border/60">
+          <Card className="order-1 lg:order-2 border-border/60">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -562,7 +562,7 @@ const CompanyDashboard = () => {
                 <CardDescription>Resumo das despesas e receitas por categoria</CardDescription>
               </div>
             </CardHeader>
-            <CardContent className="h-[320px]">
+            <CardContent className="h-[200px] md:h-[320px]">
               {categoryBreakdown && categoryBreakdown.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -572,8 +572,8 @@ const CompanyDashboard = () => {
                       nameKey="category"
                       cx="50%"
                       cy="50%"
-                      outerRadius={90}
-                      innerRadius={50}
+                      outerRadius="70%"
+                      innerRadius="40%"
                       paddingAngle={4}
                     >
                       {categoryBreakdown.map((entry, index) => (
