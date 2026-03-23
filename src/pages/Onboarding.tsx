@@ -168,8 +168,6 @@ const Onboarding = () => {
         return;
       }
 
-      const monthlyRevenueValue = parseFloat(formData.monthlyRevenue || "0") || 0;
-
       const result = await signUp(
         {
           email: formData.email,
@@ -177,9 +175,6 @@ const Onboarding = () => {
         },
         {
           name: formData.name,
-          company_name: formData.companyName,
-          cnpj: formData.cnpj ? formData.cnpj.replace(/\D/g, "") : undefined,
-          monthly_revenue: monthlyRevenueValue,
         },
       );
 
