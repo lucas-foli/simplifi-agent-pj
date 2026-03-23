@@ -246,9 +246,9 @@ const CompanyTransactions = () => {
             </Button>
 
             <Button variant="outline" size="sm" className="gap-2" asChild>
-              <a href="https://wa.me/556132462163" target="_blank" rel="noopener noreferrer">
+              <a href="https://wa.me/556132462163" target="_blank" rel="noopener noreferrer" aria-label="Registrar transação via WhatsApp">
                 <MessageSquare className="h-4 w-4 text-green-600" />
-                <span className="hidden sm:inline">Via WhatsApp</span>
+                <span>Via WhatsApp</span>
               </a>
             </Button>
 
