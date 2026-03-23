@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
+import { translateAuthError } from '@/lib/authErrors';
 
 const ResetPassword = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -75,8 +76,9 @@ const ResetPassword = () => {
     } catch (err) {
       console.error('Update password error:', err);
       const message = err instanceof Error ? err.message : 'Não foi possível atualizar a senha.';
-      setError(message);
-      toast.error('Erro ao atualizar a senha.');
+      const translated = translateAuthError(message);
+      setError(translated);
+      toast.error(translated);
     } finally {
       setLoading(false);
     }
