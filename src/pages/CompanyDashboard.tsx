@@ -478,36 +478,65 @@ const CompanyDashboard = () => {
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {kpis.map((kpi) => (
-            <motion.div
-              key={kpi.label}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Card className="border-border/60 hover:border-primary/40 transition-smooth">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {kpi.label}
-                  </CardTitle>
-                  <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{kpi.value}</div>
-                  {kpi.action && (
-                    <Button
-                      variant="link"
-                      className="px-0 text-xs mt-1"
-                      onClick={kpi.action}
-                    >
-                      {kpi.actionLabel}
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
+        <section className="space-y-4">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Card className="border-primary/30 bg-primary/5 hover:border-primary/50 transition-smooth">
+              <CardContent className="flex flex-col items-center justify-center py-8">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign className="h-6 w-6 text-primary" />
+                  <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                    Lucro Líquido
+                  </span>
+                </div>
+                <div
+                  className={`text-4xl md:text-5xl font-extrabold tracking-tight ${
+                    (summary?.remaining ?? 0) >= 0 ? 'text-success' : 'text-danger'
+                  }`}
+                >
+                  {currencyFormatter.format(summary?.remaining ?? 0)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Receita total - Despesas totais do mês
+                </p>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {kpis.map((kpi) => (
+              <motion.div
+                key={kpi.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Card className="border-border/60 hover:border-primary/40 transition-smooth">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      {kpi.label}
+                    </CardTitle>
+                    <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-foreground">{kpi.value}</div>
+                    {kpi.action && (
+                      <Button
+                        variant="link"
+                        className="px-0 text-xs mt-1"
+                        onClick={kpi.action}
+                      >
+                        {kpi.actionLabel}
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
         </section>
 
         <section>
