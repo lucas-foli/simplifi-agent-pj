@@ -76,6 +76,15 @@ serve(async (req) => {
       });
     }
 
+    // Filter by phone_number_id to prevent cross-app message processing.
+    const incomingPhoneNumberId = extractPhoneNumberId(payload);
+    if (phoneNumberId && incomingPhoneNumberId && incomingPhoneNumberId !== phoneNumberId) {
+      return new Response(
+        JSON.stringify({ status: 'skipped', reason: 'phone_number_id mismatch' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -1638,6 +1647,36 @@ function formatCurrency(value: number) {
   return currencyFormatter.format(value);
 }
 
+/**
+ * Extract phone_number_id from the Meta webhook payload.
+ * Supports the nested Meta structure (entry[].changes[].value.metadata.phone_number_id)
+ * and a flat { metadata: { phone_number_id } } shape.
+ */
+function extractPhoneNumberId(raw: unknown): string | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const obj = raw as Record<string, unknown>;
+
+  // { metadata: { phone_number_id: "..." } }
+  if (obj.metadata && typeof obj.metadata === 'object') {
+    const meta = obj.metadata as Record<string, unknown>;
+    if (typeof meta.phone_number_id === 'string') return meta.phone_number_id;
+  }
+
+  // Full Meta webhook: { entry: [{ changes: [{ value: { metadata: { phone_number_id } } }] }] }
+  if (Array.isArray(obj.entry)) {
+    for (const entry of obj.entry) {
+      if (entry && typeof entry === 'object' && Array.isArray((entry as any).changes)) {
+        for (const change of (entry as any).changes) {
+          const phoneId = change?.value?.metadata?.phone_number_id;
+          if (typeof phoneId === 'string') return phoneId;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 function extractMessages(payload: any): WhatsAppMessage[] {
   const messages: WhatsAppMessage[] = [];
 
@@ -1647,12 +1686,6 @@ function extractMessages(payload: any): WhatsAppMessage[] {
     const changes = Array.isArray(entry?.changes) ? entry.changes : [];
     for (const change of changes) {
       const value = change?.value;
-      // Skip messages not addressed to this app's phone number
-      const incomingPhoneId = value?.metadata?.phone_number_id;
-      if (phoneNumberId && incomingPhoneId && incomingPhoneId !== phoneNumberId) {
-        console.warn(`[WhatsApp] Ignoring message for phone_number_id=${incomingPhoneId}, expected=${phoneNumberId}`);
-        continue;
-      }
       collectMessages(value?.messages, messages);
     }
   }
