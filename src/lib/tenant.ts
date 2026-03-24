@@ -13,6 +13,7 @@ const ADMIN_HOSTS = (import.meta.env.VITE_ADMIN_HOSTS ?? import.meta.env.VITE_AD
   .split(",")
   .map((host) => host.trim().toLowerCase())
   .filter(Boolean);
+const APP_HOST = (import.meta.env.VITE_APP_HOST ?? "").trim().toLowerCase() || null;
 const TENANT_URL_MODE = (import.meta.env.VITE_TENANT_URL_MODE ?? "").trim().toLowerCase();
 
 const isAdminHost = (host: string) => ADMIN_HOSTS.includes(host.toLowerCase());
@@ -86,7 +87,7 @@ export function buildTenantAccessUrl(slug: string) {
   const normalizedSlug = slug.trim().toLowerCase();
   if (!normalizedSlug) return null;
 
-  const rootHost = resolveRootHost();
+  const rootHost = APP_HOST ?? resolveRootHost();
   if (!rootHost) return null;
 
   const url = new URL(window.location.href);
