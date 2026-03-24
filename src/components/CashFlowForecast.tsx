@@ -33,6 +33,8 @@ interface ForecastDataPoint {
   day: string;
   date: string;
   saldo: number;
+  saldoPositive: number;
+  saldoNegative: number;
   isNegative: boolean;
   isFixedCostDay: boolean;
 }
@@ -112,10 +114,14 @@ export default function CashFlowForecast({
           ? 'Hoje'
           : date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
+      const roundedSaldo = Math.round(balance * 100) / 100;
+
       data.push({
         day: label,
         date: date.toISOString(),
-        saldo: Math.round(balance * 100) / 100,
+        saldo: roundedSaldo,
+        saldoPositive: Math.max(roundedSaldo, 0),
+        saldoNegative: Math.min(roundedSaldo, 0),
         isNegative: balance < 0,
         isFixedCostDay,
       });
@@ -257,10 +263,19 @@ export default function CashFlowForecast({
                   ))}
                   <Area
                     type="monotone"
-                    dataKey="saldo"
-                    stroke={hasNegativeProjection ? '#E74C3C' : '#2ECC71'}
+                    dataKey="saldoPositive"
+                    stroke="#2ECC71"
                     strokeWidth={2}
-                    fill={hasNegativeProjection ? 'url(#negativeGradient)' : 'url(#positiveGradient)'}
+                    fill="url(#positiveGradient)"
+                    connectNulls
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="saldoNegative"
+                    stroke="#E74C3C"
+                    strokeWidth={2}
+                    fill="url(#negativeGradient)"
+                    connectNulls
                   />
                 </AreaChart>
               </ResponsiveContainer>
