@@ -9,10 +9,12 @@ type CompanyFixedCostInsert = Database['public']['Tables']['company_fixed_costs'
 type CompanyTransaction = Database['public']['Tables']['company_transactions']['Row'];
 type CompanyTransactionInsert = Database['public']['Tables']['company_transactions']['Insert'];
 type CompanyTransactionUpdate = Database['public']['Tables']['company_transactions']['Update'];
+type CompanyCategoryUpdate = Database['public']['Tables']['company_categories']['Update'];
 type CompanyTransactionWithCategory = CompanyTransaction & {
   company_categories?: {
     id: string;
     name: string;
+    value_tag: string | null;
   } | null;
 };
 
@@ -161,7 +163,8 @@ export const useCompanyTransactions = (companyId: string | undefined, month?: nu
           *,
           company_categories (
             id,
-            name
+            name,
+            value_tag
           )
         `)
         .eq('company_id', companyId)
@@ -369,6 +372,28 @@ export const useCompanyDashboardSummary = (companyId: string | undefined, month:
     },
     staleTime: 30000,
     gcTime: 300000,
+  });
+};
+
+export const useUpdateCompanyCategory = (companyId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: CompanyCategoryUpdate }) => {
+      if (!companyId) throw new Error('Company not selected');
+
+      const { error } = await supabase
+        .from('company_categories')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company-categories', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['company-transactions', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['company-transactions-by-category', companyId] });
+    },
   });
 };
 
