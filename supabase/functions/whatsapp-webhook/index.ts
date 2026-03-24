@@ -1645,6 +1645,12 @@ function extractMessages(payload: any): WhatsAppMessage[] {
     const changes = Array.isArray(entry?.changes) ? entry.changes : [];
     for (const change of changes) {
       const value = change?.value;
+      // Skip messages not addressed to this app's phone number
+      const incomingPhoneId = value?.metadata?.phone_number_id;
+      if (phoneNumberId && incomingPhoneId && incomingPhoneId !== phoneNumberId) {
+        console.warn(`[WhatsApp] Ignoring message for phone_number_id=${incomingPhoneId}, expected=${phoneNumberId}`);
+        continue;
+      }
       collectMessages(value?.messages, messages);
     }
   }
