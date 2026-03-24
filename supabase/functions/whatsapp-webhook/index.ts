@@ -77,8 +77,10 @@ serve(async (req) => {
     }
 
     // Filter by phone_number_id to prevent cross-app message processing.
+    const EXPECTED_PHONE_NUMBER_ID =
+      Deno.env.get('META_WHATSAPP_PHONE_NUMBER_ID') ?? '987723767755820';
     const incomingPhoneNumberId = extractPhoneNumberId(payload);
-    if (phoneNumberId && incomingPhoneNumberId && incomingPhoneNumberId !== phoneNumberId) {
+    if (incomingPhoneNumberId && incomingPhoneNumberId !== EXPECTED_PHONE_NUMBER_ID) {
       return new Response(
         JSON.stringify({ status: 'skipped', reason: 'phone_number_id mismatch' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
