@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
@@ -579,9 +580,8 @@ const Onboarding = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="password">Senha</Label>
-                      <Input
+                      <PasswordInput
                         id="password"
-                        type="password"
                         value={formData.password}
                         onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
                         placeholder="********"
@@ -589,9 +589,8 @@ const Onboarding = () => {
                     </div>
                     <div>
                       <Label htmlFor="confirmPassword">Confirme a senha</Label>
-                      <Input
+                      <PasswordInput
                         id="confirmPassword"
-                        type="password"
                         value={formData.confirmPassword}
                         onChange={(e) => setFormData((prev) => ({ ...prev, confirmPassword: e.target.value }))}
                         placeholder="********"
