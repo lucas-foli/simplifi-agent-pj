@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -133,6 +133,21 @@ export default function CashFlowForecast({
 
   const fixedCostDays = forecastData.filter((d) => d.isFixedCostDay);
 
+  const [isTouchSliding, setIsTouchSliding] = useState(false);
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsTouchSliding(true);
+  };
+
+  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    event.preventDefault();
+  };
+
+  const handleTouchEnd = () => {
+    setIsTouchSliding(false);
+  };
+
   if (isLoading) {
     return (
       <Card className="border-border/60">
@@ -177,7 +192,19 @@ export default function CashFlowForecast({
           </div>
         ) : (
           <>
-            <div className="h-[280px] md:h-[320px]">
+            <div
+              className="h-[280px] md:h-[320px]"
+              style={{
+                touchAction: 'none',
+                position: isTouchSliding ? 'sticky' : 'relative',
+                top: isTouchSliding ? 16 : undefined,
+                zIndex: isTouchSliding ? 20 : undefined,
+              }}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onTouchCancel={handleTouchEnd}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={forecastData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <defs>
