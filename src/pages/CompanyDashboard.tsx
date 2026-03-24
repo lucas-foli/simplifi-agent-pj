@@ -67,6 +67,7 @@ import {
   useCompanyTransactionsByCategory,
   useSetCompanyMonthlyRevenue,
 } from '@/hooks/useCompanyFinancialData';
+import CashFlowForecast from '@/components/CashFlowForecast';
 import { branding } from '@/config/branding';
 import {
   createWhatsAppLink,
@@ -130,6 +131,10 @@ const CompanyDashboard = () => {
     activeCompany?.company_id,
     selectedMonth,
     selectedYear
+  );
+
+  const { data: allTransactions, isLoading: allTransactionsLoading } = useCompanyTransactions(
+    activeCompany?.company_id
   );
 
   const { data: fixedCosts, isLoading: fixedCostsLoading } = useCompanyFixedCosts(
@@ -532,6 +537,21 @@ const CompanyDashboard = () => {
               </motion.div>
             ))}
           </div>
+        </section>
+
+        <section>
+          <CashFlowForecast
+            currentBalance={summary?.remaining ?? 0}
+            monthlyFixedCosts={summary?.fixedCosts ?? 0}
+            transactions={
+              allTransactions?.map((t) => ({
+                amount: Number(t.amount),
+                type: t.type,
+                date: t.date,
+              })) ?? []
+            }
+            isLoading={summaryLoading || allTransactionsLoading}
+          />
         </section>
 
         <section className="grid gap-4 lg:grid-cols-3">
