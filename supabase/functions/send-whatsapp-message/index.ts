@@ -1,15 +1,13 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { AuthError, requireSupabaseUserId } from '../_shared/auth.ts';
+import { buildCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
 import {
   WhatsAppMessageRequestSchema,
   validateRequest,
   createErrorResponse,
   checkRateLimit,
 } from '../_shared/validation.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 const token = Deno.env.get('META_WHATSAPP_TOKEN');
 const phoneNumberId = Deno.env.get('META_WHATSAPP_PHONE_NUMBER_ID');
@@ -31,8 +29,10 @@ type WhatsAppResponse = {
 };
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return corsOptionsResponse(req);
   }
 
   if (req.method !== 'POST') {
@@ -43,8 +43,16 @@ serve(async (req) => {
   }
 
   try {
+    const authUserId = await requireSupabaseUserId(req);
+
     if (!token || !phoneNumberId) {
-      throw new Error('WhatsApp API credentials are not configured.');
+      return new Response(
+        JSON.stringify({ error: 'WhatsApp integration is not configured on the server.' }),
+        {
+          status: 503,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
     }
 
     const payload = await req.json();
@@ -52,26 +60,75 @@ serve(async (req) => {
     const { userId, to, message, template } = validatedData;
     const type = validatedData.type ?? 'text'; // Ensure type is never undefined
 
+    if (userId !== authUserId) throw new AuthError();
+
     // Basic per-user throttling to avoid accidental floods
     checkRateLimit(userId, { maxRequests: 20, windowMs: 60_000 });
+
+    // Verify the destination phone belongs to this user's company
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? Deno.env.get('VITE_SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (supabaseUrl && serviceRoleKey) {
+      const supabase = createClient(supabaseUrl, serviceRoleKey);
+      const normalizedTo = to.startsWith('+') ? to : `+${to}`;
+      const { data: link } = await supabase
+        .from('whatsapp_links')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('phone_e164', normalizedTo)
+        .eq('status', 'verified')
+        .maybeSingle();
+
+      if (!link) {
+        return new Response(
+          JSON.stringify({ error: 'Destination phone is not linked to your account.' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    }
 
     const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
     const requestBody = buildRequestBody({ type, to, message, template });
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+    } catch (networkError) {
+      console.error('[WhatsApp] Network error while calling Meta API:', networkError);
+      return new Response(JSON.stringify({ error: 'Could not reach WhatsApp API. Please try again.' }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    const data = (await response.json()) as WhatsAppResponse;
+    const contentType = response.headers.get('content-type') ?? '';
+    let data: WhatsAppResponse | null = null;
+    let rawBody: string | null = null;
+
+    if (contentType.includes('application/json')) {
+      try {
+        data = (await response.json()) as WhatsAppResponse;
+      } catch (parseError) {
+        console.error('[WhatsApp] Failed to parse JSON response:', parseError);
+      }
+    } else {
+      rawBody = await response.text();
+    }
 
     if (!response.ok) {
-      const errorMessage = data.error?.error_user_msg || data.error?.message || 'WhatsApp API request failed.';
-      console.error('[WhatsApp] Error response:', data);
+      const errorMessage =
+        data?.error?.error_user_msg ||
+        data?.error?.message ||
+        rawBody ||
+        `WhatsApp API request failed with status ${response.status}.`;
+      console.error('[WhatsApp] Error response:', { status: response.status, data, rawBody });
       return new Response(JSON.stringify({ error: errorMessage }), {
         status: response.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -79,7 +136,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, messageId: data.messages?.[0]?.id ?? null }),
+      JSON.stringify({ success: true, messageId: data?.messages?.[0]?.id ?? null }),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -210,6 +210,9 @@ export function createErrorResponse(
   } else if (error instanceof RateLimitError) {
     status = 429;
     message = error.message;
+  } else if (error instanceof Error && error.name === 'AuthError') {
+    status = 401;
+    message = error.message || 'Not authenticated';
   } else if (error instanceof Error) {
     // Log full error server-side, but don't expose to client
     console.error('Detailed error:', error.message, error.stack);

@@ -1,12 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2.45.1';
+import { buildCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
 import { buildSystemPrompt, AI_CONFIG, type FinancialContext } from '../chat-assistant/prompt.ts';
 import { checkRateLimit, createErrorResponse } from '../_shared/validation.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 const token = Deno.env.get('META_WHATSAPP_TOKEN');
 const phoneNumberId = Deno.env.get('META_WHATSAPP_PHONE_NUMBER_ID');
@@ -22,8 +18,10 @@ if (!appSecret) {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return corsOptionsResponse(req);
   }
 
   if (req.method === 'GET' || req.method === 'POST') {
