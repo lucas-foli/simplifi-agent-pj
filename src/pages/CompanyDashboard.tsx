@@ -68,6 +68,7 @@ import {
   useSetCompanyMonthlyRevenue,
 } from '@/hooks/useCompanyFinancialData';
 import CashFlowForecast from '@/components/CashFlowForecast';
+import ValueTagBreakdown from '@/components/ValueTagBreakdown';
 import { branding } from '@/config/branding';
 import {
   createWhatsAppLink,
@@ -537,6 +538,13 @@ const CompanyDashboard = () => {
               </motion.div>
             ))}
           </div>
+        </section>
+
+        <section>
+          <ValueTagBreakdown
+            transactions={transactions ?? []}
+            isLoading={transactionsLoading}
+          />
         </section>
 
         <section>
