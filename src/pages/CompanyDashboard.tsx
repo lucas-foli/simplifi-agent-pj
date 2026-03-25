@@ -538,9 +538,7 @@ const CompanyDashboard = () => {
               </motion.div>
             ))}
           </div>
-        </section>
 
-        <section>
           <ValueTagBreakdown
             transactions={transactions ?? []}
             isLoading={transactionsLoading}
