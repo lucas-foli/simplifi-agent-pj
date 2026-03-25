@@ -1,16 +1,12 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2.45.1';
+import { buildCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
 import {
   validateRequest,
   createErrorResponse,
   UUIDSchema,
 } from '../_shared/validation.ts';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 const DataExportRequestSchema = z.object({
   userId: UUIDSchema,
@@ -24,8 +20,10 @@ const DataExportRequestSchema = z.object({
  * This function exports all user data in a machine-readable format
  */
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return corsOptionsResponse(req);
   }
 
   try {

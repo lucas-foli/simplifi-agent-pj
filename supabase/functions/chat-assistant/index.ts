@@ -1,5 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2.45.1';
+import { requireSupabaseUserId } from '../_shared/auth.ts';
+import { buildCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
 import { buildSystemPrompt, AI_CONFIG, type FinancialContext } from './prompt.ts';
 import {
   validateRequest,
@@ -8,23 +10,30 @@ import {
   ChatRequestSchema,
 } from '../_shared/validation.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
 // FinancialContext agora vem de prompt.ts
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
+
   // Handle CORS
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return corsOptionsResponse(req);
   }
 
   try {
+    const authUserId = await requireSupabaseUserId(req);
+
     // Validate and parse request
     const requestData = await req.json();
     const { message, userId, companyId, month, year } = validateRequest(ChatRequestSchema, requestData);
+
+    // Ensure the authenticated user matches the request
+    if (userId !== authUserId) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Check rate limit (20 requests per minute per user)
     checkRateLimit(userId);
@@ -33,31 +42,6 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Manual auth validation (used when verify_jwt is disabled)
-    const authHeader = req.headers.get('authorization') ?? req.headers.get('Authorization');
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.replace('Bearer ', '') : null;
-    if (!token) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (user.id !== userId) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
     // Fetch user's financial context
     const context = companyId

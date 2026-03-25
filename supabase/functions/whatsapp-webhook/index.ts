@@ -1,12 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2.45.1';
+import { buildCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
 import { buildSystemPrompt, AI_CONFIG, type FinancialContext } from '../chat-assistant/prompt.ts';
 import { checkRateLimit, createErrorResponse } from '../_shared/validation.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 const token = Deno.env.get('META_WHATSAPP_TOKEN');
 const phoneNumberId = Deno.env.get('META_WHATSAPP_PHONE_NUMBER_ID');
@@ -22,8 +18,10 @@ if (!appSecret) {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return corsOptionsResponse(req);
   }
 
   if (req.method === 'GET' || req.method === 'POST') {
@@ -139,7 +137,31 @@ type WhatsAppImageMessage = {
   };
 };
 
-type WhatsAppMessage = WhatsAppTextMessage | WhatsAppImageMessage;
+type WhatsAppAudioMessage = {
+  id: string;
+  from: string;
+  timestamp: string;
+  type: 'audio';
+  audio: {
+    id: string;
+    mime_type: string;
+  };
+};
+
+type WhatsAppDocumentMessage = {
+  id: string;
+  from: string;
+  timestamp: string;
+  type: 'document';
+  document: {
+    id: string;
+    mime_type: string;
+    filename?: string;
+    caption?: string;
+  };
+};
+
+type WhatsAppMessage = WhatsAppTextMessage | WhatsAppImageMessage | WhatsAppAudioMessage | WhatsAppDocumentMessage;
 
 async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
   const from = normalizePhoneNumber(message.from);
@@ -149,12 +171,20 @@ async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
   }
 
   const isImage = message.type === 'image';
+  const isAudio = message.type === 'audio';
+  const isDocument = message.type === 'document';
+  const isMedia = isImage || isAudio || isDocument;
+
   const body = isImage
     ? (message as WhatsAppImageMessage).image?.caption?.trim() ?? ''
+    : isDocument
+    ? (message as WhatsAppDocumentMessage).document?.caption?.trim() ?? ''
+    : isAudio
+    ? ''
     : (message as WhatsAppTextMessage).text?.body?.trim() ?? '';
 
-  // Text messages require a body; image messages can proceed without caption
-  if (!isImage && !body) {
+  // Text messages require a body; media messages can proceed without caption
+  if (!isMedia && !body) {
     return;
   }
 
@@ -165,7 +195,7 @@ async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
 
   const linked = await findLinkedAccount(supabase, from);
   if (!linked) {
-    if (isImage) {
+    if (isMedia) {
       await sendWhatsAppText(
         from,
         'Para conectar seu WhatsApp ao SimplifiQA, gere um código no app e envie aqui.'
@@ -179,12 +209,18 @@ async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
   checkRateLimit(linked.profile_id, { maxRequests: 30, windowMs: 60_000 });
 
   const conversationId = await ensureConversation(supabase, linked, from);
-  const userMessageText = isImage ? `[Imagem recebida]${body ? ` ${body}` : ''}` : body;
+  const userMessageText = isImage
+    ? `[Imagem recebida]${body ? ` ${body}` : ''}`
+    : isAudio
+    ? '[Áudio recebido]'
+    : isDocument
+    ? `[Documento recebido: ${(message as WhatsAppDocumentMessage).document?.filename ?? 'PDF'}]${body ? ` ${body}` : ''}`
+    : body;
   await saveConversationMessage(supabase, conversationId, 'user', userMessageText);
 
   // Check for pending action (undo/edit/confirm flow) — text only
   // Skip if the message looks like a new transaction (user wants to log something new)
-  if (!isImage && body) {
+  if (!isMedia && body) {
     const isPendingCommand = isAffirmation(body) || isRejection(body)
       || parseEditCommand(body) !== null || parseRemoveCommand(body) !== null;
     const isNewTransaction = !isPendingCommand && looksLikeTransaction(body);
@@ -213,9 +249,16 @@ async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
   }
 
   let transactionResult: TransactionResult | null = null;
+  let audioTranscription = '';
 
   if (isImage) {
     transactionResult = await handleImageTransaction(supabase, linked, message as WhatsAppImageMessage);
+  } else if (isAudio) {
+    const audioResult = await handleAudioTransaction(supabase, linked, message as WhatsAppAudioMessage, from);
+    transactionResult = audioResult.transactionResult;
+    audioTranscription = audioResult.transcription;
+  } else if (isDocument) {
+    transactionResult = await handleDocumentTransaction(supabase, linked, message as WhatsAppDocumentMessage);
   } else {
     transactionResult = await maybeSaveTransaction(supabase, linked, body, from);
   }
@@ -224,9 +267,13 @@ async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
     ? await fetchCompanyFinancialContext(supabase, linked.profile_id, linked.company_id)
     : await fetchFinancialContext(supabase, linked.profile_id);
 
-  // For images, only add assistant response if no transactions were extracted
-  const assistantMessage = (!isImage || !transactionResult)
-    ? await buildAssistantResponse(body || 'Recebi uma imagem', context)
+  // For media messages, only add assistant response if no transactions were extracted
+  const shouldAddAssistant = !isMedia || !transactionResult;
+  const assistantInput = isAudio && !transactionResult
+    ? (audioTranscription || 'Recebi um áudio')
+    : body || (isImage ? 'Recebi uma imagem' : isDocument ? 'Recebi um documento' : '');
+  const assistantMessage = shouldAddAssistant
+    ? await buildAssistantResponse(assistantInput, context)
     : null;
 
   const combinedResponse = [transactionResult?.confirmation, assistantMessage]
@@ -673,6 +720,358 @@ async function handleImageTransaction(
   const header = savedCount === 1
     ? '✅ Transação extraída da imagem:'
     : `✅ ${savedCount} transações extraídas da imagem:`;
+
+  return { confirmation: `${header}\n${confirmations.join('\n')}${undoHint}` };
+}
+
+// ============================================================================
+// Audio Processing (WhatsApp → OpenAI Whisper → Text → Transactions)
+// ============================================================================
+
+async function transcribeAudio(
+  audioData: ArrayBuffer,
+  mimeType: string,
+  openaiKey: string
+): Promise<string> {
+  const uint8Array = new Uint8Array(audioData);
+
+  const sizeMB = uint8Array.length / (1024 * 1024);
+  if (sizeMB > 25) {
+    throw new Error(`Áudio muito grande: ${sizeMB.toFixed(1)}MB (máx 25MB)`);
+  }
+
+  // Map WhatsApp MIME types to file extensions Whisper accepts
+  const extMap: Record<string, string> = {
+    'audio/ogg': 'ogg',
+    'audio/ogg; codecs=opus': 'ogg',
+    'audio/mpeg': 'mp3',
+    'audio/mp4': 'mp4',
+    'audio/wav': 'wav',
+    'audio/webm': 'webm',
+    'audio/amr': 'amr',
+  };
+  const ext = extMap[mimeType.split(';')[0].trim()] ?? 'ogg';
+
+  const blob = new Blob([uint8Array], { type: mimeType });
+  const formData = new FormData();
+  formData.append('file', blob, `audio.${ext}`);
+  formData.append('model', 'whisper-1');
+  formData.append('language', 'pt');
+
+  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${openaiKey}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.text().catch(() => '');
+    console.error('[WhatsApp] Whisper transcription error:', response.status, errorData);
+    throw new Error('Falha ao transcrever áudio');
+  }
+
+  const result = await response.json();
+  return result.text ?? '';
+}
+
+async function handleAudioTransaction(
+  supabase: any,
+  link: any,
+  message: WhatsAppAudioMessage,
+  from: string
+): Promise<{ transcription: string; transactionResult: TransactionResult | null }> {
+  const openaiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!openaiKey) {
+    return {
+      transcription: '',
+      transactionResult: { confirmation: 'Processamento de áudio indisponível no momento.' },
+    };
+  }
+
+  const mediaId = message.audio?.id;
+  if (!mediaId) {
+    return {
+      transcription: '',
+      transactionResult: { confirmation: 'Não consegui acessar o áudio. Tente enviar novamente.' },
+    };
+  }
+
+  let audioData: ArrayBuffer;
+  let mimeType: string;
+  try {
+    const media = await downloadWhatsAppMedia(mediaId);
+    audioData = media.data;
+    mimeType = media.mimeType;
+  } catch (error) {
+    console.error('[WhatsApp] Audio download failed:', error);
+    return {
+      transcription: '',
+      transactionResult: { confirmation: 'Não consegui baixar o áudio. Tente enviar novamente.' },
+    };
+  }
+
+  let transcription: string;
+  try {
+    transcription = await transcribeAudio(audioData, mimeType, openaiKey);
+  } catch (error) {
+    console.error('[WhatsApp] Audio transcription failed:', error);
+    return {
+      transcription: '',
+      transactionResult: { confirmation: 'Não consegui transcrever o áudio. Tente enviar novamente.' },
+    };
+  }
+
+  if (!transcription.trim()) {
+    return {
+      transcription: '',
+      transactionResult: { confirmation: 'Não consegui entender o áudio. Tente falar mais claramente.' },
+    };
+  }
+
+  // Process the transcribed text as a regular transaction
+  const transactionResult = await maybeSaveTransaction(supabase, link, transcription, from);
+  return { transcription, transactionResult };
+}
+
+// ============================================================================
+// Document/PDF Processing (WhatsApp → Gemini → Transactions)
+// ============================================================================
+
+async function extractTransactionsFromPdf(
+  pdfData: ArrayBuffer,
+  geminiKey: string
+): Promise<Array<{ date: string; description: string; amount: number }>> {
+  const uint8Array = new Uint8Array(pdfData);
+
+  const sizeMB = uint8Array.length / (1024 * 1024);
+  if (sizeMB > 10) {
+    throw new Error(`PDF muito grande: ${sizeMB.toFixed(1)}MB (máx 10MB)`);
+  }
+
+  // Convert to base64 in chunks
+  let base64 = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.slice(i, i + chunkSize);
+    base64 += String.fromCharCode(...chunk);
+  }
+  base64 = btoa(base64);
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: `Extraia TODAS as transações deste PDF (extrato bancário, fatura, nota fiscal, etc.).
+Retorne APENAS um array JSON no formato:
+[{"date": "YYYY-MM-DD", "description": "texto", "amount": number}]
+
+Regras:
+- Use números negativos para despesas/pagamentos
+- Use números positivos para receitas/créditos
+- Se a data não estiver visível, use "${new Date().toISOString().split('T')[0]}"
+- Descrição deve ser clara e concisa
+- Retorne APENAS o JSON, sem nenhum outro texto`,
+              },
+              {
+                inline_data: {
+                  mime_type: 'application/pdf',
+                  data: base64,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 8192,
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.text().catch(() => '');
+    console.error('[WhatsApp] Gemini PDF error:', response.status, errorData);
+    throw new Error('Falha ao processar PDF');
+  }
+
+  const result = await response.json();
+  const content = result.candidates?.[0]?.content?.parts?.[0]?.text ?? '[]';
+
+  // Extract JSON from response (remove markdown if present)
+  let jsonText = content.trim();
+  if (jsonText.startsWith('```')) {
+    jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+  }
+
+  const startIdx = jsonText.indexOf('[');
+  if (startIdx === -1) {
+    return [];
+  }
+
+  let depth = 0;
+  let endIdx = -1;
+  for (let i = startIdx; i < jsonText.length; i++) {
+    if (jsonText[i] === '[') depth++;
+    if (jsonText[i] === ']') {
+      depth--;
+      if (depth === 0) {
+        endIdx = i + 1;
+        break;
+      }
+    }
+  }
+
+  if (endIdx === -1) {
+    console.error('[WhatsApp] Incomplete JSON in Gemini response (possibly truncated)');
+    return [];
+  }
+
+  const jsonStr = jsonText.substring(startIdx, endIdx);
+  return JSON.parse(jsonStr);
+}
+
+async function handleDocumentTransaction(
+  supabase: any,
+  link: any,
+  message: WhatsAppDocumentMessage
+): Promise<TransactionResult | null> {
+  const mimeType = message.document?.mime_type ?? '';
+  if (!mimeType.includes('pdf')) {
+    return { confirmation: 'No momento, só consigo processar documentos PDF. Envie um arquivo PDF.' };
+  }
+
+  const geminiKey = Deno.env.get('GEMINI_API_KEY');
+  if (!geminiKey) {
+    // Fallback to OpenAI Vision if Gemini is not available
+    return { confirmation: 'Processamento de documentos PDF indisponível no momento.' };
+  }
+
+  const mediaId = message.document?.id;
+  if (!mediaId) {
+    return { confirmation: 'Não consegui acessar o documento. Tente enviar novamente.' };
+  }
+
+  let docData: ArrayBuffer;
+  try {
+    const media = await downloadWhatsAppMedia(mediaId);
+    docData = media.data;
+  } catch (error) {
+    console.error('[WhatsApp] Document download failed:', error);
+    return { confirmation: 'Não consegui baixar o documento. Tente enviar novamente.' };
+  }
+
+  let rawTransactions: Array<{ date: string; description: string; amount: number }>;
+  try {
+    rawTransactions = await extractTransactionsFromPdf(docData, geminiKey);
+  } catch (error) {
+    console.error('[WhatsApp] PDF extraction failed:', error);
+    return { confirmation: 'Não consegui extrair transações do PDF. Tente enviar um arquivo menor ou mais legível.' };
+  }
+
+  if (rawTransactions.length === 0) {
+    return { confirmation: 'Não encontrei transações neste PDF. Envie um extrato bancário, fatura ou nota fiscal.' };
+  }
+
+  // Reuse the same save logic as image transactions
+  const confirmations: string[] = [];
+  const savedTransactions: Array<{ id: string; description: string; amount: number; type: string; date: string }> = [];
+  let savedCount = 0;
+  const tableName = link.company_id ? 'company_transactions' : 'transactions';
+
+  for (const raw of rawTransactions) {
+    const rawAmount = typeof raw.amount === 'number' ? raw.amount : parseFloat(String(raw.amount));
+    if (Number.isNaN(rawAmount) || rawAmount === 0) continue;
+
+    const amount = Math.abs(rawAmount);
+    const type: 'receita' | 'despesa' = rawAmount > 0 ? 'receita' : 'despesa';
+    const description = raw.description || 'Transação via PDF';
+    const date = raw.date || new Date().toISOString().split('T')[0];
+
+    const categoryName = classifyCategory(description);
+    const categoryId = categoryName
+      ? await findCategoryId(supabase, link, categoryName)
+      : null;
+
+    const insert = link.company_id
+      ? {
+          company_id: link.company_id,
+          description,
+          amount,
+          type,
+          date,
+          category_id: categoryId,
+          created_by: link.profile_id,
+        }
+      : {
+          user_id: link.profile_id,
+          description,
+          amount,
+          type,
+          date,
+          category_id: categoryId,
+        };
+
+    const { data, error } = await supabase
+      .from(tableName)
+      .insert(insert)
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error(`[WhatsApp] Failed to insert ${tableName} from PDF:`, error);
+      continue;
+    }
+
+    savedCount++;
+    savedTransactions.push({ id: data.id, description, amount, type, date });
+    const typeLabel = type === 'receita' ? 'Receita' : 'Despesa';
+    const categoryLabel = categoryName ? ` • ${categoryName}` : '';
+    confirmations.push(`  ${savedCount}. ${typeLabel}: ${formatCurrency(amount)} - ${description}${categoryLabel}`);
+  }
+
+  if (savedCount === 0) {
+    return { confirmation: 'Encontrei dados no PDF mas não consegui salvar as transações. Tente novamente.' };
+  }
+
+  const from = normalizePhoneNumber(message.from);
+  const pendingPayload = savedTransactions.length === 1
+    ? {
+        saved_transaction_id: savedTransactions[0].id,
+        table: tableName,
+        ...savedTransactions[0],
+      }
+    : {
+        transactions: savedTransactions.map((t) => ({
+          saved_transaction_id: t.id,
+          ...t,
+        })),
+        saved_transaction_ids: savedTransactions.map((t) => t.id),
+        table: tableName,
+      };
+
+  await supabase.from('whatsapp_pending_actions').insert({
+    profile_id: link.profile_id,
+    company_id: link.company_id ?? null,
+    phone: from,
+    kind: 'create_transaction',
+    payload: pendingPayload,
+    expires_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+  });
+
+  const undoHint = '\n\n_Responda *não* para desfazer, *editar* para corrigir._';
+
+  const header = savedCount === 1
+    ? '✅ Transação extraída do PDF:'
+    : `✅ ${savedCount} transações extraídas do PDF:`;
 
   return { confirmation: `${header}\n${confirmations.join('\n')}${undoHint}` };
 }
@@ -1708,6 +2107,10 @@ function collectMessages(source: any, target: WhatsAppMessage[]) {
       target.push(msg as WhatsAppTextMessage);
     } else if (msg?.type === 'image' && msg?.image?.id) {
       target.push(msg as WhatsAppImageMessage);
+    } else if (msg?.type === 'audio' && msg?.audio?.id) {
+      target.push(msg as WhatsAppAudioMessage);
+    } else if (msg?.type === 'document' && msg?.document?.id) {
+      target.push(msg as WhatsAppDocumentMessage);
     }
   }
 }
