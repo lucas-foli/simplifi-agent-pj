@@ -201,10 +201,8 @@ export default function CashFlowForecast({
             <div
               className="h-[280px] md:h-[320px]"
               style={{
-                touchAction: 'none',
-                position: isTouchSliding ? 'sticky' : 'relative',
-                top: isTouchSliding ? 16 : undefined,
-                zIndex: isTouchSliding ? 20 : undefined,
+                touchAction: isTouchSliding ? 'none' : 'pan-y',
+                position: 'relative',
               }}
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
@@ -255,7 +253,7 @@ export default function CashFlowForecast({
                       strokeWidth={1}
                       label={{
                         value: 'Custos fixos',
-                        position: 'top',
+                        position: 'insideTop',
                         fontSize: 10,
                         fill: '#F39C12',
                       }}
