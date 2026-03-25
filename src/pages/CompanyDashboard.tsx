@@ -68,6 +68,7 @@ import {
   useSetCompanyMonthlyRevenue,
 } from '@/hooks/useCompanyFinancialData';
 import CashFlowForecast from '@/components/CashFlowForecast';
+import ValueTagBreakdown from '@/components/ValueTagBreakdown';
 import { branding } from '@/config/branding';
 import {
   createWhatsAppLink,
@@ -514,7 +515,7 @@ const CompanyDashboard = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <Card className="border-border/60 hover:border-primary/40 transition-smooth">
+                <Card className="border-border/60 hover:border-primary/40 transition-smooth h-full">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
                       {kpi.label}
@@ -523,7 +524,7 @@ const CompanyDashboard = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-foreground">{kpi.value}</div>
-                    {kpi.action && (
+                    {kpi.action ? (
                       <Button
                         variant="link"
                         className="px-0 text-xs mt-1"
@@ -531,6 +532,8 @@ const CompanyDashboard = () => {
                       >
                         {kpi.actionLabel}
                       </Button>
+                    ) : (
+                      <div className="h-[28px]" />
                     )}
                   </CardContent>
                 </Card>
@@ -602,45 +605,52 @@ const CompanyDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="order-1 lg:order-2 border-border/60">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <PieChartIcon className="h-4 w-4" />
-                  Distribuição por categoria
-                </CardTitle>
-                <CardDescription>Resumo das despesas e receitas por categoria</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent className="h-[200px] md:h-[320px]">
-              {categoryBreakdown && categoryBreakdown.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={categoryBreakdown}
-                      dataKey="total"
-                      nameKey="category"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius="70%"
-                      innerRadius="40%"
-                      paddingAngle={4}
-                    >
-                      {categoryBreakdown.map((entry, index) => (
-                        <Cell key={entry.category} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => currencyFormatter.format(value)} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                  Categorias serão exibidas conforme as movimentações forem registradas.
+          <div className="order-1 lg:order-2 space-y-4">
+            <Card className="border-border/60">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <PieChartIcon className="h-4 w-4" />
+                    Distribuição por categoria
+                  </CardTitle>
+                  <CardDescription>Resumo das despesas e receitas por categoria</CardDescription>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardHeader>
+              <CardContent className="h-[160px] md:h-[200px]">
+                {categoryBreakdown && categoryBreakdown.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={categoryBreakdown}
+                        dataKey="total"
+                        nameKey="category"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius="70%"
+                        innerRadius="40%"
+                        paddingAngle={4}
+                      >
+                        {categoryBreakdown.map((entry, index) => (
+                          <Cell key={entry.category} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => currencyFormatter.format(value)} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                    Categorias serão exibidas conforme as movimentações forem registradas.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <ValueTagBreakdown
+              transactions={transactions ?? []}
+              isLoading={transactionsLoading}
+            />
+          </div>
         </section>
 
         <section className="grid gap-4 lg:grid-cols-2">

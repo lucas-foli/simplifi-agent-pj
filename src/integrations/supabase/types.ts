@@ -107,6 +107,7 @@ export type Database = {
           id: string
           is_default: boolean
           name: string
+          value_tag: string | null
         }
         Insert: {
           color?: string
@@ -115,6 +116,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           name: string
+          value_tag?: string | null
         }
         Update: {
           color?: string
@@ -123,6 +125,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           name?: string
+          value_tag?: string | null
         }
         Relationships: [
           {
@@ -642,6 +645,7 @@ export type Database = {
           id: string
           is_default: boolean
           name: string
+          value_tag: string | null
         }
         Insert: {
           color?: string
@@ -650,6 +654,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           name: string
+          value_tag?: string | null
         }
         Update: {
           color?: string
@@ -658,6 +663,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           name?: string
+          value_tag?: string | null
         }
         Relationships: [
           {

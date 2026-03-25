@@ -34,7 +34,9 @@ import {
   useCompanyTransactionsByCategory,
   useCreateCompanyTransaction,
   useDeleteCompanyTransaction,
+  useUpdateCompanyCategory,
 } from '@/hooks/useCompanyFinancialData';
+import ValueTagBadge from '@/components/ValueTagBadge';
 import { format } from 'date-fns';
 import {
   ArrowLeft,
@@ -107,6 +109,7 @@ const CompanyTransactions = () => {
 
   const createTransaction = useCreateCompanyTransaction(activeCompany?.company_id);
   const deleteTransaction = useDeleteCompanyTransaction(activeCompany?.company_id);
+  const updateCategory = useUpdateCompanyCategory(activeCompany?.company_id);
 
   const monthLabel = useMemo(
     () =>
@@ -313,7 +316,10 @@ const CompanyTransactions = () => {
                         {transaction.description}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {transaction.company_categories?.name ?? 'Sem categoria'}
+                        <span className="inline-flex items-center gap-1.5">
+                          {transaction.company_categories?.name ?? 'Sem categoria'}
+                          <ValueTagBadge valueTag={transaction.company_categories?.value_tag as 'essential' | 'optional' | null} />
+                        </span>
                       </td>
                       <td className="px-4 py-3">
                         <span
@@ -345,6 +351,51 @@ const CompanyTransactions = () => {
               </tbody>
             </table>
           </div>
+        </Card>
+
+        <Card className="border-border/60 p-6 space-y-3">
+          <h2 className="text-lg font-semibold text-foreground">Classificação de categorias</h2>
+          <p className="text-sm text-muted-foreground">
+            Defina se cada categoria é essencial ou opcional para decisões rápidas.
+          </p>
+          {categories.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhuma categoria cadastrada.
+            </p>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {categories.map((category) => (
+                <div
+                  key={category.id}
+                  className="flex items-center justify-between rounded-lg border border-border/40 bg-card/60 px-4 py-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-foreground">{category.name}</span>
+                    <ValueTagBadge valueTag={category.value_tag as 'essential' | 'optional' | null} />
+                  </div>
+                  <Select
+                    value={category.value_tag ?? 'none'}
+                    onValueChange={(value) => {
+                      const newTag = value === 'none' ? null : value;
+                      updateCategory.mutate({
+                        id: category.id,
+                        updates: { value_tag: newTag },
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="w-[130px] h-8 text-xs">
+                      <SelectValue placeholder="Classificar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem tag</SelectItem>
+                      <SelectItem value="essential">Essencial</SelectItem>
+                      <SelectItem value="optional">Opcional</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         <Card className="border-border/60 p-6 space-y-3">
