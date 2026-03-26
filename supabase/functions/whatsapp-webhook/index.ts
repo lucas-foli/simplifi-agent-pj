@@ -139,7 +139,18 @@ type WhatsAppImageMessage = {
   };
 };
 
-type WhatsAppMessage = WhatsAppTextMessage | WhatsAppImageMessage;
+type WhatsAppAudioMessage = {
+  id: string;
+  from: string;
+  timestamp: string;
+  type: 'audio';
+  audio: {
+    id: string;
+    mime_type: string;
+  };
+};
+
+type WhatsAppMessage = WhatsAppTextMessage | WhatsAppImageMessage | WhatsAppAudioMessage;
 
 async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
   const from = normalizePhoneNumber(message.from);
@@ -149,12 +160,57 @@ async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
   }
 
   const isImage = message.type === 'image';
-  const body = isImage
-    ? (message as WhatsAppImageMessage).image?.caption?.trim() ?? ''
-    : (message as WhatsAppTextMessage).text?.body?.trim() ?? '';
+  const isAudio = message.type === 'audio';
+
+  // For audio messages, transcribe first then treat as text
+  let body: string;
+  if (isAudio) {
+    const openaiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiKey) {
+      const recorded = await recordInboundEvent(supabase, message.id, from, message);
+      if (!recorded) return;
+      await sendWhatsAppText(from, 'Transcrição de áudio indisponível no momento.');
+      return;
+    }
+
+    const audioMsg = message as WhatsAppAudioMessage;
+    const mediaId = audioMsg.audio?.id;
+    if (!mediaId) {
+      const recorded = await recordInboundEvent(supabase, message.id, from, message);
+      if (!recorded) return;
+      await sendWhatsAppText(from, 'Não consegui acessar o áudio. Tente enviar novamente.');
+      return;
+    }
+
+    let transcription: string;
+    try {
+      const media = await downloadWhatsAppMedia(mediaId);
+      transcription = await transcribeAudio(media.data, media.mimeType, openaiKey);
+    } catch (error) {
+      console.error('[WhatsApp] Audio transcription failed:', error);
+      const recorded = await recordInboundEvent(supabase, message.id, from, message);
+      if (!recorded) return;
+      await sendWhatsAppText(from, 'Não consegui transcrever o áudio. Tente enviar novamente ou digite sua mensagem.');
+      return;
+    }
+
+    if (!transcription.trim()) {
+      const recorded = await recordInboundEvent(supabase, message.id, from, message);
+      if (!recorded) return;
+      await sendWhatsAppText(from, 'Não consegui entender o áudio. Tente enviar novamente ou digite sua mensagem.');
+      return;
+    }
+
+    body = transcription.trim();
+    console.log(`[WhatsApp] Audio transcribed: "${body.substring(0, 100)}..."`);
+  } else if (isImage) {
+    body = (message as WhatsAppImageMessage).image?.caption?.trim() ?? '';
+  } else {
+    body = (message as WhatsAppTextMessage).text?.body?.trim() ?? '';
+  }
 
   // Text messages require a body; image messages can proceed without caption
-  if (!isImage && !body) {
+  if (!isImage && !isAudio && !body) {
     return;
   }
 
@@ -165,7 +221,7 @@ async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
 
   const linked = await findLinkedAccount(supabase, from);
   if (!linked) {
-    if (isImage) {
+    if (isImage || isAudio) {
       await sendWhatsAppText(
         from,
         'Para conectar seu WhatsApp ao SimplifiQA, gere um código no app e envie aqui.'
@@ -179,10 +235,14 @@ async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
   checkRateLimit(linked.profile_id, { maxRequests: 30, windowMs: 60_000 });
 
   const conversationId = await ensureConversation(supabase, linked, from);
-  const userMessageText = isImage ? `[Imagem recebida]${body ? ` ${body}` : ''}` : body;
+  const userMessageText = isAudio
+    ? `[Áudio transcrito] ${body}`
+    : isImage
+      ? `[Imagem recebida]${body ? ` ${body}` : ''}`
+      : body;
   await saveConversationMessage(supabase, conversationId, 'user', userMessageText);
 
-  // Check for pending action (undo/edit/confirm flow) — text only
+  // Check for pending action (undo/edit/confirm flow) — text and audio only
   // Skip if the message looks like a new transaction (user wants to log something new)
   if (!isImage && body) {
     const isPendingCommand = isAffirmation(body) || isRejection(body)
@@ -463,6 +523,43 @@ async function downloadWhatsAppMedia(mediaId: string): Promise<{ data: ArrayBuff
 
   const data = await mediaResponse.arrayBuffer();
   return { data, mimeType };
+}
+
+async function transcribeAudio(
+  audioData: ArrayBuffer,
+  mimeType: string,
+  openaiKey: string
+): Promise<string> {
+  const extension = mimeType.includes('ogg')
+    ? 'ogg'
+    : mimeType.includes('mp4') || mimeType.includes('m4a')
+      ? 'm4a'
+      : mimeType.includes('webm')
+        ? 'webm'
+        : mimeType.includes('mp3') || mimeType.includes('mpeg')
+          ? 'mp3'
+          : 'ogg';
+
+  const formData = new FormData();
+  formData.append('file', new Blob([audioData], { type: mimeType }), `audio.${extension}`);
+  formData.append('model', 'whisper-1');
+
+  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${openaiKey}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.text().catch(() => '');
+    console.error('[WhatsApp] OpenAI Whisper error:', response.status, errorData);
+    throw new Error('Falha ao transcrever áudio');
+  }
+
+  const result = await response.json();
+  return result.text ?? '';
 }
 
 async function extractTransactionsFromImage(
@@ -1708,6 +1805,8 @@ function collectMessages(source: any, target: WhatsAppMessage[]) {
       target.push(msg as WhatsAppTextMessage);
     } else if (msg?.type === 'image' && msg?.image?.id) {
       target.push(msg as WhatsAppImageMessage);
+    } else if (msg?.type === 'audio' && msg?.audio?.id) {
+      target.push(msg as WhatsAppAudioMessage);
     }
   }
 }
