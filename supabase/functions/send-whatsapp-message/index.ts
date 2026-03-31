@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'jsr:@supabase/supabase-js@2.45.1';
 import {
   WhatsAppMessageRequestSchema,
   validateRequest,
@@ -54,6 +55,35 @@ serve(async (req) => {
 
     // Basic per-user throttling to avoid accidental floods
     checkRateLimit(userId, { maxRequests: 20, windowMs: 60_000 });
+
+    // Manual auth validation (used when verify_jwt is disabled)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const authHeader = req.headers.get('authorization') ?? req.headers.get('Authorization');
+    const authToken = authHeader?.startsWith('Bearer ') ? authHeader.replace('Bearer ', '') : null;
+    if (!authToken) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authToken);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (user.id !== userId) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
     const requestBody = buildRequestBody({ type, to, message, template });

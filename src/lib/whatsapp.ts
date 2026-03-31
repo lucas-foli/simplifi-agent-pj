@@ -31,6 +31,12 @@ export type WhatsAppLinkRecord = {
 };
 
 export async function sendWhatsAppMessage(payload: WhatsAppMessagePayload) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData?.session?.access_token;
+  if (!accessToken) {
+    throw new Error('Sessão expirada. Faça login novamente.');
+  }
+
   const body = {
     ...payload,
     type: payload.type ?? (payload.template ? 'template' : 'text'),
@@ -38,6 +44,10 @@ export async function sendWhatsAppMessage(payload: WhatsAppMessagePayload) {
 
   const { data, error } = await supabase.functions.invoke('send-whatsapp-message', {
     body,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+    },
   });
 
   if (error) {
