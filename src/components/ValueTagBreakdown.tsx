@@ -6,6 +6,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { ShieldCheck, Lightbulb, Info } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useCurrency } from '@/contexts/CurrencyContext';
 
 interface Transaction {
   amount: number | string;
@@ -23,12 +25,9 @@ interface ValueTagBreakdownProps {
 }
 
 const ValueTagBreakdown = ({ transactions, isLoading }: ValueTagBreakdownProps) => {
+  const { t } = useTranslation();
+  const { formatAmount } = useCurrency();
   const [open, setOpen] = useState(false);
-
-  const currencyFormatter = useMemo(
-    () => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }),
-    []
-  );
 
   const { essentialTotal, optionalTotal, unclassifiedTotal } = useMemo(() => {
     let essential = 0;
@@ -61,7 +60,7 @@ const ValueTagBreakdown = ({ transactions, isLoading }: ValueTagBreakdownProps) 
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
             <ShieldCheck className="h-3 w-3 text-emerald-600" />
-            Essencial vs Opcional
+            {t('valueTag.essentialVsOptional')}
           </span>
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
@@ -84,15 +83,15 @@ const ValueTagBreakdown = ({ transactions, isLoading }: ValueTagBreakdownProps) 
             >
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">
-                  <p className="text-[10px] text-emerald-600 font-medium uppercase">Essencial</p>
+                  <p className="text-[10px] text-emerald-600 font-medium uppercase">{t('valueTag.essential')}</p>
                   <p className="text-sm font-bold text-emerald-700">
-                    {currencyFormatter.format(essentialTotal)}
+                    {formatAmount(essentialTotal)}
                   </p>
                 </div>
                 <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
-                  <p className="text-[10px] text-amber-600 font-medium uppercase">Opcional</p>
+                  <p className="text-[10px] text-amber-600 font-medium uppercase">{t('valueTag.optional')}</p>
                   <p className="text-sm font-bold text-amber-700">
-                    {currencyFormatter.format(optionalTotal)}
+                    {formatAmount(optionalTotal)}
                   </p>
                 </div>
               </div>
@@ -102,10 +101,10 @@ const ValueTagBreakdown = ({ transactions, isLoading }: ValueTagBreakdownProps) 
                   <Lightbulb className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" />
                   <div>
                     <p className="text-xs font-medium text-amber-800">
-                      Potencial de economia: {currencyFormatter.format(optionalTotal)}
+                      {t('valueTag.savingsPotential', { amount: formatAmount(optionalTotal) })}
                     </p>
                     <p className="text-[10px] text-amber-600 mt-0.5">
-                      Gastos opcionais que podem ser revisados.
+                      {t('valueTag.savingsHint')}
                     </p>
                   </div>
                 </div>
@@ -113,7 +112,7 @@ const ValueTagBreakdown = ({ transactions, isLoading }: ValueTagBreakdownProps) 
 
               {unclassifiedTotal > 0 && (
                 <p className="text-[10px] text-muted-foreground">
-                  {currencyFormatter.format(unclassifiedTotal)} em despesas sem classificação.
+                  {t('valueTag.unclassified', { amount: formatAmount(unclassifiedTotal) })}
                 </p>
               )}
             </PopoverContent>
@@ -135,11 +134,11 @@ const ValueTagBreakdown = ({ transactions, isLoading }: ValueTagBreakdownProps) 
         {/* Values row */}
         <div className="flex items-center justify-between text-xs">
           <span className="text-emerald-700">
-            {currencyFormatter.format(essentialTotal)}{' '}
+            {formatAmount(essentialTotal)}{' '}
             <span className="text-muted-foreground">({essentialPercent}%)</span>
           </span>
           <span className="text-amber-700">
-            {currencyFormatter.format(optionalTotal)}{' '}
+            {formatAmount(optionalTotal)}{' '}
             <span className="text-muted-foreground">({optionalPercent}%)</span>
           </span>
         </div>
