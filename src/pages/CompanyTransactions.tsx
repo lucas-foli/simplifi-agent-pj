@@ -34,6 +34,7 @@ import {
   useCompanyTransactionsByCategory,
   useCreateCompanyTransaction,
   useDeleteCompanyTransaction,
+  useUpdateCompanyTransaction,
   useUpdateCompanyCategory,
 } from '@/hooks/useCompanyFinancialData';
 import ValueTagBadge from '@/components/ValueTagBadge';
@@ -44,6 +45,7 @@ import {
   ChevronLeft,
   ChevronRight,
   MessageSquare,
+  Pencil,
   Plus,
   Trash2,
 } from 'lucide-react';
@@ -58,7 +60,7 @@ import { CurrencySelector } from '@/components/CurrencySelector';
 const CompanyTransactions = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const { formatAmount, currencyConfig, toBaseCurrency } = useCurrency();
+  const { formatAmount, currencyConfig, toBaseCurrency, convertAmount } = useCurrency();
   const {
     profile,
     loading,
@@ -81,6 +83,7 @@ const CompanyTransactions = () => {
   const now = new Date();
   const [selectedDate, setSelectedDate] = useState({ month: now.getMonth() + 1, year: now.getFullYear() });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [newTransaction, setNewTransaction] = useState({
@@ -119,6 +122,7 @@ const CompanyTransactions = () => {
   );
 
   const createTransaction = useCreateCompanyTransaction(activeCompany?.company_id);
+  const updateTransaction = useUpdateCompanyTransaction(activeCompany?.company_id);
   const deleteTransaction = useDeleteCompanyTransaction(activeCompany?.company_id);
   const updateCategory = useUpdateCompanyCategory(activeCompany?.company_id);
 
@@ -146,7 +150,35 @@ const CompanyTransactions = () => {
     setSelectedDate({ month: today.getMonth() + 1, year: today.getFullYear() });
   };
 
-  const handleCreate = async () => {
+  const resetForm = () => {
+    setEditingId(null);
+    setAmountError('');
+    setNewTransaction({
+      description: '',
+      amount: '',
+      category_id: '',
+      type: 'despesa',
+      date: format(new Date(), 'yyyy-MM-dd'),
+      payment_method: '',
+      notes: '',
+    });
+  };
+
+  const handleEdit = (transaction: (typeof transactions)[number]) => {
+    setEditingId(transaction.id);
+    setNewTransaction({
+      description: transaction.description,
+      amount: String(convertAmount(Number(transaction.amount))),
+      category_id: transaction.category_id ?? '',
+      type: transaction.type as 'despesa' | 'receita',
+      date: transaction.date,
+      payment_method: transaction.payment_method ?? '',
+      notes: transaction.notes ?? '',
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleSave = async () => {
     if (!newTransaction.description || !newTransaction.amount) {
       toast.error(t('transactions.fillDescriptionAndValue'));
       return;
@@ -159,30 +191,37 @@ const CompanyTransactions = () => {
     }
 
     try {
-      await createTransaction.mutateAsync({
-        description: newTransaction.description,
-        amount: toBaseCurrency(amount),
-        type: newTransaction.type,
-        category_id: newTransaction.category_id || null,
-        date: newTransaction.date,
-        notes: newTransaction.notes || null,
-        payment_method: newTransaction.payment_method || null,
-      } as any);
-      toast.success(t('transactions.transactionCreated'));
+      if (editingId) {
+        await updateTransaction.mutateAsync({
+          id: editingId,
+          updates: {
+            description: newTransaction.description,
+            amount: toBaseCurrency(amount),
+            type: newTransaction.type,
+            category_id: newTransaction.category_id || null,
+            date: newTransaction.date,
+            notes: newTransaction.notes || null,
+            payment_method: newTransaction.payment_method || null,
+          },
+        });
+        toast.success(t('transactions.transactionUpdated'));
+      } else {
+        await createTransaction.mutateAsync({
+          description: newTransaction.description,
+          amount: toBaseCurrency(amount),
+          type: newTransaction.type,
+          category_id: newTransaction.category_id || null,
+          date: newTransaction.date,
+          notes: newTransaction.notes || null,
+          payment_method: newTransaction.payment_method || null,
+        } as any);
+        toast.success(t('transactions.transactionCreated'));
+      }
       setIsDialogOpen(false);
-      setAmountError('');
-      setNewTransaction({
-        description: '',
-        amount: '',
-        category_id: '',
-        type: 'despesa',
-        date: format(new Date(), 'yyyy-MM-dd'),
-        payment_method: '',
-        notes: '',
-      });
+      resetForm();
     } catch (error) {
-      console.error('Erro ao criar transação:', error);
-      toast.error(t('transactions.transactionCreateError'));
+      console.error('Error saving transaction:', error);
+      toast.error(editingId ? t('transactions.transactionUpdateError') : t('transactions.transactionCreateError'));
     }
   };
 
@@ -347,6 +386,14 @@ const CompanyTransactions = () => {
                         <Button
                           variant="ghost"
                           size="icon"
+                          onClick={() => handleEdit(transaction)}
+                          className="text-muted-foreground hover:text-primary"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => handleDelete(transaction.id)}
                           className="text-muted-foreground hover:text-danger"
                         >
@@ -431,10 +478,10 @@ const CompanyTransactions = () => {
         </Card>
       </main>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('transactions.registerTransaction')}</DialogTitle>
+            <DialogTitle>{editingId ? t('transactions.editTransaction') : t('transactions.registerTransaction')}</DialogTitle>
           </DialogHeader>
 
           <div className="grid gap-3">
@@ -568,11 +615,11 @@ const CompanyTransactions = () => {
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+            <Button variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleCreate} disabled={createTransaction.isPending || !!amountError}>
-              {createTransaction.isPending ? t('common.saving') : t('common.register')}
+            <Button onClick={handleSave} disabled={createTransaction.isPending || updateTransaction.isPending || !!amountError}>
+              {(createTransaction.isPending || updateTransaction.isPending) ? t('common.saving') : editingId ? t('common.save') : t('common.register')}
             </Button>
           </DialogFooter>
         </DialogContent>
