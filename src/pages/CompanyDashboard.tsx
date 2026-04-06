@@ -95,7 +95,7 @@ const COLORS = [
 const CompanyDashboard = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const { formatAmount, currencyConfig, isConverted } = useCurrency();
+  const { formatAmount, currencyConfig, isConverted, toBaseCurrency } = useCurrency();
   const dateLocale = i18n.resolvedLanguage === 'en-US' ? enUS : dateFnsPtBR;
   const {
     profile,
@@ -221,7 +221,7 @@ const CompanyDashboard = () => {
     }
 
     try {
-      await setCompanyRevenue.mutateAsync(value);
+      await setCompanyRevenue.mutateAsync(toBaseCurrency(value));
       toast.success(t('dashboard.revenueUpdated'));
       setIsRevenueDialogOpen(false);
     } catch (error) {

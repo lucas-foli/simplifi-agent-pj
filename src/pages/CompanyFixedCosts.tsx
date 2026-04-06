@@ -44,7 +44,7 @@ import { toast } from 'sonner';
 const CompanyFixedCosts = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const { formatAmount, currencyConfig } = useCurrency();
+  const { formatAmount, currencyConfig, toBaseCurrency } = useCurrency();
   const {
     profile,
     loading,
@@ -103,7 +103,7 @@ const CompanyFixedCosts = () => {
           id: editingId,
           updates: {
             description: formState.description,
-            amount,
+            amount: toBaseCurrency(amount),
             category_id: formState.category_id || null,
           },
         });
@@ -111,7 +111,7 @@ const CompanyFixedCosts = () => {
       } else {
         await createCost.mutateAsync({
           description: formState.description,
-          amount,
+          amount: toBaseCurrency(amount),
           category_id: formState.category_id || null,
         });
         toast.success(t('fixedCosts.fixedCostCreated'));

@@ -58,7 +58,7 @@ import { CurrencySelector } from '@/components/CurrencySelector';
 const CompanyTransactions = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const { formatAmount, currencyConfig } = useCurrency();
+  const { formatAmount, currencyConfig, toBaseCurrency } = useCurrency();
   const {
     profile,
     loading,
@@ -161,7 +161,7 @@ const CompanyTransactions = () => {
     try {
       await createTransaction.mutateAsync({
         description: newTransaction.description,
-        amount,
+        amount: toBaseCurrency(amount),
         type: newTransaction.type,
         category_id: newTransaction.category_id || null,
         date: newTransaction.date,
