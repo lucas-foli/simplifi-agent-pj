@@ -1,5 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { CurrencySelector } from '@/components/CurrencySelector';
+import { LanguageSelector } from '@/components/LanguageSelector';
 import LogoutButton from '@/components/LogoutButton';
 import {
   Dialog,
@@ -17,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { useAuth } from '@/hooks/useAuth';
 import {
   useCompanyCategories,
@@ -33,12 +36,15 @@ import {
   Search,
   Trash2,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 const CompanyFixedCosts = () => {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const { formatAmount, currencyConfig } = useCurrency();
   const {
     profile,
     loading,
@@ -68,11 +74,6 @@ const CompanyFixedCosts = () => {
   const updateCost = useUpdateCompanyFixedCost(activeCompany?.company_id);
   const deleteCost = useDeleteCompanyFixedCost(activeCompany?.company_id);
 
-  const currencyFormatter = useMemo(
-    () => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }),
-    []
-  );
-
   const filteredCosts = fixedCosts.filter((cost) =>
     cost.description.toLowerCase().includes(search.toLowerCase())
   );
@@ -86,13 +87,13 @@ const CompanyFixedCosts = () => {
 
   const handleSubmit = async () => {
     if (!formState.description || !formState.amount) {
-      toast.error('Preencha descrição e valor');
+      toast.error(t('fixedCosts.fillDescriptionAndValue'));
       return;
     }
 
     const amount = Number(formState.amount);
     if (Number.isNaN(amount) || amount <= 0) {
-      toast.error('Informe um valor válido');
+      toast.error(t('common.invalidValue'));
       return;
     }
 
@@ -106,32 +107,32 @@ const CompanyFixedCosts = () => {
             category_id: formState.category_id || null,
           },
         });
-        toast.success('Custo fixo atualizado!');
+        toast.success(t('fixedCosts.fixedCostUpdated'));
       } else {
         await createCost.mutateAsync({
           description: formState.description,
           amount,
           category_id: formState.category_id || null,
         });
-        toast.success('Custo fixo criado!');
+        toast.success(t('fixedCosts.fixedCostCreated'));
       }
 
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
       console.error('Erro ao salvar custo fixo:', error);
-      toast.error('Não foi possível salvar o custo fixo');
+      toast.error(t('fixedCosts.fixedCostSaveError'));
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Deseja remover este custo fixo?')) return;
+    if (!confirm(t('fixedCosts.confirmDelete'))) return;
     try {
       await deleteCost.mutateAsync(id);
-      toast.success('Custo fixo removido');
+      toast.success(t('fixedCosts.fixedCostRemoved'));
     } catch (error) {
       console.error('Erro ao remover custo fixo:', error);
-      toast.error('Não foi possível remover o custo fixo');
+      toast.error(t('fixedCosts.fixedCostRemoveError'));
     }
   };
 
@@ -140,7 +141,7 @@ const CompanyFixedCosts = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Carregando dados...</p>
+          <p className="text-muted-foreground">{t('fixedCosts.loadingData')}</p>
         </div>
       </div>
     );
@@ -150,11 +151,13 @@ const CompanyFixedCosts = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center text-muted-foreground">
-          Selecione ou cadastre uma empresa para gerenciar custos fixos.
+          {t('fixedCosts.noCompany')}
         </div>
       </div>
     );
   }
+
+  const dateLocale = i18n.resolvedLanguage === 'en-US' ? 'en-US' : 'pt-BR';
 
   return (
     <div className="min-h-screen bg-background">
@@ -168,17 +171,19 @@ const CompanyFixedCosts = () => {
               </Button>
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Custos fixos</h1>
+              <h1 className="text-2xl font-bold text-foreground">{t('fixedCosts.title')}</h1>
               <p className="text-sm text-muted-foreground">
-                Controle compromissos recorrentes da empresa {activeCompany.company.name}
+                {t('fixedCosts.subtitle', { company: activeCompany.company.name })}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
               <Plus className="h-4 w-4" />
-              Novo custo fixo
+              {t('fixedCosts.newFixedCost')}
             </Button>
+            <LanguageSelector />
+            <CurrencySelector />
             <LogoutButton />
           </div>
         </div>
@@ -190,16 +195,16 @@ const CompanyFixedCosts = () => {
             <div className="relative md:w-96">
               <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar por descrição"
+                placeholder={t('fixedCosts.searchPlaceholder')}
                 className="pl-9"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
             </div>
             <div className="text-right">
-              <p className="text-xs text-muted-foreground">Total mensal</p>
+              <p className="text-xs text-muted-foreground">{t('fixedCosts.monthlyTotal')}</p>
               <p className="text-xl font-semibold text-foreground">
-                {currencyFormatter.format(total)}
+                {formatAmount(total)}
               </p>
             </div>
           </div>
@@ -211,7 +216,7 @@ const CompanyFixedCosts = () => {
               </div>
             ) : filteredCosts.length === 0 ? (
               <div className="md:col-span-2 xl:col-span-3 text-center text-muted-foreground py-12">
-                Nenhum custo fixo encontrado para a busca atual.
+                {t('fixedCosts.noCosts')}
               </div>
             ) : (
               filteredCosts.map((cost) => (
@@ -226,7 +231,7 @@ const CompanyFixedCosts = () => {
                     <div>
                       <h3 className="font-semibold text-foreground">{cost.description}</h3>
                       <p className="text-xs text-muted-foreground">
-                        Atualizado em {new Date(cost.updated_at).toLocaleDateString('pt-BR')}
+                        {t('fixedCosts.updatedOn')} {new Date(cost.updated_at).toLocaleDateString(dateLocale)}
                       </p>
                     </div>
                     <div className="flex gap-2">
@@ -258,10 +263,10 @@ const CompanyFixedCosts = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      {categories.find((category) => category.id === cost.category_id)?.name ?? 'Sem categoria'}
+                      {categories.find((category) => category.id === cost.category_id)?.name ?? t('common.noCategory')}
                     </span>
                     <span className="text-base font-semibold text-foreground">
-                      {currencyFormatter.format(Number(cost.amount))}
+                      {formatAmount(Number(cost.amount))}
                     </span>
                   </div>
                 </motion.div>
@@ -280,12 +285,12 @@ const CompanyFixedCosts = () => {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingId ? 'Editar custo fixo' : 'Novo custo fixo'}</DialogTitle>
+            <DialogTitle>{editingId ? t('fixedCosts.editFixedCost') : t('fixedCosts.newFixedCost')}</DialogTitle>
           </DialogHeader>
 
           <div className="grid gap-3 py-1">
             <div className="grid gap-1.5">
-              <Label htmlFor="description">Descrição</Label>
+              <Label htmlFor="description">{t('fixedCosts.descriptionLabel')}</Label>
               <Input
                 id="description"
                 value={formState.description}
@@ -293,12 +298,12 @@ const CompanyFixedCosts = () => {
                   ...prev,
                   description: event.target.value,
                 }))}
-                placeholder="Ex.: Aluguel, Folha de pagamento"
+                placeholder={t('fixedCosts.descriptionPlaceholder')}
               />
             </div>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="amount">Valor mensal (R$)</Label>
+              <Label htmlFor="amount">{t('fixedCosts.monthlyValueLabel', { symbol: currencyConfig.symbol })}</Label>
               <Input
                 id="amount"
                 type="number"
@@ -313,7 +318,7 @@ const CompanyFixedCosts = () => {
             </div>
 
             <div className="grid gap-1.5">
-              <Label>Categoria</Label>
+              <Label>{t('fixedCosts.categoryLabel')}</Label>
               <Select
                 value={formState.category_id || 'none'}
                 onValueChange={(value) =>
@@ -324,10 +329,10 @@ const CompanyFixedCosts = () => {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecionar categoria" />
+                  <SelectValue placeholder={t('common.selectCategory')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Sem categoria</SelectItem>
+                  <SelectItem value="none">{t('common.noCategory')}</SelectItem>
                   {categories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
                       {category.name}
@@ -347,16 +352,16 @@ const CompanyFixedCosts = () => {
                 resetForm();
               }}
             >
-              Cancelar
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSubmit} disabled={createCost.isPending || updateCost.isPending}>
               {editingId
                 ? updateCost.isPending
-                  ? 'Salvando...'
-                  : 'Salvar alterações'
+                  ? t('common.saving')
+                  : t('dashboard.saveChanges')
                 : createCost.isPending
-                  ? 'Criando...'
-                  : 'Criar'}
+                  ? t('fixedCosts.creating')
+                  : t('common.create')}
             </Button>
           </DialogFooter>
         </DialogContent>

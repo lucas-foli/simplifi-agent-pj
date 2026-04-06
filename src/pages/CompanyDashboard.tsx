@@ -1,5 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useCurrency } from '@/contexts/CurrencyContext';
+import { LanguageSelector } from '@/components/LanguageSelector';
+import { CurrencySelector } from '@/components/CurrencySelector';
 import { motion } from 'framer-motion';
 import {
   Card,
@@ -47,7 +51,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { enUS, ptBR as dateFnsPtBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import {
   Cell,
@@ -90,6 +94,9 @@ const COLORS = [
 
 const CompanyDashboard = () => {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const { formatAmount, currencyConfig, isConverted } = useCurrency();
+  const dateLocale = i18n.resolvedLanguage === 'en-US' ? enUS : dateFnsPtBR;
   const {
     profile,
     loading,
@@ -158,11 +165,6 @@ const CompanyDashboard = () => {
     }
   }, [summary?.revenue]);
 
-  const currencyFormatter = useMemo(
-    () => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }),
-    []
-  );
-
   const goToPreviousMonth = () => {
     const date = new Date(selectedYear, selectedMonth - 2, 1);
     setSelectedDate({
@@ -187,9 +189,10 @@ const CompanyDashboard = () => {
     });
   };
 
-  const monthLabel = new Date(selectedYear, selectedMonth - 1).toLocaleDateString(
-    'pt-BR',
-    { month: 'long', year: 'numeric' }
+  const monthLabel = format(
+    new Date(selectedYear, selectedMonth - 1),
+    i18n.resolvedLanguage === 'en-US' ? 'MMMM yyyy' : "MMMM 'de' yyyy",
+    { locale: dateLocale }
   );
   const whatsappExpiryLabel = whatsappLink?.expiresAt
     ? new Date(whatsappLink.expiresAt).toLocaleString('pt-BR')
@@ -202,34 +205,34 @@ const CompanyDashboard = () => {
     : null;
   const whatsappStatusLabel = whatsappStatus
     ? whatsappStatus.status === 'linked'
-      ? `Conectado${whatsappPhoneSuffix ? ` • final ${whatsappPhoneSuffix}` : ''}`
+      ? `${t('dashboard.whatsappConnected')}${whatsappPhoneSuffix ? ` • final ${whatsappPhoneSuffix}` : ''}`
       : whatsappStatus.status === 'pending'
-        ? 'Pendente de confirmação'
-        : 'Vínculo revogado'
-    : 'Não conectado';
+        ? t('dashboard.whatsappPending')
+        : t('dashboard.whatsappRevoked')
+    : t('dashboard.whatsappNotConnected');
 
   const handleRevenueSave = async () => {
     if (!activeCompany?.company_id) return;
     const value = Number(revenueInput);
 
     if (Number.isNaN(value)) {
-      toast.error('Informe um valor válido');
+      toast.error(t('dashboard.invalidRevenueValue'));
       return;
     }
 
     try {
       await setCompanyRevenue.mutateAsync(value);
-      toast.success('Faturamento atualizado!');
+      toast.success(t('dashboard.revenueUpdated'));
       setIsRevenueDialogOpen(false);
     } catch (error) {
       console.error('Erro ao atualizar faturamento:', error);
-      toast.error('Não foi possível atualizar o faturamento');
+      toast.error(t('dashboard.revenueUpdateError'));
     }
   };
 
   const handleAuthExpired = async () => {
     await supabase.auth.signOut();
-    toast.error('Sessão expirada. Faça login novamente.');
+    toast.error(t('common.sessionExpired'));
     navigate('/login');
   };
 
@@ -280,13 +283,13 @@ const CompanyDashboard = () => {
     setWhatsappError('');
     try {
       if (!activeCompany?.company_id) {
-        throw new Error('Empresa não encontrada. Finalize o cadastro PJ.');
+        throw new Error(t('dashboard.whatsappNoCompany'));
       }
 
       const link = await createWhatsAppLink(activeCompany.company_id);
       setWhatsappLink(link);
       await loadWhatsAppStatus();
-      toast.success('Código gerado! Envie no WhatsApp para concluir o vínculo.');
+      toast.success(t('dashboard.whatsappCodeGenerated'));
     } catch (error) {
       console.error('Erro ao gerar código WhatsApp:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro ao gerar código';
@@ -317,7 +320,7 @@ const CompanyDashboard = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Carregando informações da empresa...</p>
+          <p className="text-muted-foreground">{t('dashboard.loadingCompany')}</p>
         </div>
       </div>
     );
@@ -328,15 +331,15 @@ const CompanyDashboard = () => {
       <div className="min-h-screen flex items-center justify-center">
         <Card className="max-w-lg mx-auto">
           <CardHeader>
-            <CardTitle>Nenhuma empresa encontrada</CardTitle>
+            <CardTitle>{t('common.noCompany')}</CardTitle>
             <CardDescription>
-              Finalize o cadastro ou convide um administrador para te vincular a uma empresa.
+              {t('common.noCompanyDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="outline" onClick={() => navigate('/onboarding')}>
               <Building2 className="h-4 w-4 mr-2" />
-              Concluir cadastro PJ
+              {t('common.completeRegistration')}
             </Button>
           </CardContent>
         </Card>
@@ -346,31 +349,31 @@ const CompanyDashboard = () => {
 
   const kpis = [
     {
-      label: 'Faturamento Base',
-      value: currencyFormatter.format(summary?.revenue ?? 0),
+      label: t('dashboard.baseRevenue'),
+      value: formatAmount(summary?.revenue ?? 0),
       icon: DollarSign,
       color: 'text-primary',
       background: 'bg-primary/10',
       action: () => setIsRevenueDialogOpen(true),
-      actionLabel: 'Editar',
+      actionLabel: t('common.edit'),
     },
     {
-      label: 'Custos Fixos',
-      value: currencyFormatter.format(summary?.fixedCosts ?? 0),
+      label: t('dashboard.fixedCosts'),
+      value: formatAmount(summary?.fixedCosts ?? 0),
       icon: Receipt,
       color: 'text-warning',
       background: 'bg-warning/10',
     },
     {
-      label: 'Despesas do Mês',
-      value: currencyFormatter.format(summary?.expenses ?? 0),
+      label: t('dashboard.monthExpenses'),
+      value: formatAmount(summary?.expenses ?? 0),
       icon: TrendingDown,
       color: 'text-danger',
       background: 'bg-danger/10',
     },
     {
-      label: 'Receitas Registradas',
-      value: currencyFormatter.format(summary?.transactionIncome ?? 0),
+      label: t('dashboard.registeredIncome'),
+      value: formatAmount(summary?.transactionIncome ?? 0),
       icon: TrendingUp,
       color: 'text-success',
       background: 'bg-success/10',
@@ -395,7 +398,7 @@ const CompanyDashboard = () => {
               {activeCompany.company.name}
             </h1>
             <p className="text-muted-foreground text-sm">
-              Visão geral financeira da empresa
+              {t('dashboard.companyOverview')}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -405,7 +408,7 @@ const CompanyDashboard = () => {
                 onValueChange={(value) => setActiveCompany(value)}
               >
                 <SelectTrigger className="w-full md:w-72">
-                  <SelectValue placeholder="Selecionar empresa" />
+                  <SelectValue placeholder={t('common.selectCompany')} />
                 </SelectTrigger>
                 <SelectContent>
                   {companyMemberships.map((company) => (
@@ -416,6 +419,8 @@ const CompanyDashboard = () => {
                 </SelectContent>
               </Select>
             )}
+            <LanguageSelector />
+            <CurrencySelector />
             <LogoutButton />
           </div>
         </div>
@@ -424,9 +429,9 @@ const CompanyDashboard = () => {
       <main className="container mx-auto px-4 py-6 space-y-6">
         <section className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Resumo Mensal</h2>
+            <h2 className="text-lg font-semibold text-foreground">{t('dashboard.monthlySummary')}</h2>
             <p className="text-xs text-muted-foreground">
-              Analise faturamento, custos e resultado operacional
+              {t('dashboard.monthlySummaryDescription')}
             </p>
           </div>
 
@@ -446,8 +451,8 @@ const CompanyDashboard = () => {
                   className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground hover:border-primary/50 transition-smooth"
                 >
                   <CalendarIcon className="h-4 w-4" />
-                  {format(new Date(selectedYear, selectedMonth - 1), "MMMM 'de' yyyy", {
-                    locale: ptBR,
+                  {format(new Date(selectedYear, selectedMonth - 1), i18n.resolvedLanguage === 'en-US' ? 'MMMM yyyy' : "MMMM 'de' yyyy", {
+                    locale: dateLocale,
                   })}
                 </button>
               </PopoverTrigger>
@@ -474,7 +479,7 @@ const CompanyDashboard = () => {
             </button>
 
             <Button variant="outline" onClick={goToCurrentMonth}>
-              Hoje
+              {t('common.today')}
             </Button>
           </div>
         </section>
@@ -490,7 +495,7 @@ const CompanyDashboard = () => {
                 <div className="flex items-center gap-2 mb-2">
                   <DollarSign className="h-6 w-6 text-primary" />
                   <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                    Lucro Líquido
+                    {t('dashboard.netProfit')}
                   </span>
                 </div>
                 <div
@@ -498,10 +503,10 @@ const CompanyDashboard = () => {
                     (summary?.remaining ?? 0) >= 0 ? 'text-success' : 'text-danger'
                   }`}
                 >
-                  {currencyFormatter.format(summary?.remaining ?? 0)}
+                  {formatAmount(summary?.remaining ?? 0)}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Receita total - Despesas totais do mês
+                  {t('dashboard.netProfitDescription')}
                 </p>
               </CardContent>
             </Card>
@@ -561,11 +566,11 @@ const CompanyDashboard = () => {
           <Card className="lg:col-span-2 order-2 lg:order-1 border-border/60">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div>
-                <CardTitle className="text-lg">Últimas movimentações</CardTitle>
+                <CardTitle className="text-lg">{t('dashboard.recentMovements')}</CardTitle>
                 <CardDescription>Mês de {monthLabel}</CardDescription>
               </div>
               <Button size="sm" variant="outline" onClick={() => navigate('/company/transactions')}>
-                Ver transações
+                {t('dashboard.viewTransactions')}
               </Button>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -584,7 +589,7 @@ const CompanyDashboard = () => {
                         <p className="font-medium text-foreground">{transaction.description}</p>
                         <p className="text-xs text-muted-foreground">
                           {format(new Date(transaction.date), 'dd/MM/yyyy')} •{' '}
-                          {transaction.type === 'despesa' ? 'Despesa' : 'Receita'}
+                          {transaction.type === 'despesa' ? t('dashboard.expense') : t('dashboard.income')}
                         </p>
                       </div>
                       <span
@@ -592,14 +597,14 @@ const CompanyDashboard = () => {
                           transaction.type === 'despesa' ? 'text-danger' : 'text-success'
                         }`}
                       >
-                        {currencyFormatter.format(Number(transaction.amount))}
+                        {formatAmount(Number(transaction.amount))}
                       </span>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="text-center text-muted-foreground text-sm py-12">
-                  Nenhuma movimentação registrada para este período.
+                  {t('dashboard.noMovements')}
                 </div>
               )}
             </CardContent>
@@ -611,9 +616,9 @@ const CompanyDashboard = () => {
                 <div>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <PieChartIcon className="h-4 w-4" />
-                    Distribuição por categoria
+                    {t('dashboard.categoryDistribution')}
                   </CardTitle>
-                  <CardDescription>Resumo das despesas e receitas por categoria</CardDescription>
+                  <CardDescription>{t('dashboard.categoryDistributionDescription')}</CardDescription>
                 </div>
               </CardHeader>
               <CardContent className="h-[160px] md:h-[200px]">
@@ -634,13 +639,13 @@ const CompanyDashboard = () => {
                           <Cell key={entry.category} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: number) => currencyFormatter.format(value)} />
+                      <Tooltip formatter={(value: number) => formatAmount(value)} />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                    Categorias serão exibidas conforme as movimentações forem registradas.
+                    {t('dashboard.categoriesWillShow')}
                   </div>
                 )}
               </CardContent>
@@ -657,11 +662,11 @@ const CompanyDashboard = () => {
           <Card className="border-border/60">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div>
-                <CardTitle className="text-lg">Custos Fixos</CardTitle>
-                <CardDescription>Compromissos recorrentes da operação</CardDescription>
+                <CardTitle className="text-lg">{t('dashboard.fixedCostsTitle')}</CardTitle>
+                <CardDescription>{t('dashboard.fixedCostsDescription')}</CardDescription>
               </div>
               <Button size="sm" variant="outline" onClick={() => navigate('/company/fixed-costs')}>
-                Gerenciar
+                {t('common.manage')}
               </Button>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -679,18 +684,18 @@ const CompanyDashboard = () => {
                       >
                         <div>
                           <p className="font-medium text-foreground">{cost.description}</p>
-                          <p className="text-xs text-muted-foreground">Atualizado em {format(new Date(cost.updated_at), 'dd/MM/yyyy')}</p>
+                          <p className="text-xs text-muted-foreground">{t('dashboard.updatedOn')} {format(new Date(cost.updated_at), 'dd/MM/yyyy')}</p>
                         </div>
                         <span className="font-semibold text-foreground">
-                          {currencyFormatter.format(Number(cost.amount))}
+                          {formatAmount(Number(cost.amount))}
                         </span>
                       </div>
                     ))}
                   </div>
                   <div className="flex items-center justify-between border-t border-border/40 pt-3">
-                    <span className="text-sm text-muted-foreground">Total mensal</span>
+                    <span className="text-sm text-muted-foreground">{t('dashboard.monthlyTotal')}</span>
                     <span className="font-semibold text-foreground">
-                      {currencyFormatter.format(
+                      {formatAmount(
                         fixedCosts.reduce((acc, cost) => acc + Number(cost.amount), 0)
                       )}
                     </span>
@@ -698,7 +703,7 @@ const CompanyDashboard = () => {
                 </>
               ) : (
                 <div className="text-center text-muted-foreground text-sm py-10">
-                  Cadastre os custos fixos para acompanhar o comprometimento mensal da empresa.
+                  {t('dashboard.noFixedCosts')}
                 </div>
               )}
             </CardContent>
@@ -706,18 +711,18 @@ const CompanyDashboard = () => {
 
           <Card className="border-border/60">
             <CardHeader>
-              <CardTitle className="text-lg">Próximos passos</CardTitle>
-              <CardDescription>Atalhos para começar a usar o assistente PJ</CardDescription>
+              <CardTitle className="text-lg">{t('dashboard.nextSteps')}</CardTitle>
+              <CardDescription>{t('dashboard.nextStepsDescription')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs">
-                <span className="text-muted-foreground">Status do WhatsApp</span>
+                <span className="text-muted-foreground">{t('dashboard.whatsappStatus')}</span>
                 <span className="font-medium text-foreground">
-                  {whatsappStatusLoading ? 'Carregando...' : whatsappStatusLabel}
+                  {whatsappStatusLoading ? t('dashboard.whatsappLoading') : whatsappStatusLabel}
                 </span>
               </div>
               <Button className="w-full justify-between" onClick={() => navigate('/company/transactions')}>
-                Registrar nova transação
+                {t('dashboard.registerTransaction')}
                 <ArrowRight className="h-4 w-4" />
               </Button>
               <Button
@@ -728,13 +733,13 @@ const CompanyDashboard = () => {
                 <a href="https://wa.me/556132462163" target="_blank" rel="noopener noreferrer">
                   <span className="flex items-center gap-2">
                     <MessageSquare className="h-4 w-4 text-green-600" />
-                    Registrar via WhatsApp
+                    {t('dashboard.registerViaWhatsApp')}
                   </span>
                   <ArrowRight className="h-4 w-4" />
                 </a>
               </Button>
               <Button variant="outline" className="w-full justify-between" onClick={() => navigate('/company/fixed-costs')}>
-                Adicionar custo fixo
+                {t('dashboard.addFixedCost')}
                 <ArrowRight className="h-4 w-4" />
               </Button>
               {whatsappStatus?.status !== 'linked' && (
@@ -743,12 +748,12 @@ const CompanyDashboard = () => {
                   className="w-full justify-between"
                   onClick={() => setIsWhatsAppDialogOpen(true)}
                 >
-                  Conectar WhatsApp
+                  {t('dashboard.connectWhatsApp')}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               )}
               <Button variant="ghost" className="w-full justify-between" onClick={() => navigate('/chat')}>
-                Consultar assistente financeiro
+                {t('dashboard.consultAssistant')}
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </CardContent>
@@ -759,14 +764,14 @@ const CompanyDashboard = () => {
       <Dialog open={isRevenueDialogOpen} onOpenChange={setIsRevenueDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Atualizar faturamento mensal</DialogTitle>
+            <DialogTitle>{t('dashboard.updateRevenue')}</DialogTitle>
             <DialogDescription>
-              Informe o faturamento médio mensal da empresa para projeções mais precisas.
+              {t('dashboard.updateRevenueDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
             <label className="text-sm font-medium text-foreground" htmlFor="revenue">
-              Valor (R$)
+              {t('dashboard.revenueLabel', { symbol: currencyConfig.symbol })}
             </label>
             <Input
               id="revenue"
@@ -780,10 +785,10 @@ const CompanyDashboard = () => {
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setIsRevenueDialogOpen(false)}>
-              Cancelar
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleRevenueSave} disabled={setCompanyRevenue.isPending}>
-              {setCompanyRevenue.isPending ? 'Salvando...' : 'Salvar alterações'}
+              {setCompanyRevenue.isPending ? t('common.saving') : t('dashboard.saveChanges')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -792,31 +797,31 @@ const CompanyDashboard = () => {
       <Dialog open={isWhatsAppDialogOpen} onOpenChange={setIsWhatsAppDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Conectar WhatsApp</DialogTitle>
+            <DialogTitle>{t('dashboard.whatsappConnectTitle')}</DialogTitle>
             <DialogDescription>
-              Gere um código e envie para o WhatsApp do SimplifiQA para concluir o vínculo.
+              {t('dashboard.whatsappConnectDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
               <MessageCircle className="h-5 w-5 text-primary mt-0.5" />
               <div className="space-y-1">
-                <p>1) Gere o código.</p>
-                <p>2) Envie para o número do SimplifiQA.</p>
-                <p>3) Aguarde a confirmação automática.</p>
+                <p>{t('dashboard.whatsappStep1')}</p>
+                <p>{t('dashboard.whatsappStep2')}</p>
+                <p>{t('dashboard.whatsappStep3')}</p>
               </div>
             </div>
 
             <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs">
-              <span className="text-muted-foreground">Status atual</span>
+              <span className="text-muted-foreground">{t('dashboard.whatsappCurrentStatus')}</span>
               <span className="font-medium text-foreground">
-                {whatsappStatusLoading ? 'Carregando...' : whatsappStatusLabel}
+                {whatsappStatusLoading ? t('dashboard.whatsappLoading') : whatsappStatusLabel}
               </span>
             </div>
 
             {whatsappLink ? (
               <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
-                <p className="text-xs text-muted-foreground mb-1">Seu código</p>
+                <p className="text-xs text-muted-foreground mb-1">{t('dashboard.whatsappYourCode')}</p>
                 <div className="text-2xl font-mono tracking-widest text-primary">
                   {whatsappLink.code}
                 </div>
@@ -827,7 +832,7 @@ const CompanyDashboard = () => {
                 )}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">Nenhum código gerado ainda.</p>
+              <p className="text-sm text-muted-foreground">{t('dashboard.whatsappNoCode')}</p>
             )}
 
             {whatsappStatus?.status === 'pending' && whatsappStatusExpiryLabel && (
@@ -842,10 +847,10 @@ const CompanyDashboard = () => {
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setIsWhatsAppDialogOpen(false)}>
-              Fechar
+              {t('common.close')}
             </Button>
             <Button onClick={handleGenerateWhatsAppLink} disabled={whatsappLoading}>
-              {whatsappLoading ? 'Gerando...' : whatsappLink ? 'Gerar novo código' : 'Gerar código'}
+              {whatsappLoading ? t('dashboard.whatsappGenerating') : whatsappLink ? t('dashboard.whatsappGenerateNew') : t('dashboard.whatsappGenerate')}
             </Button>
           </DialogFooter>
         </DialogContent>

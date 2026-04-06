@@ -50,22 +50,33 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-
-const transactionTypes = [
-  { label: 'Despesa', value: 'despesa' as const },
-  { label: 'Receita', value: 'receita' as const },
-];
-
-const paymentMethodOptions = ['Pix', 'Cartão de Crédito', 'Cartão de Débito', 'TED'];
+import { useTranslation } from 'react-i18next';
+import { useCurrency } from '@/contexts/CurrencyContext';
+import { LanguageSelector } from '@/components/LanguageSelector';
+import { CurrencySelector } from '@/components/CurrencySelector';
 
 const CompanyTransactions = () => {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const { formatAmount, currencyConfig } = useCurrency();
   const {
     profile,
     loading,
     activeCompany,
     companyLoading,
   } = useAuth();
+
+  const transactionTypes = [
+    { label: t('transactions.types.expense'), value: 'despesa' as const },
+    { label: t('transactions.types.income'), value: 'receita' as const },
+  ];
+
+  const paymentMethodOptions = [
+    { label: t('transactions.paymentMethods.pix'), value: 'Pix' },
+    { label: t('transactions.paymentMethods.creditCard'), value: 'Cartão de Crédito' },
+    { label: t('transactions.paymentMethods.debitCard'), value: 'Cartão de Débito' },
+    { label: t('transactions.paymentMethods.ted'), value: 'TED' },
+  ];
 
   const now = new Date();
   const [selectedDate, setSelectedDate] = useState({ month: now.getMonth() + 1, year: now.getFullYear() });
@@ -113,16 +124,11 @@ const CompanyTransactions = () => {
 
   const monthLabel = useMemo(
     () =>
-      new Date(year, month - 1).toLocaleDateString('pt-BR', {
-        month: 'long',
-        year: 'numeric',
-      }),
-    [month, year]
-  );
-
-  const currencyFormatter = useMemo(
-    () => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }),
-    []
+      new Date(year, month - 1).toLocaleDateString(
+        i18n.resolvedLanguage === 'en-US' ? 'en-US' : 'pt-BR',
+        { month: 'long', year: 'numeric' }
+      ),
+    [month, year, i18n.resolvedLanguage]
   );
 
   const goToPreviousMonth = () => {
@@ -142,13 +148,13 @@ const CompanyTransactions = () => {
 
   const handleCreate = async () => {
     if (!newTransaction.description || !newTransaction.amount) {
-      toast.error('Informe descrição e valor');
+      toast.error(t('transactions.fillDescriptionAndValue'));
       return;
     }
 
     const amount = Number(newTransaction.amount);
     if (Number.isNaN(amount) || amount <= 0) {
-      toast.error('Informe um valor válido');
+      toast.error(t('common.invalidValue'));
       return;
     }
 
@@ -162,7 +168,7 @@ const CompanyTransactions = () => {
         notes: newTransaction.notes || null,
         payment_method: newTransaction.payment_method || null,
       } as any);
-      toast.success('Transação registrada!');
+      toast.success(t('transactions.transactionCreated'));
       setIsDialogOpen(false);
       setAmountError('');
       setNewTransaction({
@@ -176,7 +182,7 @@ const CompanyTransactions = () => {
       });
     } catch (error) {
       console.error('Erro ao criar transação:', error);
-      toast.error('Não foi possível registrar a transação');
+      toast.error(t('transactions.transactionCreateError'));
     }
   };
 
@@ -188,10 +194,10 @@ const CompanyTransactions = () => {
     if (!deletingId) return;
     try {
       await deleteTransaction.mutateAsync(deletingId);
-      toast.success('Transação removida');
+      toast.success(t('transactions.transactionRemoved'));
     } catch (error) {
       console.error('Erro ao remover transação:', error);
-      toast.error('Não foi possível remover a transação');
+      toast.error(t('transactions.transactionRemoveError'));
     } finally {
       setDeletingId(null);
     }
@@ -202,7 +208,7 @@ const CompanyTransactions = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Carregando dados...</p>
+          <p className="text-muted-foreground">{t('transactions.loadingData')}</p>
         </div>
       </div>
     );
@@ -212,7 +218,7 @@ const CompanyTransactions = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center text-muted-foreground">
-          Selecione ou cadastre uma empresa para registrar transações.
+          {t('transactions.noCompany')}
         </div>
       </div>
     );
@@ -230,7 +236,7 @@ const CompanyTransactions = () => {
               </Button>
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Transações da empresa</h1>
+              <h1 className="text-2xl font-bold text-foreground">{t('transactions.title')}</h1>
               <p className="text-sm text-muted-foreground">
                 {activeCompany.company.name} • {monthLabel}
               </p>
@@ -259,21 +265,23 @@ const CompanyTransactions = () => {
             </button>
 
             <Button variant="outline" onClick={goToCurrentMonth}>
-              Hoje
+              {t('common.today')}
             </Button>
 
             <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
               <Plus className="h-4 w-4" />
-              Nova transação
+              {t('transactions.newTransaction')}
             </Button>
 
             <Button variant="outline" size="sm" className="gap-2" asChild>
               <a href="https://wa.me/556132462163" target="_blank" rel="noopener noreferrer" aria-label="Registrar transação via WhatsApp">
                 <MessageSquare className="h-4 w-4 text-green-600" />
-                <span>Via WhatsApp</span>
+                <span>{t('transactions.viaWhatsApp')}</span>
               </a>
             </Button>
 
+            <LanguageSelector />
+            <CurrencySelector />
             <LogoutButton />
           </div>
         </div>
@@ -285,25 +293,25 @@ const CompanyTransactions = () => {
             <table className="w-full min-w-[720px] divide-y divide-border/60">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
-                  <th className="px-4 py-3">Data</th>
-                  <th className="px-4 py-3">Descrição</th>
-                  <th className="px-4 py-3">Categoria</th>
-                  <th className="px-4 py-3">Tipo</th>
-                  <th className="px-4 py-3 text-right">Valor</th>
-                  <th className="px-4 py-3 text-right">Ações</th>
+                  <th className="px-4 py-3">{t('common.date')}</th>
+                  <th className="px-4 py-3">{t('common.description')}</th>
+                  <th className="px-4 py-3">{t('common.category')}</th>
+                  <th className="px-4 py-3">{t('common.type')}</th>
+                  <th className="px-4 py-3 text-right">{t('common.value')}</th>
+                  <th className="px-4 py-3 text-right">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40 text-sm">
                 {transactionsLoading ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                      Carregando transações...
+                      {t('transactions.loadingTransactions')}
                     </td>
                   </tr>
                 ) : transactions.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                      Nenhuma transação registrada neste período.
+                      {t('transactions.noTransactions')}
                     </td>
                   </tr>
                 ) : (
@@ -317,7 +325,7 @@ const CompanyTransactions = () => {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         <span className="inline-flex items-center gap-1.5">
-                          {transaction.company_categories?.name ?? 'Sem categoria'}
+                          {transaction.company_categories?.name ?? t('common.noCategory')}
                           <ValueTagBadge valueTag={transaction.company_categories?.value_tag as 'essential' | 'optional' | null} />
                         </span>
                       </td>
@@ -329,11 +337,11 @@ const CompanyTransactions = () => {
                               : 'bg-success/10 text-success'
                           }`}
                         >
-                          {transaction.type === 'despesa' ? 'Despesa' : 'Receita'}
+                          {transaction.type === 'despesa' ? t('transactions.types.expense') : t('transactions.types.income')}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-foreground">
-                        {currencyFormatter.format(Number(transaction.amount))}
+                        {formatAmount(Number(transaction.amount))}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <Button
@@ -354,13 +362,13 @@ const CompanyTransactions = () => {
         </Card>
 
         <Card className="border-border/60 p-6 space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">Classificação de categorias</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t('transactions.categoryClassification')}</h2>
           <p className="text-sm text-muted-foreground">
-            Defina se cada categoria é essencial ou opcional para decisões rápidas.
+            {t('transactions.categoryClassificationDescription')}
           </p>
           {categories.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Nenhuma categoria cadastrada.
+              {t('transactions.noCategories')}
             </p>
           ) : (
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -384,12 +392,12 @@ const CompanyTransactions = () => {
                     }}
                   >
                     <SelectTrigger className="w-[130px] h-8 text-xs">
-                      <SelectValue placeholder="Classificar" />
+                      <SelectValue placeholder={t('common.classify')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Sem tag</SelectItem>
-                      <SelectItem value="essential">Essencial</SelectItem>
-                      <SelectItem value="optional">Opcional</SelectItem>
+                      <SelectItem value="none">{t('common.none')}</SelectItem>
+                      <SelectItem value="essential">{t('common.essential')}</SelectItem>
+                      <SelectItem value="optional">{t('common.optional')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -399,10 +407,10 @@ const CompanyTransactions = () => {
         </Card>
 
         <Card className="border-border/60 p-6 space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">Resumo por categoria</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t('transactions.summaryByCategory')}</h2>
           {breakdown.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Registre transações para visualizar a distribuição entre categorias.
+              {t('transactions.noBreakdown')}
             </p>
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
@@ -412,9 +420,9 @@ const CompanyTransactions = () => {
                   className="rounded-lg border border-border/40 bg-card/60 px-4 py-3"
                 >
                   <div className="text-sm font-medium text-foreground">{item.category}</div>
-                  <div className="text-xs text-muted-foreground">{item.count} movimentações</div>
+                  <div className="text-xs text-muted-foreground">{item.count} {t('transactions.movements')}</div>
                   <div className="mt-1 font-semibold text-foreground">
-                    {currencyFormatter.format(item.total)}
+                    {formatAmount(item.total)}
                   </div>
                 </div>
               ))}
@@ -426,12 +434,12 @@ const CompanyTransactions = () => {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Registrar transação</DialogTitle>
+            <DialogTitle>{t('transactions.registerTransaction')}</DialogTitle>
           </DialogHeader>
 
           <div className="grid gap-3">
             <div className="grid gap-1.5">
-              <Label htmlFor="description">Descrição</Label>
+              <Label htmlFor="description">{t('transactions.descriptionLabel')}</Label>
               <Input
                 id="description"
                 value={newTransaction.description}
@@ -439,12 +447,12 @@ const CompanyTransactions = () => {
                   ...prev,
                   description: event.target.value,
                 }))}
-                placeholder="Ex.: Serviço de consultoria"
+                placeholder={t('transactions.descriptionPlaceholder')}
               />
             </div>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="amount">Valor (R$)</Label>
+              <Label htmlFor="amount">{t('transactions.valueLabel', { symbol: currencyConfig.symbol })}</Label>
               <Input
                 id="amount"
                 type="number"
@@ -456,7 +464,7 @@ const CompanyTransactions = () => {
                   setNewTransaction((prev) => ({ ...prev, amount: value }));
                   const num = Number(value);
                   if (value && (!Number.isNaN(num) && num <= 0)) {
-                    setAmountError('O valor deve ser maior que zero');
+                    setAmountError(t('transactions.valueMustBePositive'));
                   } else {
                     setAmountError('');
                   }
@@ -470,7 +478,7 @@ const CompanyTransactions = () => {
             </div>
 
             <div className="grid gap-1.5">
-              <Label>Categoria</Label>
+              <Label>{t('transactions.categoryLabel')}</Label>
               <Select
                 value={newTransaction.category_id || 'none'}
                 onValueChange={(value) =>
@@ -482,10 +490,10 @@ const CompanyTransactions = () => {
                 disabled={categoriesLoading}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecionar categoria" />
+                  <SelectValue placeholder={t('common.selectCategory')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Sem categoria</SelectItem>
+                  <SelectItem value="none">{t('common.noCategory')}</SelectItem>
                   {categories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
                       {category.name}
@@ -496,7 +504,7 @@ const CompanyTransactions = () => {
             </div>
 
             <div className="grid gap-1.5">
-              <Label>Tipo</Label>
+              <Label>{t('transactions.typeLabel')}</Label>
               <Select
                 value={newTransaction.type}
                 onValueChange={(value) =>
@@ -517,7 +525,7 @@ const CompanyTransactions = () => {
             </div>
 
             <div className="grid gap-1.5">
-              <Label>Data</Label>
+              <Label>{t('transactions.dateLabel')}</Label>
               <Input
                 type="date"
                 value={newTransaction.date}
@@ -526,7 +534,7 @@ const CompanyTransactions = () => {
             </div>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="payment_method">Forma de pagamento</Label>
+              <Label htmlFor="payment_method">{t('transactions.paymentMethodLabel')}</Label>
               <Select
                 value={newTransaction.payment_method || undefined}
                 onValueChange={(value) =>
@@ -534,12 +542,12 @@ const CompanyTransactions = () => {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione a forma de pagamento" />
+                  <SelectValue placeholder={t('transactions.paymentMethodPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {paymentMethodOptions.map((method) => (
-                    <SelectItem key={method} value={method}>
-                      {method}
+                  {paymentMethodOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -547,24 +555,24 @@ const CompanyTransactions = () => {
             </div>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="notes">Observações</Label>
+              <Label htmlFor="notes">{t('transactions.notesLabel')}</Label>
               <Input
                 id="notes"
                 value={newTransaction.notes}
                 onChange={(event) =>
                   setNewTransaction((prev) => ({ ...prev, notes: event.target.value }))
                 }
-                placeholder="Informações adicionais"
+                placeholder={t('transactions.notesPlaceholder')}
               />
             </div>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              Cancelar
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleCreate} disabled={createTransaction.isPending || !!amountError}>
-              {createTransaction.isPending ? 'Salvando...' : 'Registrar'}
+              {createTransaction.isPending ? t('common.saving') : t('common.register')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -573,18 +581,18 @@ const CompanyTransactions = () => {
       <AlertDialog open={!!deletingId} onOpenChange={(open) => { if (!open) setDeletingId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover transação</AlertDialogTitle>
+            <AlertDialogTitle>{t('transactions.removeTransaction')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Deseja remover esta transação? Esta ação não pode ser desfeita.
+              {t('transactions.removeTransactionConfirmation')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Remover
+              {t('common.remove')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

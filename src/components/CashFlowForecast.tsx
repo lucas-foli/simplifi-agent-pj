@@ -17,6 +17,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { TrendingUp, AlertTriangle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useCurrency } from '@/contexts/CurrencyContext';
 
 interface CashFlowForecastProps {
   currentBalance: number;
@@ -41,24 +43,25 @@ interface ForecastDataPoint {
 
 const FIXED_COST_DAY = 5;
 
-const currencyFormatter = new Intl.NumberFormat('pt-BR', {
-  style: 'currency',
-  currency: 'BRL',
-});
-
-const shortCurrencyFormatter = new Intl.NumberFormat('pt-BR', {
-  style: 'currency',
-  currency: 'BRL',
-  notation: 'compact',
-  maximumFractionDigits: 1,
-});
-
 export default function CashFlowForecast({
   currentBalance,
   monthlyFixedCosts,
   transactions,
   isLoading,
 }: CashFlowForecastProps) {
+  const { t, i18n } = useTranslation();
+  const { formatAmount, currencyConfig } = useCurrency();
+
+  const shortFormatter = useMemo(
+    () => new Intl.NumberFormat(currencyConfig.locale, {
+      style: 'currency',
+      currency: currencyConfig.code,
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }),
+    [currencyConfig]
+  );
+
   const forecastData = useMemo(() => {
     if (transactions === undefined) return [];
 
@@ -109,10 +112,11 @@ export default function CashFlowForecast({
         }
       }
 
+      const dateLocale = i18n.resolvedLanguage === 'en-US' ? 'en-US' : 'pt-BR';
       const label =
         i === 0
-          ? 'Hoje'
-          : date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+          ? t('cashFlow.today')
+          : date.toLocaleDateString(dateLocale, { day: '2-digit', month: '2-digit' });
 
       const roundedSaldo = Math.round(balance * 100) / 100;
 
@@ -128,7 +132,7 @@ export default function CashFlowForecast({
     }
 
     return data;
-  }, [currentBalance, monthlyFixedCosts, transactions]);
+  }, [currentBalance, monthlyFixedCosts, transactions, t, i18n.resolvedLanguage]);
 
   const minBalance = useMemo(
     () => Math.min(...forecastData.map((d) => d.saldo)),
@@ -160,7 +164,7 @@ export default function CashFlowForecast({
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
-            Projeção de Fluxo de Caixa
+            {t('cashFlow.title')}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-center py-12">
@@ -177,16 +181,16 @@ export default function CashFlowForecast({
           <div>
             <CardTitle className="text-lg flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Projeção de Fluxo de Caixa
+              {t('cashFlow.title')}
             </CardTitle>
             <CardDescription>
-              Estimativa para os próximos 30 dias com base no histórico de transações
+              {t('cashFlow.description')}
             </CardDescription>
           </div>
           {hasNegativeProjection && (
             <span className="inline-flex items-center gap-1 rounded-md bg-red-100 px-2 py-1 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
               <AlertTriangle className="h-3 w-3" />
-              Saldo negativo projetado
+              {t('cashFlow.negativeProjection')}
             </span>
           )}
         </div>
@@ -194,7 +198,7 @@ export default function CashFlowForecast({
       <CardContent>
         {forecastData.length === 0 ? (
           <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">
-            Dados insuficientes para gerar a projeção.
+            {t('cashFlow.insufficientData')}
           </div>
         ) : (
           <>
@@ -230,11 +234,11 @@ export default function CashFlowForecast({
                   />
                   <YAxis
                     tick={{ fontSize: 11 }}
-                    tickFormatter={(value: number) => shortCurrencyFormatter.format(value)}
+                    tickFormatter={(value: number) => shortFormatter.format(value)}
                     width={72}
                   />
                   <Tooltip
-                    formatter={(value: number) => [currencyFormatter.format(value), 'Saldo projetado']}
+                    formatter={(value: number) => [formatAmount(value), t('cashFlow.projectedBalance')]}
                     labelFormatter={(label: string) => label}
                     contentStyle={{
                       borderRadius: '8px',
@@ -252,7 +256,7 @@ export default function CashFlowForecast({
                       strokeDasharray="3 3"
                       strokeWidth={1}
                       label={{
-                        value: 'Custos fixos',
+                        value: t('cashFlow.fixedCostsLabel'),
                         position: 'insideTop',
                         fontSize: 10,
                         fill: '#F39C12',
@@ -281,15 +285,15 @@ export default function CashFlowForecast({
             <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#2ECC71]" />
-                Saldo positivo
+                {t('cashFlow.positiveBalance')}
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#E74C3C]" />
-                Saldo negativo
+                {t('cashFlow.negativeBalance')}
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-4 border-t-2 border-dashed border-[#F39C12]" />
-                Vencimento custos fixos (dia {FIXED_COST_DAY})
+                {t('cashFlow.fixedCostsDueDay', { day: FIXED_COST_DAY })}
               </span>
             </div>
           </>

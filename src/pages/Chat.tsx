@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,6 +21,8 @@ import { useCompanyDashboardSummary } from '@/hooks/useCompanyFinancialData';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
+import { useCurrency } from '@/contexts/CurrencyContext';
 
 interface MessageAction {
   label: string;
@@ -43,6 +45,8 @@ interface AIResponse {
 }
 
 const Chat = () => {
+  const { t } = useTranslation();
+  const { formatAmount } = useCurrency();
   const { user, activeCompany } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -52,10 +56,6 @@ const Chat = () => {
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
-  const currencyFormatter = useMemo(
-    () => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }),
-    []
-  );
   const { data: companySummary } = useCompanyDashboardSummary(
     activeCompany?.company_id,
     currentMonth,
@@ -193,8 +193,8 @@ const Chat = () => {
       }
     } catch (error) {
       console.error('Error processing message:', error);
-      toast.error('Não foi possível obter resposta do assistente');
-      const fallbackText = 'Não foi possível obter resposta do assistente agora. Tente novamente.';
+      toast.error(t('chat.processError'));
+      const fallbackText = t('chat.fallbackMessage');
       const assistantMsg = await saveChatMessage('assistant', fallbackText, { type: 'error' });
       if (assistantMsg) {
         setMessages((prev) => [...prev, {
@@ -276,9 +276,9 @@ const Chat = () => {
   };
 
   const quickActions = [
-    { icon: DollarSign, label: 'Ver Saldo', message: 'Quanto tenho disponível?' },
-    { icon: Receipt, label: 'Meus Gastos', message: 'Quanto gastei este mês?' },
-    { icon: TrendingUp, label: 'Adicionar Despesa', message: 'Quero adicionar uma despesa' },
+    { icon: DollarSign, label: t('chat.viewBalance'), message: t('chat.balanceQuestion') },
+    { icon: Receipt, label: t('chat.myExpenses'), message: t('chat.expensesQuestion') },
+    { icon: TrendingUp, label: t('chat.addExpense'), message: t('chat.addExpenseMessage') },
   ];
 
   return (
@@ -290,7 +290,7 @@ const Chat = () => {
             <Link to="/company/dashboard">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Voltar</span>
+                <span className="hidden sm:inline">{t('common.back')}</span>
               </Button>
             </Link>
             <div className="flex items-center gap-3">
@@ -301,9 +301,9 @@ const Chat = () => {
               />
               <span className="sr-only">{branding.brandName}</span>
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold">Assistente {branding.brandName}</h1>
+                <h1 className="text-xl sm:text-2xl font-bold">{t('chat.title', { brand: branding.brandName })}</h1>
                 <p className="text-xs text-muted-foreground hidden sm:block">
-                  Pergunte sobre suas finanças
+                  {t('chat.subtitle')}
                 </p>
               </div>
             </div>
@@ -324,9 +324,9 @@ const Chat = () => {
               <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                 <Sparkles className="h-8 w-8 text-primary" />
               </div>
-              <h2 className="text-2xl font-bold mb-2">Como posso ajudar?</h2>
+              <h2 className="text-2xl font-bold mb-2">{t('chat.howCanIHelp')}</h2>
               <p className="text-muted-foreground mb-8">
-                Pergunte sobre seu saldo, gastos ou peça para adicionar despesas
+                {t('chat.askAbout')}
               </p>
 
               {/* Quick Actions */}
@@ -439,7 +439,7 @@ const Chat = () => {
                     handleSendMessage();
                   }
                 }}
-                placeholder="Digite sua mensagem..."
+                placeholder={t('chat.typePlaceholder')}
                 disabled={isLoading}
                 className="flex-1 min-h-[44px] max-h-[200px] resize-none"
                 rows={1}
@@ -450,11 +450,11 @@ const Chat = () => {
                 className="gap-2 h-[44px]"
               >
                 <Send className="h-4 w-4" />
-                <span className="hidden sm:inline">Enviar</span>
+                <span className="hidden sm:inline">{t('chat.send')}</span>
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-2 text-center">
-              🤖 Assistente com IA real! Pressione Enter para enviar, Shift+Enter para quebrar linha.
+              {t('chat.aiHint')}
             </p>
           </div>
         </div>
