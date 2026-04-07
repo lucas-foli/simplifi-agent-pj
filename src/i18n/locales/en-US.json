@@ -150,8 +150,27 @@
       "pix": "Pix",
       "creditCard": "Credit Card",
       "debitCard": "Debit Card",
-      "ted": "Wire Transfer"
-    }
+      "ted": "Wire Transfer (TED)",
+      "zelle": "Zelle",
+      "wireTransfer": "Wire Transfer",
+      "ach": "ACH Transfer",
+      "check": "Check"
+    },
+    "categoryManagement": "Manage Categories",
+    "categoryManagementDescription": "Create, edit, or remove custom categories for your transactions.",
+    "addCategory": "Add Category",
+    "editCategory": "Edit Category",
+    "categoryName": "Category name",
+    "categoryNamePlaceholder": "E.g.: Office Supplies",
+    "categoryColor": "Color",
+    "categoryCreated": "Category created!",
+    "categoryCreateError": "Could not create the category",
+    "categoryUpdated": "Category updated!",
+    "categoryUpdateError": "Could not update the category",
+    "removeCategory": "Remove category",
+    "removeCategoryConfirmation": "Do you want to remove this category? Transactions using it will become uncategorized. This action cannot be undone.",
+    "categoryRemoved": "Category removed!",
+    "categoryRemoveError": "Could not remove the category"
   },
   "fixedCosts": {
     "title": "Fixed Costs",

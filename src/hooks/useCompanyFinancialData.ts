@@ -9,6 +9,7 @@ type CompanyFixedCostInsert = Database['public']['Tables']['company_fixed_costs'
 type CompanyTransaction = Database['public']['Tables']['company_transactions']['Row'];
 type CompanyTransactionInsert = Database['public']['Tables']['company_transactions']['Insert'];
 type CompanyTransactionUpdate = Database['public']['Tables']['company_transactions']['Update'];
+type CompanyCategoryInsert = Database['public']['Tables']['company_categories']['Insert'];
 type CompanyCategoryUpdate = Database['public']['Tables']['company_categories']['Update'];
 type CompanyTransactionWithCategory = CompanyTransaction & {
   company_categories?: {
@@ -372,6 +373,50 @@ export const useCompanyDashboardSummary = (companyId: string | undefined, month:
     },
     staleTime: 30000,
     gcTime: 300000,
+  });
+};
+
+export const useCreateCompanyCategory = (companyId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: Omit<CompanyCategoryInsert, 'company_id'>) => {
+      if (!companyId) throw new Error('Company not selected');
+
+      const { error } = await supabase
+        .from('company_categories')
+        .insert({
+          ...payload,
+          company_id: companyId,
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company-categories', companyId] });
+    },
+  });
+};
+
+export const useDeleteCompanyCategory = (companyId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!companyId) throw new Error('Company not selected');
+
+      const { error } = await supabase
+        .from('company_categories')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company-categories', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['company-transactions', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['company-transactions-by-category', companyId] });
+    },
   });
 };
 

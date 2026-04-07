@@ -150,8 +150,27 @@
       "pix": "Pix",
       "creditCard": "Cartão de Crédito",
       "debitCard": "Cartão de Débito",
-      "ted": "TED"
-    }
+      "ted": "TED",
+      "zelle": "Zelle",
+      "wireTransfer": "Transferência Bancária",
+      "ach": "Transferência ACH",
+      "check": "Cheque"
+    },
+    "categoryManagement": "Gerenciar Categorias",
+    "categoryManagementDescription": "Crie, edite ou remova categorias personalizadas para suas transações.",
+    "addCategory": "Adicionar Categoria",
+    "editCategory": "Editar Categoria",
+    "categoryName": "Nome da categoria",
+    "categoryNamePlaceholder": "Ex.: Material de escritório",
+    "categoryColor": "Cor",
+    "categoryCreated": "Categoria criada!",
+    "categoryCreateError": "Não foi possível criar a categoria",
+    "categoryUpdated": "Categoria atualizada!",
+    "categoryUpdateError": "Não foi possível atualizar a categoria",
+    "removeCategory": "Remover categoria",
+    "removeCategoryConfirmation": "Deseja remover esta categoria? Transações vinculadas ficarão sem categoria. Esta ação não pode ser desfeita.",
+    "categoryRemoved": "Categoria removida!",
+    "categoryRemoveError": "Não foi possível remover a categoria"
   },
   "fixedCosts": {
     "title": "Custos fixos",
