@@ -60,6 +60,11 @@ serve(async (req) => {
       ?? req.headers.get('X-Hub-Signature-256');
     const signatureValid = await verifyMetaSignature(rawBody, signatureHeader, appSecret);
     if (!signatureValid) {
+      console.error('[WhatsApp] Signature verification failed.', {
+        hasSignatureHeader: !!signatureHeader,
+        bodyLength: rawBody.length,
+        bodyPreview: rawBody.slice(0, 200),
+      });
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
