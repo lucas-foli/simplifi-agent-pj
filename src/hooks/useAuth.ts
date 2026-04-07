@@ -134,6 +134,19 @@ export const useAuth = () => {
         return normalized[0] ?? null;
       });
 
+      // Auto-sync browser timezone to company (fire-and-forget)
+      const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const target = normalized[0];
+      if (target && browserTz) {
+        supabase
+          .from('companies')
+          .update({ timezone: browserTz })
+          .eq('id', target.company_id)
+          .then(({ error: tzError }) => {
+            if (tzError) console.warn('Could not sync timezone:', tzError.message);
+          });
+      }
+
       if ((normalized?.length ?? 0) > 0) {
         pendingCompanyPayload.current = null;
       }

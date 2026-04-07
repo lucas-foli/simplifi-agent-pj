@@ -159,10 +159,11 @@ const Chat = () => {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!input.trim()) return;
+  const handleSendMessage = async (directMessage?: string) => {
+    const messageToSend = directMessage ?? input.trim();
+    if (!messageToSend) return;
 
-    const userMessage = input.trim();
+    const userMessage = messageToSend;
     setInput('');
     setIsLoading(true);
 
@@ -336,10 +337,7 @@ const Chat = () => {
                     key={action.label}
                     variant="outline"
                     className="gap-2 h-auto py-4 flex-col"
-                    onClick={() => {
-                      setInput(action.message);
-                      setTimeout(() => handleSendMessage(), 100);
-                    }}
+                    onClick={() => handleSendMessage(action.message)}
                   >
                     <action.icon className="h-6 w-6" />
                     <span className="text-sm">{action.label}</span>

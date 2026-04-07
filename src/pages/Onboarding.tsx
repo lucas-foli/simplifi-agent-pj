@@ -70,10 +70,10 @@ const Onboarding = () => {
   });
 
   useEffect(() => {
-    if (!authLoading_ && user && companyMemberships.length > 0) {
+    if (!authLoading_ && user && companyMemberships.length > 0 && step === 1) {
       navigate("/company/dashboard", { replace: true });
     }
-  }, [authLoading_, user, companyMemberships, navigate]);
+  }, [authLoading_, user, companyMemberships, navigate, step]);
 
   // Validate restored step: if step >= 3, verify session exists
   useEffect(() => {
@@ -353,6 +353,15 @@ const Onboarding = () => {
       if (ensureError) throw ensureError;
 
       if (ensuredCompanyId) {
+        // Save the browser timezone so cost reminders use the correct local date
+        const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (browserTz) {
+          await supabase
+            .from('companies')
+            .update({ timezone: browserTz })
+            .eq('id', ensuredCompanyId);
+        }
+
         for (const cost of formData.fixedCosts) {
           const parsedAmount = parseFloat(cost.value);
           if (!cost.name.trim() || Number.isNaN(parsedAmount) || parsedAmount <= 0) {

@@ -195,7 +195,13 @@
     "confirmDelete": "Do you want to remove this fixed cost?",
     "fixedCostRemoved": "Fixed cost removed",
     "fixedCostRemoveError": "Could not remove the fixed cost",
-    "creating": "Creating..."
+    "creating": "Creating...",
+    "dueDayLabel": "Due day",
+    "dueDayPlaceholder": "E.g.: 10",
+    "dueDayHelp": "Day of the month when the cost is due (1-31). Reminders will be sent 5, 3 and 1 day(s) before.",
+    "dueDay": "Due: day {{day}}",
+    "noDueDay": "No due day set",
+    "invalidDueDay": "Due day must be between 1 and 31"
   },
   "chat": {
     "viewBalance": "View Balance",
