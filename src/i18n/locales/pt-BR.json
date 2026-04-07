@@ -176,7 +176,13 @@
     "confirmDelete": "Deseja remover este custo fixo?",
     "fixedCostRemoved": "Custo fixo removido",
     "fixedCostRemoveError": "Não foi possível remover o custo fixo",
-    "creating": "Criando..."
+    "creating": "Criando...",
+    "dueDayLabel": "Dia de vencimento",
+    "dueDayPlaceholder": "Ex.: 10",
+    "dueDayHelp": "Dia do mês em que o custo vence (1-31). Lembretes serão enviados 5, 3 e 1 dia(s) antes.",
+    "dueDay": "Vencimento: dia {{day}}",
+    "noDueDay": "Sem vencimento definido",
+    "invalidDueDay": "O dia de vencimento deve estar entre 1 e 31"
   },
   "chat": {
     "viewBalance": "Ver Saldo",
