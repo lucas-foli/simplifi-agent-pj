@@ -25,6 +25,13 @@ const META_WHATSAPP_API_VERSION = Deno.env.get('META_WHATSAPP_API_VERSION') ?? '
 const REMINDER_DAYS = [5, 3, 1] as const;
 
 type ReminderType = '5_days' | '3_days' | '1_day';
+type CurrencyCode = 'BRL' | 'USD' | 'CAD';
+
+const CURRENCY_CONFIG: Record<CurrencyCode, { locale: string; lang: 'pt' | 'en' }> = {
+  BRL: { locale: 'pt-BR', lang: 'pt' },
+  USD: { locale: 'en-US', lang: 'en' },
+  CAD: { locale: 'en-CA', lang: 'en' },
+};
 
 function daysToReminderType(days: number): ReminderType {
   if (days === 5) return '5_days';
@@ -32,23 +39,17 @@ function daysToReminderType(days: number): ReminderType {
   return '1_day';
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('pt-BR', {
+function formatCurrency(amount: number, currency: CurrencyCode): string {
+  const config = CURRENCY_CONFIG[currency] ?? CURRENCY_CONFIG.BRL;
+  return new Intl.NumberFormat(config.locale, {
     style: 'currency',
-    currency: 'BRL',
+    currency,
   }).format(amount);
 }
 
-/**
- * Compute the next due date for a given due_day relative to today.
- * If the due_day has already passed this month, it returns the due_day
- * for this month still (since we look at days_until which could be negative).
- * We always consider the current month's occurrence.
- */
 function getDueDateThisMonth(dueDay: number, today: Date): Date {
   const year = today.getFullYear();
   const month = today.getMonth();
-  // Clamp to actual last day of month (e.g. due_day=31 in February → 28/29)
   const lastDay = new Date(year, month + 1, 0).getDate();
   const clampedDay = Math.min(dueDay, lastDay);
   return new Date(year, month, clampedDay);
@@ -56,11 +57,27 @@ function getDueDateThisMonth(dueDay: number, today: Date): Date {
 
 function buildReminderMessage(
   costDescription: string,
-  amount: number,
+  formattedAmount: string,
   daysUntil: number,
   dueDay: number,
+  lang: 'pt' | 'en',
 ): string {
-  const formattedAmount = formatCurrency(amount);
+  if (lang === 'en') {
+    if (daysUntil === 1) {
+      return (
+        `⚠️ *Fixed cost reminder*\n\n` +
+        `*${costDescription}* of *${formattedAmount}* is due *tomorrow* (day ${dueDay}).\n\n` +
+        `Don't forget to make the payment!`
+      );
+    }
+    return (
+      `📋 *Fixed cost reminder*\n\n` +
+      `*${costDescription}* of *${formattedAmount}* is due in *${daysUntil} days* (day ${dueDay}).\n\n` +
+      `Plan ahead for the payment!`
+    );
+  }
+
+  // Portuguese (default)
   if (daysUntil === 1) {
     return (
       `⚠️ *Lembrete de custo fixo*\n\n` +
@@ -73,6 +90,18 @@ function buildReminderMessage(
     `O custo *${costDescription}* no valor de *${formattedAmount}* vence em *${daysUntil} dias* (dia ${dueDay}).\n\n` +
     `Organize-se para o pagamento!`
   );
+}
+
+async function fetchExchangeRates(): Promise<Record<string, number>> {
+  try {
+    const response = await fetch('https://api.frankfurter.dev/v1/latest?from=BRL&to=USD,CAD');
+    if (!response.ok) return {};
+    const data = await response.json();
+    return { BRL: 1, ...data.rates };
+  } catch {
+    console.warn('[Reminders] Could not fetch exchange rates, using BRL.');
+    return { BRL: 1 };
+  }
 }
 
 async function sendWhatsAppText(phone: string, message: string): Promise<string | null> {
@@ -137,7 +166,6 @@ serve(async (req) => {
     const companyIds = [...new Set(fixedCosts.map((c) => c.company_id))];
     let timezoneByCompany = new Map<string, string>();
 
-    // Try fetching timezone column; if migration hasn't been applied yet, fall back
     const { data: companiesData, error: companiesError } = await supabase
       .from('companies')
       .select('id, timezone')
@@ -153,6 +181,36 @@ serve(async (req) => {
     } else {
       console.warn('[Reminders] Could not fetch company timezones, using default:', companiesError?.message);
     }
+
+    // 1c. Fetch display_currency for each company's owner/creator
+    const { data: membersData } = await supabase
+      .from('company_members')
+      .select('company_id, profile_id, role')
+      .in('company_id', companyIds)
+      .eq('role', 'owner');
+
+    const ownerProfileIds = [...new Set((membersData ?? []).map((m: any) => m.profile_id))];
+    let currencyByCompany = new Map<string, CurrencyCode>();
+
+    if (ownerProfileIds.length > 0) {
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, display_currency')
+        .in('id', ownerProfileIds);
+
+      const currencyByProfile = new Map<string, CurrencyCode>(
+        (profilesData ?? []).map((p: any) => [p.id, p.display_currency ?? 'BRL']),
+      );
+
+      for (const member of membersData ?? []) {
+        const currency = currencyByProfile.get(member.profile_id) ?? 'BRL';
+        currencyByCompany.set(member.company_id, currency as CurrencyCode);
+      }
+    }
+
+    // 1d. Fetch exchange rates if any company uses non-BRL currency
+    const needsConversion = [...currencyByCompany.values()].some((c) => c !== 'BRL');
+    const exchangeRates = needsConversion ? await fetchExchangeRates() : { BRL: 1 };
 
     // 2. For each cost, compute "today" in the company's timezone and check reminder days
     type PendingReminder = {
@@ -201,7 +259,6 @@ serve(async (req) => {
       due_date: dueDateStr(r.dueDate),
     }));
 
-    // Check which reminders were already sent
     const { data: existingLogs } = await supabase
       .from('cost_reminder_logs')
       .select('fixed_cost_id, reminder_type, due_date')
@@ -254,17 +311,24 @@ serve(async (req) => {
         continue;
       }
 
+      // Convert amount to user's display currency
+      const currency = currencyByCompany.get(reminder.cost.company_id) ?? 'BRL';
+      const rate = exchangeRates[currency] ?? 1;
+      const convertedAmount = reminder.cost.amount * rate;
+      const formattedAmount = formatCurrency(convertedAmount, currency);
+      const lang = CURRENCY_CONFIG[currency]?.lang ?? 'pt';
+
       const message = buildReminderMessage(
         reminder.cost.description,
-        reminder.cost.amount,
+        formattedAmount,
         reminder.daysUntil,
         reminder.cost.due_day,
+        lang,
       );
 
       for (const phone of phones) {
         const messageId = await sendWhatsAppText(phone, message);
 
-        // Log the reminder regardless of send success to avoid retrying forever
         await supabase.from('cost_reminder_logs').insert({
           fixed_cost_id: reminder.cost.id,
           company_id: reminder.cost.company_id,
@@ -277,7 +341,7 @@ serve(async (req) => {
         if (messageId) sentCount++;
 
         console.log(
-          `[Reminders] ${messageId ? 'Sent' : 'Failed'} ${reminder.reminderType} reminder for "${reminder.cost.description}" to ${phone}`,
+          `[Reminders] ${messageId ? 'Sent' : 'Failed'} ${reminder.reminderType} reminder for "${reminder.cost.description}" to ${phone} (${currency})`,
         );
       }
     }

@@ -46,7 +46,7 @@ import { toast } from 'sonner';
 const CompanyFixedCosts = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const { formatAmount, currencyConfig, toBaseCurrency } = useCurrency();
+  const { formatAmount, convertAmount, currencyConfig, toBaseCurrency } = useCurrency();
   const {
     profile,
     loading,
@@ -253,7 +253,7 @@ const CompanyFixedCosts = () => {
                           setEditingId(cost.id);
                           setFormState({
                             description: cost.description,
-                            amount: Number(cost.amount).toString(),
+                            amount: convertAmount(Number(cost.amount)).toString(),
                             category_id: cost.category_id ?? '',
                             due_day: cost.due_day != null ? cost.due_day.toString() : '',
                           });
