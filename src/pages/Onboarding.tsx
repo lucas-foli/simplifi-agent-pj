@@ -353,6 +353,15 @@ const Onboarding = () => {
       if (ensureError) throw ensureError;
 
       if (ensuredCompanyId) {
+        // Save the browser timezone so cost reminders use the correct local date
+        const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (browserTz) {
+          await supabase
+            .from('companies')
+            .update({ timezone: browserTz })
+            .eq('id', ensuredCompanyId);
+        }
+
         for (const cost of formData.fixedCosts) {
           const parsedAmount = parseFloat(cost.value);
           if (!cost.name.trim() || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
