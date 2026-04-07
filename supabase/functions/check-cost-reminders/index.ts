@@ -115,8 +115,13 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+
+    // Use America/Sao_Paulo so reminders align with the user's local date,
+    // not the UTC date of the server.
+    const nowInBrazil = new Date(
+      new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }),
+    );
+    const today = new Date(nowInBrazil.getFullYear(), nowInBrazil.getMonth(), nowInBrazil.getDate());
 
     // 1. Fetch all fixed costs that have a due_day set
     const { data: fixedCosts, error: costsError } = await supabase
