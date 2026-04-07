@@ -82,7 +82,6 @@ export const useAuth = () => {
             phone,
             monthly_revenue,
             metadata,
-            timezone,
             created_at,
             updated_at
           )
@@ -135,10 +134,10 @@ export const useAuth = () => {
         return normalized[0] ?? null;
       });
 
-      // Auto-sync browser timezone to company if it differs
+      // Auto-sync browser timezone to company (fire-and-forget)
       const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const target = normalized[0];
-      if (target && browserTz && (target.company as any)?.timezone !== browserTz) {
+      if (target && browserTz) {
         supabase
           .from('companies')
           .update({ timezone: browserTz })
