@@ -80,6 +80,7 @@ import {
   type WhatsAppLinkRecord,
   type WhatsAppLinkResponse,
 } from '@/lib/whatsapp';
+import { formatAmountForInput, parseAmountFromInput } from '@/lib/currency';
 
 const COLORS = [
   '#0B59A3',
@@ -213,9 +214,9 @@ const CompanyDashboard = () => {
 
   const handleRevenueSave = async () => {
     if (!activeCompany?.company_id) return;
-    const value = Number(revenueInput);
+    const value = parseAmountFromInput(revenueInput);
 
-    if (Number.isNaN(value)) {
+    if (Number.isNaN(value) || value <= 0) {
       toast.error(t('dashboard.invalidRevenueValue'));
       return;
     }
@@ -775,12 +776,27 @@ const CompanyDashboard = () => {
             </label>
             <Input
               id="revenue"
+              type="text"
+              inputMode="decimal"
               value={revenueInput}
               onChange={(event) => setRevenueInput(event.target.value)}
-              placeholder="50.000"
+              onBlur={() => {
+                const num = parseAmountFromInput(revenueInput);
+                if (num > 0) {
+                  setRevenueInput(formatAmountForInput(num, currencyConfig.locale));
+                }
+              }}
+              onFocus={(event) => {
+                const num = parseAmountFromInput(revenueInput);
+                if (num > 0) {
+                  setRevenueInput(String(Math.round(num * 100) / 100));
+                }
+                event.target.select();
+              }}
+              placeholder={t('dashboard.revenuePlaceholder')}
             />
             <p className="text-xs text-muted-foreground">
-              Utilize números inteiros ou decimais com ponto. Exemplo: 75000.50
+              {t('dashboard.revenueHint')}
             </p>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">

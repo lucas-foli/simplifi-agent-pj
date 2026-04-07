@@ -58,6 +58,7 @@ import { useTranslation } from 'react-i18next';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { CurrencySelector } from '@/components/CurrencySelector';
+import { formatAmountForInput, parseAmountFromInput } from '@/lib/currency';
 
 const CompanyTransactions = () => {
   const navigate = useNavigate();
@@ -188,7 +189,7 @@ const CompanyTransactions = () => {
     setEditingId(transaction.id);
     setNewTransaction({
       description: transaction.description,
-      amount: String(convertAmount(Number(transaction.amount))),
+      amount: formatAmountForInput(convertAmount(Number(transaction.amount)), currencyConfig.locale),
       category_id: transaction.category_id ?? '',
       type: transaction.type as 'despesa' | 'receita',
       date: transaction.date,
@@ -204,7 +205,7 @@ const CompanyTransactions = () => {
       return;
     }
 
-    const amount = Number(newTransaction.amount);
+    const amount = parseAmountFromInput(newTransaction.amount);
     if (Number.isNaN(amount) || amount <= 0) {
       toast.error(t('common.invalidValue'));
       return;
@@ -634,19 +635,37 @@ const CompanyTransactions = () => {
               <Label htmlFor="amount">{t('transactions.valueLabel', { symbol: currencyConfig.symbol })}</Label>
               <Input
                 id="amount"
-                type="number"
-                step="0.01"
-                min="0.01"
+                type="text"
+                inputMode="decimal"
                 value={newTransaction.amount}
                 onChange={(event) => {
                   const value = event.target.value;
                   setNewTransaction((prev) => ({ ...prev, amount: value }));
-                  const num = Number(value);
-                  if (value && (!Number.isNaN(num) && num <= 0)) {
+                  const num = parseAmountFromInput(value);
+                  if (value && num <= 0) {
                     setAmountError(t('transactions.valueMustBePositive'));
                   } else {
                     setAmountError('');
                   }
+                }}
+                onBlur={() => {
+                  const num = parseAmountFromInput(newTransaction.amount);
+                  if (num > 0) {
+                    setNewTransaction((prev) => ({
+                      ...prev,
+                      amount: formatAmountForInput(num, currencyConfig.locale),
+                    }));
+                  }
+                }}
+                onFocus={(event) => {
+                  const num = parseAmountFromInput(newTransaction.amount);
+                  if (num > 0) {
+                    setNewTransaction((prev) => ({
+                      ...prev,
+                      amount: String(Math.round(num * 100) / 100),
+                    }));
+                  }
+                  event.target.select();
                 }}
                 placeholder="1000.00"
                 className={amountError ? 'border-destructive' : ''}

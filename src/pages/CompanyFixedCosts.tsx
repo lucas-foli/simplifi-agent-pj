@@ -40,6 +40,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { formatAmountForInput, parseAmountFromInput } from '@/lib/currency';
 
 const CompanyFixedCosts = () => {
   const navigate = useNavigate();
@@ -91,7 +92,7 @@ const CompanyFixedCosts = () => {
       return;
     }
 
-    const amount = Number(formState.amount);
+    const amount = parseAmountFromInput(formState.amount);
     if (Number.isNaN(amount) || amount <= 0) {
       toast.error(t('common.invalidValue'));
       return;
@@ -306,13 +307,32 @@ const CompanyFixedCosts = () => {
               <Label htmlFor="amount">{t('fixedCosts.monthlyValueLabel', { symbol: currencyConfig.symbol })}</Label>
               <Input
                 id="amount"
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={formState.amount}
                 onChange={(event) => setFormState((prev) => ({
                   ...prev,
                   amount: event.target.value,
                 }))}
+                onBlur={() => {
+                  const num = parseAmountFromInput(formState.amount);
+                  if (num > 0) {
+                    setFormState((prev) => ({
+                      ...prev,
+                      amount: formatAmountForInput(num, currencyConfig.locale),
+                    }));
+                  }
+                }}
+                onFocus={(event) => {
+                  const num = parseAmountFromInput(formState.amount);
+                  if (num > 0) {
+                    setFormState((prev) => ({
+                      ...prev,
+                      amount: String(Math.round(num * 100) / 100),
+                    }));
+                  }
+                  event.target.select();
+                }}
                 placeholder="5000.00"
               />
             </div>

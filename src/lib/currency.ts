@@ -32,6 +32,50 @@ export const formatDecimalToDisplay = (decimal: string | number): string => {
   });
 };
 
+// --- Locale-aware amount input formatting ---
+
+/**
+ * Format a numeric string with thousand separators and 2 decimal places
+ * using the given locale. Used for amount input fields on blur.
+ */
+export function formatAmountForInput(value: string | number, locale: string): string {
+  const num = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'));
+  if (!num && num !== 0) return '';
+  if (Number.isNaN(num)) return '';
+  return num.toLocaleString(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+/**
+ * Parse a locale-formatted amount string back to a plain decimal number string.
+ * Handles both comma-decimal (pt-BR: "1.000,50") and dot-decimal (en-US: "1,000.50") formats.
+ */
+export function parseAmountFromInput(value: string): number {
+  if (!value) return 0;
+  const trimmed = value.trim();
+
+  // Detect format by looking at the last separator
+  const lastComma = trimmed.lastIndexOf(',');
+  const lastDot = trimmed.lastIndexOf('.');
+
+  let normalized: string;
+  if (lastComma > lastDot) {
+    // Comma is decimal separator (pt-BR style: "1.000,50")
+    normalized = trimmed.replace(/\./g, '').replace(',', '.');
+  } else if (lastDot > lastComma) {
+    // Dot is decimal separator (en-US style: "1,000.50")
+    normalized = trimmed.replace(/,/g, '');
+  } else {
+    // No separators or only one type
+    normalized = trimmed.replace(/,/g, '');
+  }
+
+  const num = parseFloat(normalized);
+  return Number.isNaN(num) ? 0 : num;
+}
+
 // --- Locale-aware display formatting ---
 
 export function createCurrencyFormatter(currencyCode: CurrencyCode = 'BRL'): Intl.NumberFormat {
