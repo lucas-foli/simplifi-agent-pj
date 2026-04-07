@@ -44,7 +44,7 @@ import { toast } from 'sonner';
 const CompanyFixedCosts = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const { formatAmount, currencyConfig, toBaseCurrency } = useCurrency();
+  const { formatAmount, currencyConfig, toBaseCurrency, convertAmount } = useCurrency();
   const {
     profile,
     loading,
@@ -242,7 +242,7 @@ const CompanyFixedCosts = () => {
                           setEditingId(cost.id);
                           setFormState({
                             description: cost.description,
-                            amount: Number(cost.amount).toString(),
+                            amount: String(convertAmount(Number(cost.amount))),
                             category_id: cost.category_id ?? '',
                           });
                           setIsDialogOpen(true);
