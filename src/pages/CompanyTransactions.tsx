@@ -58,7 +58,7 @@ import { useTranslation } from 'react-i18next';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { CurrencySelector } from '@/components/CurrencySelector';
-import { formatAmountForInput, parseAmountFromInput } from '@/lib/currency';
+import { formatAmountLive, formatAmountForInput, parseAmountFromInput } from '@/lib/currency';
 
 const CompanyTransactions = () => {
   const navigate = useNavigate();
@@ -189,7 +189,7 @@ const CompanyTransactions = () => {
     setEditingId(transaction.id);
     setNewTransaction({
       description: transaction.description,
-      amount: formatAmountForInput(convertAmount(Number(transaction.amount)), currencyConfig.locale),
+      amount: formatAmountForInput(Math.round(convertAmount(Number(transaction.amount)) * 100) / 100, currencyConfig.locale),
       category_id: transaction.category_id ?? '',
       type: transaction.type as 'despesa' | 'receita',
       date: transaction.date,
@@ -636,38 +636,19 @@ const CompanyTransactions = () => {
               <Input
                 id="amount"
                 type="text"
-                inputMode="decimal"
+                inputMode="numeric"
                 value={newTransaction.amount}
                 onChange={(event) => {
-                  const value = event.target.value;
-                  setNewTransaction((prev) => ({ ...prev, amount: value }));
-                  const num = parseAmountFromInput(value);
-                  if (value && num <= 0) {
+                  const formatted = formatAmountLive(event.target.value, currencyConfig.locale);
+                  setNewTransaction((prev) => ({ ...prev, amount: formatted }));
+                  const num = parseAmountFromInput(formatted);
+                  if (formatted && num <= 0) {
                     setAmountError(t('transactions.valueMustBePositive'));
                   } else {
                     setAmountError('');
                   }
                 }}
-                onBlur={() => {
-                  const num = parseAmountFromInput(newTransaction.amount);
-                  if (num > 0) {
-                    setNewTransaction((prev) => ({
-                      ...prev,
-                      amount: formatAmountForInput(num, currencyConfig.locale),
-                    }));
-                  }
-                }}
-                onFocus={(event) => {
-                  const num = parseAmountFromInput(newTransaction.amount);
-                  if (num > 0) {
-                    setNewTransaction((prev) => ({
-                      ...prev,
-                      amount: String(Math.round(num * 100) / 100),
-                    }));
-                  }
-                  event.target.select();
-                }}
-                placeholder="1000.00"
+                placeholder="0,00"
                 className={amountError ? 'border-destructive' : ''}
               />
               {amountError && (

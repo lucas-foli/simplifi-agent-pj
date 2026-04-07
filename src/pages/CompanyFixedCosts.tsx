@@ -40,7 +40,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { formatAmountForInput, parseAmountFromInput } from '@/lib/currency';
+import { formatAmountLive, formatAmountForInput, parseAmountFromInput } from '@/lib/currency';
 
 const CompanyFixedCosts = () => {
   const navigate = useNavigate();
@@ -243,7 +243,7 @@ const CompanyFixedCosts = () => {
                           setEditingId(cost.id);
                           setFormState({
                             description: cost.description,
-                            amount: Number(cost.amount).toString(),
+                            amount: formatAmountForInput(Number(cost.amount), currencyConfig.locale),
                             category_id: cost.category_id ?? '',
                           });
                           setIsDialogOpen(true);
@@ -308,32 +308,13 @@ const CompanyFixedCosts = () => {
               <Input
                 id="amount"
                 type="text"
-                inputMode="decimal"
+                inputMode="numeric"
                 value={formState.amount}
-                onChange={(event) => setFormState((prev) => ({
-                  ...prev,
-                  amount: event.target.value,
-                }))}
-                onBlur={() => {
-                  const num = parseAmountFromInput(formState.amount);
-                  if (num > 0) {
-                    setFormState((prev) => ({
-                      ...prev,
-                      amount: formatAmountForInput(num, currencyConfig.locale),
-                    }));
-                  }
+                onChange={(event) => {
+                  const formatted = formatAmountLive(event.target.value, currencyConfig.locale);
+                  setFormState((prev) => ({ ...prev, amount: formatted }));
                 }}
-                onFocus={(event) => {
-                  const num = parseAmountFromInput(formState.amount);
-                  if (num > 0) {
-                    setFormState((prev) => ({
-                      ...prev,
-                      amount: String(Math.round(num * 100) / 100),
-                    }));
-                  }
-                  event.target.select();
-                }}
-                placeholder="5000.00"
+                placeholder="0,00"
               />
             </div>
 

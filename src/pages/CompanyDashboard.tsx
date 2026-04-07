@@ -80,7 +80,7 @@ import {
   type WhatsAppLinkRecord,
   type WhatsAppLinkResponse,
 } from '@/lib/whatsapp';
-import { formatAmountForInput, parseAmountFromInput } from '@/lib/currency';
+import { formatAmountLive, formatAmountForInput, parseAmountFromInput } from '@/lib/currency';
 
 const COLORS = [
   '#0B59A3',
@@ -162,7 +162,7 @@ const CompanyDashboard = () => {
 
   useEffect(() => {
     if (summary?.revenue !== undefined) {
-      setRevenueInput(summary.revenue ? summary.revenue.toString() : '');
+      setRevenueInput(summary.revenue ? formatAmountForInput(summary.revenue, currencyConfig.locale) : '');
     }
   }, [summary?.revenue]);
 
@@ -777,23 +777,10 @@ const CompanyDashboard = () => {
             <Input
               id="revenue"
               type="text"
-              inputMode="decimal"
+              inputMode="numeric"
               value={revenueInput}
-              onChange={(event) => setRevenueInput(event.target.value)}
-              onBlur={() => {
-                const num = parseAmountFromInput(revenueInput);
-                if (num > 0) {
-                  setRevenueInput(formatAmountForInput(num, currencyConfig.locale));
-                }
-              }}
-              onFocus={(event) => {
-                const num = parseAmountFromInput(revenueInput);
-                if (num > 0) {
-                  setRevenueInput(String(Math.round(num * 100) / 100));
-                }
-                event.target.select();
-              }}
-              placeholder={t('dashboard.revenuePlaceholder')}
+              onChange={(event) => setRevenueInput(formatAmountLive(event.target.value, currencyConfig.locale))}
+              placeholder="0,00"
             />
             <p className="text-xs text-muted-foreground">
               {t('dashboard.revenueHint')}

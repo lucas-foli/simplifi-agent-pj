@@ -35,8 +35,25 @@ export const formatDecimalToDisplay = (decimal: string | number): string => {
 // --- Locale-aware amount input formatting ---
 
 /**
- * Format a numeric string with thousand separators and 2 decimal places
- * using the given locale. Used for amount input fields on blur.
+ * Format a raw keystroke value as currency in real-time.
+ * Strips all non-digits, treats as cents, and formats with locale separators.
+ * Example (en-US): typing "150000" → "1,500.00"
+ * Example (pt-BR): typing "150000" → "1.500,00"
+ */
+export function formatAmountLive(rawDigits: string, locale: string): string {
+  const digits = rawDigits.replace(/\D/g, '');
+  if (!digits) return '';
+  const cents = parseInt(digits, 10);
+  const amount = cents / 100;
+  return amount.toLocaleString(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+/**
+ * Format a numeric value with thousand separators and 2 decimal places
+ * using the given locale. Used to display amounts in input fields.
  */
 export function formatAmountForInput(value: string | number, locale: string): string {
   const num = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'));
@@ -49,7 +66,7 @@ export function formatAmountForInput(value: string | number, locale: string): st
 }
 
 /**
- * Parse a locale-formatted amount string back to a plain decimal number string.
+ * Parse a locale-formatted amount string back to a number.
  * Handles both comma-decimal (pt-BR: "1.000,50") and dot-decimal (en-US: "1,000.50") formats.
  */
 export function parseAmountFromInput(value: string): number {
