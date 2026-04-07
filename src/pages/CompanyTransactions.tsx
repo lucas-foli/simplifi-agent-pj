@@ -36,6 +36,8 @@ import {
   useDeleteCompanyTransaction,
   useUpdateCompanyTransaction,
   useUpdateCompanyCategory,
+  useCreateCompanyCategory,
+  useDeleteCompanyCategory,
 } from '@/hooks/useCompanyFinancialData';
 import ValueTagBadge from '@/components/ValueTagBadge';
 import { format } from 'date-fns';
@@ -74,10 +76,12 @@ const CompanyTransactions = () => {
   ];
 
   const paymentMethodOptions = [
-    { label: t('transactions.paymentMethods.pix'), value: 'Pix' },
-    { label: t('transactions.paymentMethods.creditCard'), value: 'Cartão de Crédito' },
-    { label: t('transactions.paymentMethods.debitCard'), value: 'Cartão de Débito' },
-    { label: t('transactions.paymentMethods.ted'), value: 'TED' },
+    { label: t('transactions.paymentMethods.zelle'), value: 'Zelle' },
+    { label: t('transactions.paymentMethods.creditCard'), value: 'Credit Card' },
+    { label: t('transactions.paymentMethods.debitCard'), value: 'Debit Card' },
+    { label: t('transactions.paymentMethods.wireTransfer'), value: 'Wire Transfer' },
+    { label: t('transactions.paymentMethods.ach'), value: 'ACH Transfer' },
+    { label: t('transactions.paymentMethods.check'), value: 'Check' },
   ];
 
   const now = new Date();
@@ -125,6 +129,13 @@ const CompanyTransactions = () => {
   const updateTransaction = useUpdateCompanyTransaction(activeCompany?.company_id);
   const deleteTransaction = useDeleteCompanyTransaction(activeCompany?.company_id);
   const updateCategory = useUpdateCompanyCategory(activeCompany?.company_id);
+  const createCategory = useCreateCompanyCategory(activeCompany?.company_id);
+  const deleteCategory = useDeleteCompanyCategory(activeCompany?.company_id);
+
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
+  const [categoryForm, setCategoryForm] = useState({ name: '', color: '#6366F1' });
 
   const monthLabel = useMemo(
     () =>
@@ -239,6 +250,59 @@ const CompanyTransactions = () => {
       toast.error(t('transactions.transactionRemoveError'));
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const resetCategoryForm = () => {
+    setEditingCategoryId(null);
+    setCategoryForm({ name: '', color: '#6366F1' });
+  };
+
+  const handleEditCategory = (category: (typeof categories)[number]) => {
+    setEditingCategoryId(category.id);
+    setCategoryForm({ name: category.name, color: category.color });
+    setIsCategoryDialogOpen(true);
+  };
+
+  const handleSaveCategory = async () => {
+    if (!categoryForm.name.trim()) {
+      toast.error(t('common.requiredFields'));
+      return;
+    }
+    try {
+      if (editingCategoryId) {
+        await updateCategory.mutateAsync({
+          id: editingCategoryId,
+          updates: { name: categoryForm.name.trim(), color: categoryForm.color },
+        });
+        toast.success(t('transactions.categoryUpdated'));
+      } else {
+        await createCategory.mutateAsync({
+          name: categoryForm.name.trim(),
+          color: categoryForm.color,
+        });
+        toast.success(t('transactions.categoryCreated'));
+      }
+      setIsCategoryDialogOpen(false);
+      resetCategoryForm();
+    } catch {
+      toast.error(
+        editingCategoryId
+          ? t('transactions.categoryUpdateError')
+          : t('transactions.categoryCreateError')
+      );
+    }
+  };
+
+  const confirmDeleteCategory = async () => {
+    if (!deletingCategoryId) return;
+    try {
+      await deleteCategory.mutateAsync(deletingCategoryId);
+      toast.success(t('transactions.categoryRemoved'));
+    } catch {
+      toast.error(t('transactions.categoryRemoveError'));
+    } finally {
+      setDeletingCategoryId(null);
     }
   };
 
@@ -406,6 +470,65 @@ const CompanyTransactions = () => {
               </tbody>
             </table>
           </div>
+        </Card>
+
+        <Card className="border-border/60 p-6 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">{t('transactions.categoryManagement')}</h2>
+              <p className="text-sm text-muted-foreground">
+                {t('transactions.categoryManagementDescription')}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => { resetCategoryForm(); setIsCategoryDialogOpen(true); }}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              {t('transactions.addCategory')}
+            </Button>
+          </div>
+          {categories.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {t('transactions.noCategories')}
+            </p>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {categories.map((category) => (
+                <div
+                  key={category.id}
+                  className="flex items-center justify-between rounded-lg border border-border/40 bg-card/60 px-4 py-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="inline-block h-3 w-3 rounded-full"
+                      style={{ backgroundColor: category.color }}
+                    />
+                    <span className="text-sm font-medium text-foreground">{category.name}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEditCategory(category)}
+                      className="h-7 w-7 text-muted-foreground hover:text-primary"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setDeletingCategoryId(category.id)}
+                      className="h-7 w-7 text-muted-foreground hover:text-danger"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         <Card className="border-border/60 p-6 space-y-3">
@@ -637,6 +760,66 @@ const CompanyTransactions = () => {
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t('common.remove')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={isCategoryDialogOpen} onOpenChange={(open) => { setIsCategoryDialogOpen(open); if (!open) resetCategoryForm(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingCategoryId ? t('transactions.editCategory') : t('transactions.addCategory')}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="categoryName">{t('transactions.categoryName')}</Label>
+              <Input
+                id="categoryName"
+                value={categoryForm.name}
+                onChange={(event) => setCategoryForm((prev) => ({ ...prev, name: event.target.value }))}
+                placeholder={t('transactions.categoryNamePlaceholder')}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="categoryColor">{t('transactions.categoryColor')}</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  id="categoryColor"
+                  type="color"
+                  value={categoryForm.color}
+                  onChange={(event) => setCategoryForm((prev) => ({ ...prev, color: event.target.value }))}
+                  className="h-9 w-12 cursor-pointer rounded border border-border"
+                />
+                <span className="text-sm text-muted-foreground">{categoryForm.color}</span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => { setIsCategoryDialogOpen(false); resetCategoryForm(); }}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={handleSaveCategory} disabled={createCategory.isPending || updateCategory.isPending}>
+              {(createCategory.isPending || updateCategory.isPending) ? t('common.saving') : t('common.save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deletingCategoryId} onOpenChange={(open) => { if (!open) setDeletingCategoryId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('transactions.removeCategory')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('transactions.removeCategoryConfirmation')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteCategory}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {t('common.remove')}
