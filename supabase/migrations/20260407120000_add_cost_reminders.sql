@@ -1,10 +1,19 @@
--- Add due_day column to company_fixed_costs (day of month when cost is due, 1-31)
+-- Add due_day column to the actual table in pj schema
 ALTER TABLE pj.company_fixed_costs
   ADD COLUMN due_day INTEGER CHECK (due_day >= 1 AND due_day <= 31);
 
--- Mirror column in the public view/table
-ALTER TABLE public.company_fixed_costs
-  ADD COLUMN due_day INTEGER CHECK (due_day >= 1 AND due_day <= 31);
+-- Recreate the public view to include the new column
+CREATE OR REPLACE VIEW public.company_fixed_costs AS
+  SELECT id,
+    company_id,
+    description,
+    amount,
+    category_id,
+    created_by,
+    created_at,
+    updated_at,
+    due_day
+  FROM pj.company_fixed_costs;
 
 -- Table to track sent reminders and avoid duplicates
 CREATE TABLE public.cost_reminder_logs (
