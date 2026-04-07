@@ -31,6 +31,8 @@ import {
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
+  Bell,
+  CalendarDays,
   Pencil,
   Plus,
   Search,
@@ -45,7 +47,7 @@ import { formatAmountLive, formatAmountForInput, parseAmountFromInput } from '@/
 const CompanyFixedCosts = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const { formatAmount, currencyConfig, toBaseCurrency } = useCurrency();
+  const { formatAmount, convertAmount, currencyConfig, toBaseCurrency } = useCurrency();
   const {
     profile,
     loading,
@@ -60,6 +62,7 @@ const CompanyFixedCosts = () => {
     description: '',
     amount: '',
     category_id: '',
+    due_day: '',
   });
 
   useEffect(() => {
@@ -82,7 +85,7 @@ const CompanyFixedCosts = () => {
   const total = filteredCosts.reduce((acc, cost) => acc + Number(cost.amount), 0);
 
   const resetForm = () => {
-    setFormState({ description: '', amount: '', category_id: '' });
+    setFormState({ description: '', amount: '', category_id: '', due_day: '' });
     setEditingId(null);
   };
 
@@ -98,6 +101,12 @@ const CompanyFixedCosts = () => {
       return;
     }
 
+    const dueDay = formState.due_day ? Number(formState.due_day) : null;
+    if (dueDay !== null && (Number.isNaN(dueDay) || dueDay < 1 || dueDay > 31 || !Number.isInteger(dueDay))) {
+      toast.error(t('fixedCosts.invalidDueDay'));
+      return;
+    }
+
     try {
       if (editingId) {
         await updateCost.mutateAsync({
@@ -106,6 +115,7 @@ const CompanyFixedCosts = () => {
             description: formState.description,
             amount: toBaseCurrency(amount),
             category_id: formState.category_id || null,
+            due_day: dueDay,
           },
         });
         toast.success(t('fixedCosts.fixedCostUpdated'));
@@ -114,6 +124,7 @@ const CompanyFixedCosts = () => {
           description: formState.description,
           amount: toBaseCurrency(amount),
           category_id: formState.category_id || null,
+          due_day: dueDay,
         });
         toast.success(t('fixedCosts.fixedCostCreated'));
       }
@@ -243,8 +254,9 @@ const CompanyFixedCosts = () => {
                           setEditingId(cost.id);
                           setFormState({
                             description: cost.description,
-                            amount: formatAmountForInput(Number(cost.amount), currencyConfig.locale),
+                            amount: formatAmountForInput(convertAmount(Number(cost.amount)), currencyConfig.locale),
                             category_id: cost.category_id ?? '',
+                            due_day: cost.due_day != null ? cost.due_day.toString() : '',
                           });
                           setIsDialogOpen(true);
                         }}
@@ -262,6 +274,13 @@ const CompanyFixedCosts = () => {
                       </Button>
                     </div>
                   </div>
+                  {cost.due_day != null && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      <span>{t('fixedCosts.dueDay', { day: cost.due_day })}</span>
+                      <Bell className="h-3 w-3 ml-1 text-primary/60" title="WhatsApp reminders active" />
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
                       {categories.find((category) => category.id === cost.category_id)?.name ?? t('common.noCategory')}
@@ -341,6 +360,26 @@ const CompanyFixedCosts = () => {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="due_day">{t('fixedCosts.dueDayLabel')}</Label>
+              <Input
+                id="due_day"
+                type="number"
+                min="1"
+                max="31"
+                step="1"
+                value={formState.due_day}
+                onChange={(event) => setFormState((prev) => ({
+                  ...prev,
+                  due_day: event.target.value,
+                }))}
+                placeholder={t('fixedCosts.dueDayPlaceholder')}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t('fixedCosts.dueDayHelp')}
+              </p>
             </div>
 
           </div>
