@@ -915,75 +915,75 @@ const Onboarding = () => {
 
             {step === 5 && (
               <motion.div
-                key=”step5”
+                key="step5"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                <h2 className=”text-2xl font-bold text-foreground mb-2”>{t(“onboarding.whatsapp.title”)}</h2>
-                <p className=”text-muted-foreground mb-6”>
-                  {t(“onboarding.whatsapp.description”)}
+                <h2 className="text-2xl font-bold text-foreground mb-2">{t("onboarding.whatsapp.title")}</h2>
+                <p className="text-muted-foreground mb-6">
+                  {t("onboarding.whatsapp.description")}
                 </p>
 
-                <div className=”p-4 rounded-lg border border-border bg-muted/30”>
-                  <div className=”flex items-start gap-3”>
-                    <MessageCircle className=”h-6 w-6 text-primary mt-1” />
-                    <div className=”space-y-1 text-sm text-muted-foreground”>
-                      <p>{t(“onboarding.whatsapp.step1”)}</p>
+                <div className="p-4 rounded-lg border border-border bg-muted/30">
+                  <div className="flex items-start gap-3">
+                    <MessageCircle className="h-6 w-6 text-primary mt-1" />
+                    <div className="space-y-1 text-sm text-muted-foreground">
+                      <p>{t("onboarding.whatsapp.step1")}</p>
                       <p>
-                        {t(“onboarding.whatsapp.step2”)}{' '}
+                        {t("onboarding.whatsapp.step2")}{' '}
                         <a
-                          href=”https://wa.me/556132462163”
-                          target=”_blank”
-                          rel=”noopener noreferrer”
-                          className=”text-primary font-medium hover:underline”
+                          href="https://wa.me/556132462163"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary font-medium hover:underline"
                         >
                           +55 61 3246-2163
                         </a>
                       </p>
-                      <p>{t(“onboarding.whatsapp.step3”)}</p>
+                      <p>{t("onboarding.whatsapp.step3")}</p>
                     </div>
                   </div>
                 </div>
 
-                <div className=”mt-6 space-y-2”>
+                <div className="mt-6 space-y-2">
                   {whatsappLink ? (
-                    <div className=”rounded-lg border border-primary/30 bg-primary/5 p-4”>
-                      <p className=”text-xs text-muted-foreground mb-1”>{t(“onboarding.whatsapp.yourCode”)}</p>
-                      <div className=”text-2xl font-mono tracking-widest text-primary”>
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                      <p className="text-xs text-muted-foreground mb-1">{t("onboarding.whatsapp.yourCode")}</p>
+                      <div className="text-2xl font-mono tracking-widest text-primary">
                         {whatsappLink.code}
                       </div>
                       {whatsappExpiryLabel && (
-                        <p className=”text-xs text-muted-foreground mt-2”>
-                          {t(“onboarding.whatsapp.expiresAt”, { time: whatsappExpiryLabel })}
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {t("onboarding.whatsapp.expiresAt", { time: whatsappExpiryLabel })}
                         </p>
                       )}
                     </div>
                   ) : (
-                    <p className=”text-sm text-muted-foreground”>
-                      {t(“onboarding.whatsapp.noCodeYet”)}
+                    <p className="text-sm text-muted-foreground">
+                      {t("onboarding.whatsapp.noCodeYet")}
                     </p>
                   )}
 
                   {whatsappError && (
-                    <div className=”flex items-center gap-2 text-xs text-danger”>
-                      <AlertCircle className=”h-3 w-3” />
+                    <div className="flex items-center gap-2 text-xs text-danger">
+                      <AlertCircle className="h-3 w-3" />
                       {whatsappError}
                     </div>
                   )}
                 </div>
 
-                <div className=”flex flex-col sm:flex-row gap-3 sm:items-center mt-8”>
+                <div className="flex flex-col sm:flex-row gap-3 sm:items-center mt-8">
                   <Button
                     onClick={handleGenerateWhatsAppLink}
                     disabled={whatsappLoading}
-                    className=”gap-2”
+                    className="gap-2"
                   >
-                    {whatsappLoading ? t(“onboarding.whatsapp.generating”) : whatsappLink ? t(“onboarding.whatsapp.generateNew”) : t(“onboarding.whatsapp.generate”)}
+                    {whatsappLoading ? t("onboarding.whatsapp.generating") : whatsappLink ? t("onboarding.whatsapp.generateNew") : t("onboarding.whatsapp.generate")}
                   </Button>
-                  <Button variant=”outline” onClick={handleFinishOnboarding}>
-                    {t(“onboarding.whatsapp.goToDashboard”)}
+                  <Button variant="outline" onClick={handleFinishOnboarding}>
+                    {t("onboarding.whatsapp.goToDashboard")}
                   </Button>
                 </div>
               </motion.div>
