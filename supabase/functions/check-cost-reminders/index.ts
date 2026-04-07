@@ -116,10 +116,10 @@ serve(async (req) => {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // 1. Fetch all fixed costs that have a due_day set, joining company timezone
+    // 1. Fetch all fixed costs that have a due_day set
     const { data: fixedCosts, error: costsError } = await supabase
       .from('company_fixed_costs')
-      .select('id, company_id, description, amount, due_day, companies(timezone)')
+      .select('id, company_id, description, amount, due_day')
       .not('due_day', 'is', null);
 
     if (costsError) {
@@ -133,6 +133,27 @@ serve(async (req) => {
       );
     }
 
+    // 1b. Fetch timezone for each company involved
+    const companyIds = [...new Set(fixedCosts.map((c) => c.company_id))];
+    let timezoneByCompany = new Map<string, string>();
+
+    // Try fetching timezone column; if migration hasn't been applied yet, fall back
+    const { data: companiesData, error: companiesError } = await supabase
+      .from('companies')
+      .select('id, timezone')
+      .in('id', companyIds);
+
+    if (!companiesError && companiesData) {
+      timezoneByCompany = new Map(
+        companiesData.map((c: { id: string; timezone?: string }) => [
+          c.id,
+          c.timezone ?? 'America/Sao_Paulo',
+        ]),
+      );
+    } else {
+      console.warn('[Reminders] Could not fetch company timezones, using default:', companiesError?.message);
+    }
+
     // 2. For each cost, compute "today" in the company's timezone and check reminder days
     type PendingReminder = {
       cost: typeof fixedCosts[number];
@@ -144,7 +165,7 @@ serve(async (req) => {
     const pendingReminders: PendingReminder[] = [];
 
     for (const cost of fixedCosts) {
-      const tz = (cost as any).companies?.timezone ?? 'America/Sao_Paulo';
+      const tz = timezoneByCompany.get(cost.company_id) ?? 'America/Sao_Paulo';
       const nowLocal = new Date(
         new Date().toLocaleString('en-US', { timeZone: tz }),
       );
