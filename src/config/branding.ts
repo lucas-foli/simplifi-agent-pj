@@ -52,7 +52,7 @@ export const branding = {
 	 * Favicon utilizado pelo Vite. Substitua o arquivo em /public
 	 * se precisar customizar.
 	 */
-	favicon: '/favicon.ico',
+	favicon: '/favicon.svg',
 	/**
 	 * Imagens opcionais usadas em telas específicas.
 	 */
