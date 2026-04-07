@@ -60,6 +60,11 @@ serve(async (req) => {
       ?? req.headers.get('X-Hub-Signature-256');
     const signatureValid = await verifyMetaSignature(rawBody, signatureHeader, appSecret);
     if (!signatureValid) {
+      console.error('[WhatsApp] Signature verification failed.', {
+        hasSignatureHeader: !!signatureHeader,
+        bodyLength: rawBody.length,
+        bodyPreview: rawBody.slice(0, 200),
+      });
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -139,6 +144,19 @@ type WhatsAppImageMessage = {
   };
 };
 
+type WhatsAppDocumentMessage = {
+  id: string;
+  from: string;
+  timestamp: string;
+  type: 'document';
+  document: {
+    id: string;
+    mime_type: string;
+    filename?: string;
+    caption?: string;
+  };
+};
+
 type WhatsAppAudioMessage = {
   id: string;
   from: string;
@@ -150,7 +168,7 @@ type WhatsAppAudioMessage = {
   };
 };
 
-type WhatsAppMessage = WhatsAppTextMessage | WhatsAppImageMessage | WhatsAppAudioMessage;
+type WhatsAppMessage = WhatsAppTextMessage | WhatsAppImageMessage | WhatsAppAudioMessage | WhatsAppDocumentMessage;
 
 async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
   const from = normalizePhoneNumber(message.from);
@@ -161,6 +179,7 @@ async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
 
   const isImage = message.type === 'image';
   const isAudio = message.type === 'audio';
+  const isDocument = message.type === 'document';
 
   // For audio messages, transcribe first then treat as text
   let body: string;
@@ -205,12 +224,14 @@ async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
     console.log(`[WhatsApp] Audio transcribed: "${body.substring(0, 100)}..."`);
   } else if (isImage) {
     body = (message as WhatsAppImageMessage).image?.caption?.trim() ?? '';
+  } else if (isDocument) {
+    body = (message as WhatsAppDocumentMessage).document?.caption?.trim() ?? '';
   } else {
     body = (message as WhatsAppTextMessage).text?.body?.trim() ?? '';
   }
 
-  // Text messages require a body; image messages can proceed without caption
-  if (!isImage && !isAudio && !body) {
+  // Text messages require a body; image/document messages can proceed without caption
+  if (!isImage && !isAudio && !isDocument && !body) {
     return;
   }
 
@@ -221,7 +242,7 @@ async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
 
   const linked = await findLinkedAccount(supabase, from);
   if (!linked) {
-    if (isImage || isAudio) {
+    if (isImage || isAudio || isDocument) {
       await sendWhatsAppText(
         from,
         'Para conectar seu WhatsApp ao SimplifiQA, gere um código no app e envie aqui.'
@@ -235,11 +256,14 @@ async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
   checkRateLimit(linked.profile_id, { maxRequests: 30, windowMs: 60_000 });
 
   const conversationId = await ensureConversation(supabase, linked, from);
+  const docMsg = message as WhatsAppDocumentMessage;
   const userMessageText = isAudio
     ? `[Áudio transcrito] ${body}`
-    : isImage
-      ? `[Imagem recebida]${body ? ` ${body}` : ''}`
-      : body;
+    : isDocument
+      ? `[Documento recebido: ${docMsg.document?.filename ?? 'arquivo'}]${body ? ` ${body}` : ''}`
+      : isImage
+        ? `[Imagem recebida]${body ? ` ${body}` : ''}`
+        : body;
   await saveConversationMessage(supabase, conversationId, 'user', userMessageText);
 
   // Check for pending action (undo/edit/confirm flow) — text and audio only
@@ -274,7 +298,9 @@ async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
 
   let transactionResult: TransactionResult | null = null;
 
-  if (isImage) {
+  if (isDocument) {
+    transactionResult = await handleDocumentTransaction(supabase, linked, message as WhatsAppDocumentMessage);
+  } else if (isImage) {
     transactionResult = await handleImageTransaction(supabase, linked, message as WhatsAppImageMessage);
   } else {
     transactionResult = await maybeSaveTransaction(supabase, linked, body, from);
@@ -284,9 +310,9 @@ async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
     ? await fetchCompanyFinancialContext(supabase, linked.profile_id, linked.company_id)
     : await fetchFinancialContext(supabase, linked.profile_id);
 
-  // For images, only add assistant response if no transactions were extracted
-  const assistantMessage = (!isImage || !transactionResult)
-    ? await buildAssistantResponse(body || 'Recebi uma imagem', context)
+  // For images/documents, only add assistant response if no transactions were extracted
+  const assistantMessage = ((!isImage && !isDocument) || !transactionResult)
+    ? await buildAssistantResponse(body || (isDocument ? 'Recebi um documento' : 'Recebi uma imagem'), context)
     : null;
 
   const combinedResponse = [transactionResult?.confirmation, assistantMessage]
@@ -770,6 +796,298 @@ async function handleImageTransaction(
   const header = savedCount === 1
     ? '✅ Transação extraída da imagem:'
     : `✅ ${savedCount} transações extraídas da imagem:`;
+
+  return { confirmation: `${header}\n${confirmations.join('\n')}${undoHint}` };
+}
+
+// ============================================================================
+// Document Processing (WhatsApp → OpenAI → Transactions)
+// ============================================================================
+
+const SUPPORTED_DOCUMENT_MIMES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+];
+
+async function extractTextFromDocument(
+  docData: ArrayBuffer,
+  mimeType: string,
+  openaiKey: string
+): Promise<string> {
+  // For image-like documents, use Vision API
+  if (mimeType.startsWith('image/')) {
+    const uint8Array = new Uint8Array(docData);
+    let base64 = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.slice(i, i + chunkSize);
+      base64 += String.fromCharCode(...chunk);
+    }
+    base64 = btoa(base64);
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${openaiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `Extraia TODAS as transações deste documento.
+Retorne APENAS um array JSON no formato:
+[{"date": "YYYY-MM-DD", "description": "texto", "amount": number}]
+
+Regras:
+- Use números negativos para despesas/pagamentos
+- Use números positivos para receitas/créditos
+- Se a data não estiver visível, use "${new Date().toISOString().split('T')[0]}"
+- Descrição deve ser clara e concisa
+- Retorne APENAS o JSON, sem nenhum outro texto`,
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${base64}`,
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 2000,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text().catch(() => '');
+      console.error('[WhatsApp] OpenAI Vision error for document:', response.status, errorData);
+      throw new Error('Falha ao processar documento');
+    }
+
+    const result = await response.json();
+    return result.choices?.[0]?.message?.content ?? '[]';
+  }
+
+  // For PDFs, convert to base64 and use file input with GPT-4o
+  const uint8Array = new Uint8Array(docData);
+  let base64 = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.slice(i, i + chunkSize);
+    base64 += String.fromCharCode(...chunk);
+  }
+  base64 = btoa(base64);
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${openaiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `Extraia TODAS as transações deste documento PDF.
+Retorne APENAS um array JSON no formato:
+[{"date": "YYYY-MM-DD", "description": "texto", "amount": number}]
+
+Regras:
+- Use números negativos para despesas/pagamentos
+- Use números positivos para receitas/créditos
+- Se a data não estiver visível, use "${new Date().toISOString().split('T')[0]}"
+- Descrição deve ser clara e concisa
+- Retorne APENAS o JSON, sem nenhum outro texto`,
+            },
+            {
+              type: 'file',
+              file: {
+                filename: 'document.pdf',
+                file_data: `data:application/pdf;base64,${base64}`,
+              },
+            },
+          ],
+        },
+      ],
+      max_tokens: 4000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.text().catch(() => '');
+    console.error('[WhatsApp] OpenAI error for PDF document:', response.status, errorData);
+    throw new Error('Falha ao processar documento PDF');
+  }
+
+  const result = await response.json();
+  return result.choices?.[0]?.message?.content ?? '[]';
+}
+
+async function handleDocumentTransaction(
+  supabase: any,
+  link: any,
+  message: WhatsAppDocumentMessage
+): Promise<TransactionResult | null> {
+  const openaiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!openaiKey) {
+    return { confirmation: 'Processamento de documentos indisponível no momento.' };
+  }
+
+  const mediaId = message.document?.id;
+  if (!mediaId) {
+    return { confirmation: 'Não consegui acessar o documento. Tente enviar novamente.' };
+  }
+
+  const docMime = message.document?.mime_type ?? 'application/pdf';
+  if (!SUPPORTED_DOCUMENT_MIMES.some((m) => docMime.startsWith(m.split('/')[0])) && docMime !== 'application/pdf') {
+    const filename = message.document?.filename ?? 'arquivo';
+    return { confirmation: `Não consigo processar este tipo de arquivo (${filename}). Envie um PDF ou imagem de comprovante/extrato.` };
+  }
+
+  let docData: ArrayBuffer;
+  let mimeType: string;
+  try {
+    const media = await downloadWhatsAppMedia(mediaId);
+    docData = media.data;
+    mimeType = media.mimeType;
+  } catch (error) {
+    console.error('[WhatsApp] Document download failed:', error);
+    return { confirmation: 'Não consegui baixar o documento. Tente enviar novamente.' };
+  }
+
+  // Check file size (max 10MB for documents)
+  const sizeMB = docData.byteLength / (1024 * 1024);
+  if (sizeMB > 10) {
+    return { confirmation: `Documento muito grande (${sizeMB.toFixed(1)}MB). O limite é 10MB.` };
+  }
+
+  let content: string;
+  try {
+    content = await extractTextFromDocument(docData, mimeType, openaiKey);
+  } catch (error) {
+    console.error('[WhatsApp] Document extraction failed:', error);
+    return { confirmation: 'Não consegui extrair dados do documento. Tente enviar uma foto ou PDF mais nítido.' };
+  }
+
+  const jsonMatch = content.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) {
+    return { confirmation: 'Não encontrei transações neste documento. Envie um comprovante, extrato ou nota fiscal.' };
+  }
+
+  let rawTransactions: Array<{ date: string; description: string; amount: number }>;
+  try {
+    rawTransactions = JSON.parse(jsonMatch[0]);
+  } catch {
+    return { confirmation: 'Não consegui interpretar os dados do documento. Tente enviar novamente.' };
+  }
+
+  if (rawTransactions.length === 0) {
+    return { confirmation: 'Não encontrei transações neste documento. Envie um comprovante, extrato ou nota fiscal.' };
+  }
+
+  const confirmations: string[] = [];
+  const savedTransactions: Array<{ id: string; description: string; amount: number; type: string; date: string }> = [];
+  let savedCount = 0;
+  const tableName = link.company_id ? 'company_transactions' : 'transactions';
+
+  for (const raw of rawTransactions) {
+    const rawAmount = typeof raw.amount === 'number' ? raw.amount : parseFloat(String(raw.amount));
+    if (Number.isNaN(rawAmount) || rawAmount === 0) continue;
+
+    const amount = Math.abs(rawAmount);
+    const type: 'receita' | 'despesa' = rawAmount > 0 ? 'receita' : 'despesa';
+    const description = raw.description || 'Transação via documento';
+    const date = raw.date || new Date().toISOString().split('T')[0];
+
+    const categoryName = classifyCategory(description);
+    const categoryId = categoryName
+      ? await findCategoryId(supabase, link, categoryName)
+      : null;
+
+    const insert = link.company_id
+      ? {
+          company_id: link.company_id,
+          description,
+          amount,
+          type,
+          date,
+          category_id: categoryId,
+          created_by: link.profile_id,
+        }
+      : {
+          user_id: link.profile_id,
+          description,
+          amount,
+          type,
+          date,
+          category_id: categoryId,
+        };
+
+    const { data, error } = await supabase
+      .from(tableName)
+      .insert(insert)
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error(`[WhatsApp] Failed to insert ${tableName} from document:`, error);
+      continue;
+    }
+
+    savedCount++;
+    savedTransactions.push({ id: data.id, description, amount, type, date });
+    const typeLabel = type === 'receita' ? 'Receita' : 'Despesa';
+    const categoryLabel = categoryName ? ` • ${categoryName}` : '';
+    confirmations.push(`  ${savedCount}. ${typeLabel}: ${formatCurrency(amount)} - ${description}${categoryLabel}`);
+  }
+
+  if (savedCount === 0) {
+    return { confirmation: 'Encontrei dados no documento mas não consegui salvar as transações. Tente novamente.' };
+  }
+
+  // Create pending action for undo/edit
+  const from = normalizePhoneNumber(message.from);
+  const pendingPayload = savedTransactions.length === 1
+    ? {
+        saved_transaction_id: savedTransactions[0].id,
+        table: tableName,
+        ...savedTransactions[0],
+      }
+    : {
+        transactions: savedTransactions.map((t) => ({
+          saved_transaction_id: t.id,
+          ...t,
+        })),
+        saved_transaction_ids: savedTransactions.map((t) => t.id),
+        table: tableName,
+      };
+
+  await supabase.from('whatsapp_pending_actions').insert({
+    profile_id: link.profile_id,
+    company_id: link.company_id ?? null,
+    phone: from,
+    kind: 'create_transaction',
+    payload: pendingPayload,
+    expires_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+  });
+
+  const undoHint = '\n\n_Responda *não* para desfazer, *editar* para corrigir._';
+  const filename = message.document?.filename ?? 'documento';
+
+  const header = savedCount === 1
+    ? `✅ Transação extraída de "${filename}":`
+    : `✅ ${savedCount} transações extraídas de "${filename}":`;
 
   return { confirmation: `${header}\n${confirmations.join('\n')}${undoHint}` };
 }
@@ -1807,6 +2125,8 @@ function collectMessages(source: any, target: WhatsAppMessage[]) {
       target.push(msg as WhatsAppImageMessage);
     } else if (msg?.type === 'audio' && msg?.audio?.id) {
       target.push(msg as WhatsAppAudioMessage);
+    } else if (msg?.type === 'document' && msg?.document?.id) {
+      target.push(msg as WhatsAppDocumentMessage);
     }
   }
 }
