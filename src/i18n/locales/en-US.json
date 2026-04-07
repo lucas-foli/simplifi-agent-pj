@@ -147,9 +147,11 @@
       "income": "Income"
     },
     "paymentMethods": {
-      "zelle": "Zelle",
+      "pix": "Pix",
       "creditCard": "Credit Card",
       "debitCard": "Debit Card",
+      "ted": "Wire Transfer (TED)",
+      "zelle": "Zelle",
       "wireTransfer": "Wire Transfer",
       "ach": "ACH Transfer",
       "check": "Check"

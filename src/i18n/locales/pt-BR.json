@@ -147,9 +147,11 @@
       "income": "Receita"
     },
     "paymentMethods": {
-      "zelle": "Zelle",
+      "pix": "Pix",
       "creditCard": "Cartão de Crédito",
       "debitCard": "Cartão de Débito",
+      "ted": "TED",
+      "zelle": "Zelle",
       "wireTransfer": "Transferência Bancária",
       "ach": "Transferência ACH",
       "check": "Cheque"

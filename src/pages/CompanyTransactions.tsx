@@ -75,14 +75,23 @@ const CompanyTransactions = () => {
     { label: t('transactions.types.income'), value: 'receita' as const },
   ];
 
-  const paymentMethodOptions = [
-    { label: t('transactions.paymentMethods.zelle'), value: 'Zelle' },
-    { label: t('transactions.paymentMethods.creditCard'), value: 'Credit Card' },
-    { label: t('transactions.paymentMethods.debitCard'), value: 'Debit Card' },
-    { label: t('transactions.paymentMethods.wireTransfer'), value: 'Wire Transfer' },
-    { label: t('transactions.paymentMethods.ach'), value: 'ACH Transfer' },
-    { label: t('transactions.paymentMethods.check'), value: 'Check' },
-  ];
+  const isBR = i18n.resolvedLanguage === 'pt-BR';
+
+  const paymentMethodOptions = isBR
+    ? [
+        { label: t('transactions.paymentMethods.pix'), value: 'Pix' },
+        { label: t('transactions.paymentMethods.creditCard'), value: 'Cartão de Crédito' },
+        { label: t('transactions.paymentMethods.debitCard'), value: 'Cartão de Débito' },
+        { label: t('transactions.paymentMethods.ted'), value: 'TED' },
+      ]
+    : [
+        { label: t('transactions.paymentMethods.zelle'), value: 'Zelle' },
+        { label: t('transactions.paymentMethods.creditCard'), value: 'Credit Card' },
+        { label: t('transactions.paymentMethods.debitCard'), value: 'Debit Card' },
+        { label: t('transactions.paymentMethods.wireTransfer'), value: 'Wire Transfer' },
+        { label: t('transactions.paymentMethods.ach'), value: 'ACH Transfer' },
+        { label: t('transactions.paymentMethods.check'), value: 'Check' },
+      ];
 
   const now = new Date();
   const [selectedDate, setSelectedDate] = useState({ month: now.getMonth() + 1, year: now.getFullYear() });
