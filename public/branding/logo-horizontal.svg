@@ -1,13 +1,35 @@
 <svg width="240" height="64" viewBox="0 0 240 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="240" height="64" rx="12" fill="#0a64a9"/>
-  <!-- Eye mark (scaled to fit) -->
-  <g transform="translate(8, 10) scale(0.46)">
-    <path d="M48 30C34 30 24 48 24 48C24 48 34 66 48 66C62 66 72 48 72 48C72 48 62 30 48 30Z" stroke="white" stroke-width="4" fill="none"/>
-    <rect x="36" y="52" width="6" height="10" rx="1" fill="white"/>
-    <rect x="45" y="46" width="6" height="16" rx="1" fill="white"/>
-    <rect x="54" y="40" width="6" height="22" rx="1" fill="white"/>
-    <circle cx="48" cy="48" r="14" stroke="white" stroke-width="3" fill="none"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="240" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0d80d9"/>
+      <stop offset="100%" stop-color="#074778"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="48" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2ecc70"/>
+      <stop offset="100%" stop-color="#27ae60"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="240" height="64" rx="12" fill="url(#bg)"/>
+  <rect x="1.5" y="1.5" width="237" height="61" rx="10.5" fill="none" stroke="white" stroke-opacity="0.08" stroke-width="1"/>
+  <!-- Shield mark -->
+  <g transform="translate(12, 6)">
+    <path d="M26 4L42 10V26C42 36 34 43 26 47C18 43 10 36 10 26V10L26 4Z" fill="white" fill-opacity="0.12" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+    <!-- Bars -->
+    <rect x="16" y="32" width="5" height="9" rx="1" fill="white"/>
+    <rect x="23.5" y="25" width="5" height="16" rx="1" fill="url(#accent)"/>
+    <rect x="31" y="18" width="5" height="23" rx="1" fill="white"/>
+    <!-- Trend line -->
+    <path d="M18.5 31L26 24L33.5 17" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M30.5 16L34 16L34 19.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Eye arc -->
+    <path d="M18 12C21 9 23.5 8 26 8C28.5 8 31 9 34 12" stroke="white" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+    <circle cx="26" cy="10.5" r="1.8" fill="white"/>
   </g>
-  <!-- "FinSight" wordmark -->
-  <text x="58" y="40" font-family="Inter, Arial, Helvetica, sans-serif" font-weight="700" font-size="22" fill="white" letter-spacing="0.5">FinSight</text>
+  <!-- "Fin" in bold -->
+  <text x="66" y="38.5" font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" font-weight="800" font-size="24" fill="white" letter-spacing="-0.5" dominant-baseline="central" text-anchor="start">Fin</text>
+  <!-- "Sight" in medium weight -->
+  <text x="104" y="38.5" font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" font-weight="400" font-size="24" fill="white" fill-opacity="0.9" letter-spacing="-0.5" dominant-baseline="central" text-anchor="start">Sight</text>
+  <!-- Subtle tagline -->
+  <text x="66" y="52" font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" font-weight="400" font-size="7" fill="white" fill-opacity="0.5" letter-spacing="2.5" text-transform="uppercase">FINANCIAL INSIGHT</text>
 </svg>

@@ -1,11 +1,29 @@
 <svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="96" height="96" rx="24" fill="#0a64a9"/>
-  <!-- Eye/lens shape representing "Sight" -->
-  <path d="M48 30C34 30 24 48 24 48C24 48 34 66 48 66C62 66 72 48 72 48C72 48 62 30 48 30Z" stroke="white" stroke-width="3" fill="none"/>
-  <!-- Bar chart inside the eye representing "Fin" (financial growth) -->
-  <rect x="36" y="52" width="6" height="10" rx="1" fill="white"/>
-  <rect x="45" y="46" width="6" height="16" rx="1" fill="white"/>
-  <rect x="54" y="40" width="6" height="22" rx="1" fill="white"/>
-  <!-- Pupil/circle accent -->
-  <circle cx="48" cy="48" r="14" stroke="white" stroke-width="2.5" fill="none"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="96" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0d80d9"/>
+      <stop offset="100%" stop-color="#074778"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="36" y1="62" x2="62" y2="36" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2ecc70"/>
+      <stop offset="100%" stop-color="#27ae60"/>
+    </linearGradient>
+  </defs>
+  <!-- Background with gradient -->
+  <rect width="96" height="96" rx="22" fill="url(#bg)"/>
+  <!-- Subtle inner glow -->
+  <rect x="3" y="3" width="90" height="90" rx="19" fill="none" stroke="white" stroke-opacity="0.1" stroke-width="1"/>
+  <!-- Shield shape (trust/protection) -->
+  <path d="M48 16L68 24V44C68 58 58 68 48 74C38 68 28 58 28 44V24L48 16Z" fill="white" fill-opacity="0.12" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+  <!-- Ascending bar chart inside shield -->
+  <rect x="34" y="54" width="7" height="12" rx="1.5" fill="white"/>
+  <rect x="44.5" y="44" width="7" height="22" rx="1.5" fill="url(#accent)"/>
+  <rect x="55" y="34" width="7" height="32" rx="1.5" fill="white"/>
+  <!-- Upward trend line connecting bar tops -->
+  <path d="M37.5 53L48 43L58.5 33" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Trend arrow head -->
+  <path d="M55 32L59.5 32L59.5 36.5" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Eye/lens arc at top of shield (sight) -->
+  <path d="M36 28C40 24 44 22 48 22C52 22 56 24 60 28" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <circle cx="48" cy="26" r="2.5" fill="white"/>
 </svg>
