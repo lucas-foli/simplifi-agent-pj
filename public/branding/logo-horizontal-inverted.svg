@@ -1,31 +1,48 @@
 <svg width="240" height="64" viewBox="0 0 240 64" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="accent" x1="0" y1="48" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#2ecc70"/>
+    <linearGradient id="bulbGrad" x1="32" y1="10" x2="32" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f0a500"/>
+      <stop offset="50%" stop-color="#d48f00"/>
+      <stop offset="100%" stop-color="#b87a00"/>
+    </linearGradient>
+    <linearGradient id="arrowGrad" x1="20" y1="42" x2="46" y2="16" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1e8c4a"/>
       <stop offset="100%" stop-color="#27ae60"/>
     </linearGradient>
+    <linearGradient id="baseGrad" x1="28" y1="46" x2="28" y2="54" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8a929e"/>
+      <stop offset="100%" stop-color="#6b7280"/>
+    </linearGradient>
   </defs>
-  <!-- Background -->
-  <rect width="240" height="64" rx="12" fill="white"/>
-  <rect x="1" y="1" width="238" height="62" rx="11" fill="none" stroke="#0a64a9" stroke-opacity="0.1" stroke-width="1"/>
-  <!-- Shield mark -->
-  <g transform="translate(12, 6)">
-    <path d="M26 4L42 10V26C42 36 34 43 26 47C18 43 10 36 10 26V10L26 4Z" fill="#0a64a9" fill-opacity="0.08" stroke="#0a64a9" stroke-width="1.5" stroke-linejoin="round"/>
-    <!-- Bars -->
-    <rect x="16" y="32" width="5" height="9" rx="1" fill="#0a64a9"/>
-    <rect x="23.5" y="25" width="5" height="16" rx="1" fill="url(#accent)"/>
-    <rect x="31" y="18" width="5" height="23" rx="1" fill="#0a64a9"/>
-    <!-- Trend line -->
-    <path d="M18.5 31L26 24L33.5 17" stroke="#0a64a9" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M30.5 16L34 16L34 19.5" stroke="#0a64a9" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-    <!-- Eye arc -->
-    <path d="M18 12C21 9 23.5 8 26 8C28.5 8 31 9 34 12" stroke="#0a64a9" stroke-width="1.5" stroke-linecap="round" fill="none"/>
-    <circle cx="26" cy="10.5" r="1.8" fill="#0a64a9"/>
+  <!-- White background -->
+  <rect width="240" height="64" rx="12" fill="#ffffff"/>
+  <rect x="1" y="1" width="238" height="62" rx="11" fill="none" stroke="#1e3a5f" stroke-opacity="0.1"/>
+  <!-- Lightbulb mark -->
+  <g transform="translate(6, 4)">
+    <!-- Bulb glass -->
+    <path d="M26 8C19 8 13 14 13 22C13 27 15.5 30 18 33C19.2 34.5 19.8 36 19.8 38H32.2C32.2 36 32.8 34.5 34 33C36.5 30 39 27 39 22C39 14 33 8 26 8Z" fill="url(#bulbGrad)"/>
+    <!-- Bulb shine -->
+    <path d="M20 16C21.5 13.5 24 12 26 11.5" stroke="white" stroke-opacity="0.4" stroke-width="1.2" stroke-linecap="round"/>
+    <!-- Bars inside bulb -->
+    <rect x="20" y="30" width="3.5" height="7" rx="0.8" fill="#8b6508" fill-opacity="0.45"/>
+    <rect x="25" y="27" width="3.5" height="10" rx="0.8" fill="#8b6508" fill-opacity="0.45"/>
+    <rect x="30" y="24" width="3.5" height="13" rx="0.8" fill="#8b6508" fill-opacity="0.45"/>
+    <!-- Screw base -->
+    <rect x="19.8" y="38" width="12.4" height="2" rx="0.8" fill="url(#baseGrad)"/>
+    <rect x="20.5" y="40.5" width="11" height="1.8" rx="0.8" fill="url(#baseGrad)"/>
+    <rect x="21.2" y="43" width="9.6" height="1.8" rx="0.8" fill="url(#baseGrad)"/>
+    <path d="M23 45L26 49L29 45" fill="#6b7280"/>
+    <!-- Green trend arrow -->
+    <path d="M12 40L22 28L28 32L42 18" stroke="url(#arrowGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M37 17L43 17L43 23" stroke="url(#arrowGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Glow dots -->
+    <circle cx="12" cy="40" r="1.8" fill="#27ae60"/>
+    <circle cx="22" cy="28" r="1.8" fill="#27ae60"/>
+    <circle cx="28" cy="32" r="1.8" fill="#27ae60"/>
+    <circle cx="42" cy="18" r="1.8" fill="#27ae60"/>
   </g>
-  <!-- "Fin" in bold -->
-  <text x="66" y="38.5" font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" font-weight="800" font-size="24" fill="#074778" letter-spacing="-0.5" dominant-baseline="central" text-anchor="start">Fin</text>
-  <!-- "Sight" in medium weight -->
-  <text x="104" y="38.5" font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" font-weight="400" font-size="24" fill="#0a64a9" letter-spacing="-0.5" dominant-baseline="central" text-anchor="start">Sight</text>
-  <!-- Subtle tagline -->
-  <text x="66" y="52" font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" font-weight="400" font-size="7" fill="#0a64a9" fill-opacity="0.4" letter-spacing="2.5">FINANCIAL INSIGHT</text>
+  <!-- "Fin" bold + "Sight" regular -->
+  <text x="68" y="33" font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" font-weight="800" font-size="26" fill="#0f2440" letter-spacing="-0.5" dominant-baseline="central">Fin<tspan font-weight="400" fill="#1e3a5f" fill-opacity="0.85">Sight</tspan></text>
+  <!-- Tagline -->
+  <text x="68" y="49" font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" font-weight="500" font-size="8" fill="#b87a00" fill-opacity="0.7" letter-spacing="2">FINANCIAL INSIGHT</text>
 </svg>
