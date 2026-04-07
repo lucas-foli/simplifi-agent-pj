@@ -41,8 +41,6 @@
     <circle cx="28" cy="32" r="1.8" fill="#27ae60"/>
     <circle cx="42" cy="18" r="1.8" fill="#27ae60"/>
   </g>
-  <!-- "Fin" bold + "Sight" regular -->
-  <text x="68" y="33" font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" font-weight="800" font-size="26" fill="#0f2440" letter-spacing="-0.5" dominant-baseline="central">Fin<tspan font-weight="400" fill="#1e3a5f" fill-opacity="0.85">Sight</tspan></text>
-  <!-- Tagline -->
-  <text x="68" y="49" font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" font-weight="500" font-size="8" fill="#b87a00" fill-opacity="0.7" letter-spacing="2">FINANCIAL INSIGHT</text>
+  <!-- "FinSight" centered vertically -->
+  <text x="152" y="32" font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" font-weight="800" font-size="30" fill="#0f2440" letter-spacing="-0.5" dominant-baseline="central" text-anchor="middle">Fin<tspan font-weight="400" fill="#1e3a5f" fill-opacity="0.85">Sight</tspan></text>
 </svg>
