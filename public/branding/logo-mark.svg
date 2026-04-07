@@ -1,4 +1,11 @@
 <svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="96" height="96" rx="24" fill="#0EA5E9"/>
-  <path d="M32 28H56C61.5228 28 66 32.4772 66 38C66 43.5228 61.5228 48 56 48H44V60H32V28ZM44 36V40H55C56.6569 40 58 38.6569 58 37C58 35.3431 56.6569 34 55 34H44Z" fill="white"/>
+  <rect width="96" height="96" rx="24" fill="#0a64a9"/>
+  <!-- Eye/lens shape representing "Sight" -->
+  <path d="M48 30C34 30 24 48 24 48C24 48 34 66 48 66C62 66 72 48 72 48C72 48 62 30 48 30Z" stroke="white" stroke-width="3" fill="none"/>
+  <!-- Bar chart inside the eye representing "Fin" (financial growth) -->
+  <rect x="36" y="52" width="6" height="10" rx="1" fill="white"/>
+  <rect x="45" y="46" width="6" height="16" rx="1" fill="white"/>
+  <rect x="54" y="40" width="6" height="22" rx="1" fill="white"/>
+  <!-- Pupil/circle accent -->
+  <circle cx="48" cy="48" r="14" stroke="white" stroke-width="2.5" fill="none"/>
 </svg>

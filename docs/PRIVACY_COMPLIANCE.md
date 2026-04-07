@@ -1,8 +1,8 @@
-# Conformidade com LGPD/GDPR - SimplifiQA
+# Conformidade com LGPD/GDPR - FinSight
 
 ## 📋 Visão Geral
 
-Este documento descreve como o SimplifiQA está em conformidade com:
+Este documento descreve como o FinSight está em conformidade com:
 - **LGPD** (Lei Geral de Proteção de Dados - Brasil, Lei 13.709/2018)
 - **GDPR** (General Data Protection Regulation - União Europeia)
 
@@ -247,7 +247,7 @@ POST /functions/v1/gdpr-data-export
 
 4. **DPO (Data Protection Officer)**
    - [ ] Nomear responsável (pode ser externo)
-   - [ ] Email de contato: dpo@simplifiqa.com
+   - [ ] Email de contato: dpo@finsight.com
    - [ ] Processo para resposta a requisições (15 dias)
 
 5. **Cron Job de Limpeza**
@@ -312,7 +312,7 @@ POST /functions/v1/gdpr-data-export
 ## 📞 Contatos
 
 ### Data Protection Officer (DPO)
-**Email**: dpo@simplifiqa.com *(configurar)*  
+**Email**: dpo@finsight.com *(configurar)*  
 **Prazo de resposta**: 15 dias úteis
 
 ### Requisições de Titulares

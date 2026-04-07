@@ -521,7 +521,7 @@ const Onboarding = () => {
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                <h2 className="text-2xl font-bold text-foreground mb-2">Bem-vindo ao SimplifiQA!</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Bem-vindo ao FinSight!</h2>
                 {/* <h2 className="text-2xl font-bold text-foreground mb-2">Bem-vindo ao {branding.brandName}!</h2> */}
                 <p className="text-muted-foreground mb-6">
                   Este fluxo é dedicado a negócios que desejam organizar suas finanças com mais clareza.
@@ -880,7 +880,7 @@ const Onboarding = () => {
               >
                 <h2 className="text-2xl font-bold text-foreground mb-2">Conectar WhatsApp</h2>
                 <p className="text-muted-foreground mb-6">
-                  Gere um código de pareamento e envie no WhatsApp do SimplifiQA para concluir a conexão.
+                  Gere um código de pareamento e envie no WhatsApp do FinSight para concluir a conexão.
                 </p>
 
                 <div className="p-4 rounded-lg border border-border bg-muted/30">

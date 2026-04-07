@@ -1,8 +1,8 @@
-# Guia de Segurança - SimplifiQA
+# Guia de Segurança - FinSight
 
 ## Visão Geral
 
-Este documento descreve as medidas de segurança implementadas na aplicação SimplifiQA e as melhores práticas para manutenção e desenvolvimento seguro.
+Este documento descreve as medidas de segurança implementadas na aplicação FinSight e as melhores práticas para manutenção e desenvolvimento seguro.
 
 ## 🔒 Medidas de Segurança Implementadas
 
@@ -210,7 +210,7 @@ const corsHeaders = {
 
 **Recomendação**: Restringir a domínio específico em produção:
 ```typescript
-'Access-Control-Allow-Origin': 'https://simplifiqa.app',
+'Access-Control-Allow-Origin': 'https://finsight.app',
 ```
 
 **Nível de Risco**: 🟡 BAIXO (produção)
