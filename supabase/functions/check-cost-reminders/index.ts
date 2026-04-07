@@ -116,17 +116,10 @@ serve(async (req) => {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Use America/Sao_Paulo so reminders align with the user's local date,
-    // not the UTC date of the server.
-    const nowInBrazil = new Date(
-      new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }),
-    );
-    const today = new Date(nowInBrazil.getFullYear(), nowInBrazil.getMonth(), nowInBrazil.getDate());
-
-    // 1. Fetch all fixed costs that have a due_day set
+    // 1. Fetch all fixed costs that have a due_day set, joining company timezone
     const { data: fixedCosts, error: costsError } = await supabase
       .from('company_fixed_costs')
-      .select('id, company_id, description, amount, due_day')
+      .select('id, company_id, description, amount, due_day, companies(timezone)')
       .not('due_day', 'is', null);
 
     if (costsError) {
@@ -140,7 +133,7 @@ serve(async (req) => {
       );
     }
 
-    // 2. For each cost, check if today matches a reminder day
+    // 2. For each cost, compute "today" in the company's timezone and check reminder days
     type PendingReminder = {
       cost: typeof fixedCosts[number];
       daysUntil: number;
@@ -151,6 +144,12 @@ serve(async (req) => {
     const pendingReminders: PendingReminder[] = [];
 
     for (const cost of fixedCosts) {
+      const tz = (cost as any).companies?.timezone ?? 'America/Sao_Paulo';
+      const nowLocal = new Date(
+        new Date().toLocaleString('en-US', { timeZone: tz }),
+      );
+      const today = new Date(nowLocal.getFullYear(), nowLocal.getMonth(), nowLocal.getDate());
+
       const dueDate = getDueDateThisMonth(cost.due_day, today);
       const diffMs = dueDate.getTime() - today.getTime();
       const daysUntil = Math.round(diffMs / (1000 * 60 * 60 * 24));

@@ -1,3 +1,7 @@
+-- Add timezone to companies (IANA tz, e.g. 'America/Sao_Paulo')
+ALTER TABLE pj.companies
+  ADD COLUMN timezone TEXT NOT NULL DEFAULT 'America/Sao_Paulo';
+
 -- Add due_day column to the actual table in pj schema
 ALTER TABLE pj.company_fixed_costs
   ADD COLUMN due_day INTEGER CHECK (due_day >= 1 AND due_day <= 31);

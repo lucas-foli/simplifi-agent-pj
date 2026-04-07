@@ -60,6 +60,7 @@ export type Database = {
           monthly_revenue: number
           name: string
           phone: string | null
+          timezone: string
           trade_name: string | null
           updated_at: string
         }
@@ -73,6 +74,7 @@ export type Database = {
           monthly_revenue?: number
           name: string
           phone?: string | null
+          timezone?: string
           trade_name?: string | null
           updated_at?: string
         }
@@ -86,6 +88,7 @@ export type Database = {
           monthly_revenue?: number
           name?: string
           phone?: string | null
+          timezone?: string
           trade_name?: string | null
           updated_at?: string
         }
@@ -601,6 +604,7 @@ export type Database = {
           monthly_revenue: number
           name: string
           phone: string | null
+          timezone: string
           trade_name: string | null
           updated_at: string
         }
@@ -614,6 +618,7 @@ export type Database = {
           monthly_revenue?: number
           name: string
           phone?: string | null
+          timezone?: string
           trade_name?: string | null
           updated_at?: string
         }
@@ -627,6 +632,7 @@ export type Database = {
           monthly_revenue?: number
           name?: string
           phone?: string | null
+          timezone?: string
           trade_name?: string | null
           updated_at?: string
         }
