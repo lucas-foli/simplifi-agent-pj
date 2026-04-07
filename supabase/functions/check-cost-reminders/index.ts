@@ -226,11 +226,11 @@ serve(async (req) => {
     }
 
     // 4. Get linked WhatsApp phones per company
-    const companyIds = [...new Set(unsent.map((r) => r.cost.company_id))];
+    const unsentCompanyIds = [...new Set(unsent.map((r) => r.cost.company_id))];
     const { data: whatsappLinks } = await supabase
       .from('whatsapp_links')
       .select('company_id, phone')
-      .in('company_id', companyIds)
+      .in('company_id', unsentCompanyIds)
       .eq('status', 'linked')
       .not('phone', 'is', null);
 
