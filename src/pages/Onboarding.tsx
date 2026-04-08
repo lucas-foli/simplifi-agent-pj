@@ -383,7 +383,7 @@ const Onboarding = () => {
         if (browserTz) {
           await supabase
             .from('companies')
-            .update({ timezone: browserTz })
+            .update({ timezone: browserTz, monthly_revenue: monthlyRevenueValue })
             .eq('id', ensuredCompanyId);
         }
 
