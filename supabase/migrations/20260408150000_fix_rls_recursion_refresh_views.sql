@@ -171,3 +171,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.company_members TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.company_categories TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.company_fixed_costs TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.company_transactions TO authenticated;
+
+-- Grant service_role access to pj schema.
+-- With security_invoker views, edge functions (which use service_role)
+-- need direct access to the underlying pj tables.
+GRANT USAGE ON SCHEMA pj TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA pj TO service_role;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pj TO service_role;
