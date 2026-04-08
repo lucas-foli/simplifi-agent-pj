@@ -133,26 +133,35 @@ FOR ALL USING (
   pj.is_company_member(company_id)
 );
 
--- 5. Refresh stale public views to pick up new columns (e.g. timezone)
+-- 5. DROP and recreate views to pick up new columns (e.g. timezone).
+--    Cannot use CREATE OR REPLACE because the existing companies view has a
+--    computed "cnpj" column (decrypt_sensitive) that conflicts with the new
+--    column order from SELECT *.
 --    Use security_invoker so RLS applies through the view.
 
-CREATE OR REPLACE VIEW public.companies
+DROP VIEW IF EXISTS public.companies;
+DROP VIEW IF EXISTS public.company_members;
+DROP VIEW IF EXISTS public.company_categories;
+DROP VIEW IF EXISTS public.company_fixed_costs;
+DROP VIEW IF EXISTS public.company_transactions;
+
+CREATE VIEW public.companies
   WITH (security_invoker = on) AS
   SELECT * FROM pj.companies;
 
-CREATE OR REPLACE VIEW public.company_members
+CREATE VIEW public.company_members
   WITH (security_invoker = on) AS
   SELECT * FROM pj.company_members;
 
-CREATE OR REPLACE VIEW public.company_categories
+CREATE VIEW public.company_categories
   WITH (security_invoker = on) AS
   SELECT * FROM pj.company_categories;
 
-CREATE OR REPLACE VIEW public.company_fixed_costs
+CREATE VIEW public.company_fixed_costs
   WITH (security_invoker = on) AS
   SELECT * FROM pj.company_fixed_costs;
 
-CREATE OR REPLACE VIEW public.company_transactions
+CREATE VIEW public.company_transactions
   WITH (security_invoker = on) AS
   SELECT * FROM pj.company_transactions;
 
