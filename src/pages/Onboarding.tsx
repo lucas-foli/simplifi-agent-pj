@@ -382,6 +382,7 @@ const Onboarding = () => {
         const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
         if (browserTz) {
           await supabase
+            .schema('pj')
             .from('companies')
             .update({ timezone: browserTz })
             .eq('id', ensuredCompanyId);
