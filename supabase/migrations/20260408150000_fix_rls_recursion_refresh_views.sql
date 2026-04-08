@@ -1,8 +1,11 @@
--- Fix infinite recursion in company_members RLS policies.
+-- Fix infinite recursion in company_members RLS policies (42P17).
 -- The SELECT policy on pj.company_members references company_members itself,
--- causing infinite recursion when security_invoker views are used.
+-- causing infinite recursion when security_invoker views are used
+-- (enabled by migration 20260408130000_fix_views_security_invoker).
 --
--- Solution: a SECURITY DEFINER helper that bypasses RLS for the membership check.
+-- Solution: SECURITY DEFINER helpers that bypass RLS for membership checks.
+-- Also refreshes stale views to pick up columns added after view creation
+-- (e.g. timezone, due_day).
 
 -- 1. Create helper function (runs as postgres, skips RLS)
 CREATE OR REPLACE FUNCTION pj.is_company_member(
