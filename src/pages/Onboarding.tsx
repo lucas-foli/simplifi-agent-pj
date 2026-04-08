@@ -79,10 +79,10 @@ const Onboarding = () => {
   });
 
   useEffect(() => {
-    if (!authLoading_ && user && companyMemberships.length > 0) {
+    if (!authLoading_ && user && companyMemberships.length > 0 && step === 1) {
       navigate("/company/dashboard", { replace: true });
     }
-  }, [authLoading_, user, companyMemberships, navigate]);
+  }, [authLoading_, user, companyMemberships, navigate, step]);
 
   // Validate restored step: if step >= 3, verify session exists
   useEffect(() => {

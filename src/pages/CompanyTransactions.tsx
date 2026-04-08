@@ -58,6 +58,7 @@ import { useTranslation } from 'react-i18next';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { CurrencySelector } from '@/components/CurrencySelector';
+import { formatAmountLive, formatAmountForInput, parseAmountFromInput } from '@/lib/currency';
 
 const CompanyTransactions = () => {
   const navigate = useNavigate();
@@ -188,7 +189,7 @@ const CompanyTransactions = () => {
     setEditingId(transaction.id);
     setNewTransaction({
       description: transaction.description,
-      amount: String(convertAmount(Number(transaction.amount))),
+      amount: formatAmountForInput(Math.round(convertAmount(Number(transaction.amount)) * 100) / 100, currencyConfig.locale),
       category_id: transaction.category_id ?? '',
       type: transaction.type as 'despesa' | 'receita',
       date: transaction.date,
@@ -204,7 +205,7 @@ const CompanyTransactions = () => {
       return;
     }
 
-    const amount = Number(newTransaction.amount);
+    const amount = parseAmountFromInput(newTransaction.amount);
     if (Number.isNaN(amount) || amount <= 0) {
       toast.error(t('common.invalidValue'));
       return;
@@ -634,21 +635,20 @@ const CompanyTransactions = () => {
               <Label htmlFor="amount">{t('transactions.valueLabel', { symbol: currencyConfig.symbol })}</Label>
               <Input
                 id="amount"
-                type="number"
-                step="0.01"
-                min="0.01"
+                type="text"
+                inputMode="numeric"
                 value={newTransaction.amount}
                 onChange={(event) => {
-                  const value = event.target.value;
-                  setNewTransaction((prev) => ({ ...prev, amount: value }));
-                  const num = Number(value);
-                  if (value && (!Number.isNaN(num) && num <= 0)) {
+                  const formatted = formatAmountLive(event.target.value, currencyConfig.locale);
+                  setNewTransaction((prev) => ({ ...prev, amount: formatted }));
+                  const num = parseAmountFromInput(formatted);
+                  if (formatted && num <= 0) {
                     setAmountError(t('transactions.valueMustBePositive'));
                   } else {
                     setAmountError('');
                   }
                 }}
-                placeholder="1000.00"
+                placeholder="0,00"
                 className={amountError ? 'border-destructive' : ''}
               />
               {amountError && (

@@ -38,7 +38,7 @@ export function convertFromBRL(
   const rate = rates[targetCurrency];
   if (!rate) return amountBRL;
 
-  return amountBRL * rate;
+  return Math.round(amountBRL * rate * 100) / 100;
 }
 
 export function convertToBRL(
@@ -51,5 +51,5 @@ export function convertToBRL(
   const rate = rates[sourceCurrency];
   if (!rate) return amount;
 
-  return amount / rate;
+  return Math.round((amount / rate) * 100) / 100;
 }
