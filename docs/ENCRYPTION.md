@@ -2,7 +2,7 @@
 
 ## Visão Geral
 
-A aplicação SimplifiQA implementa criptografia AES-256 para proteger dados sensíveis (CNPJ) em conformidade com LGPD/GDPR.
+A aplicação FinSight implementa criptografia AES-256 para proteger dados sensíveis (CNPJ) em conformidade com LGPD/GDPR.
 
 ## Arquitetura
 

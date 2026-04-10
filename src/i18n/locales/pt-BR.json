@@ -90,9 +90,9 @@
     "loadingCompany": "Carregando informações da empresa...",
     "converted": "convertido",
     "whatsappConnectTitle": "Conectar WhatsApp",
-    "whatsappConnectDescription": "Gere um código e envie para o WhatsApp do SimplifiQA para concluir o vínculo.",
+    "whatsappConnectDescription": "Gere um código e envie para o WhatsApp do FinSight para concluir o vínculo.",
     "whatsappStep1": "1) Gere o código.",
-    "whatsappStep2": "2) Envie para o número do SimplifiQA.",
+    "whatsappStep2": "2) Envie para o número do FinSight.",
     "whatsappStep3": "3) Aguarde a confirmação automática.",
     "whatsappCurrentStatus": "Status atual",
     "whatsappYourCode": "Seu código",
@@ -241,7 +241,7 @@
       "whatsapp": "WhatsApp"
     },
     "welcome": {
-      "title": "Bem-vindo ao SimplifiQA!",
+      "title": "Bem-vindo ao FinSight!",
       "description": "Este fluxo é dedicado a negócios que desejam organizar suas finanças com mais clareza.",
       "profileLabel": "Perfil empresarial",
       "profileDescription": "Configure o acesso do responsável, cadastre os dados da empresa e seus custos recorrentes."
@@ -314,7 +314,7 @@
     },
     "whatsapp": {
       "title": "Conectar WhatsApp",
-      "description": "Gere um código de pareamento e envie no WhatsApp do SimplifiQA para concluir a conexão.",
+      "description": "Gere um código de pareamento e envie no WhatsApp do FinSight para concluir a conexão.",
       "step1": "1) Clique em \"Gerar código\".",
       "step2": "2) Envie o código para o nosso WhatsApp:",
       "step3": "3) Aguarde a confirmação automática.",

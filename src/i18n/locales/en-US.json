@@ -90,9 +90,9 @@
     "loadingCompany": "Loading company information...",
     "converted": "converted",
     "whatsappConnectTitle": "Connect WhatsApp",
-    "whatsappConnectDescription": "Generate a code and send it to SimplifiQA's WhatsApp to complete the link.",
+    "whatsappConnectDescription": "Generate a code and send it to FinSight's WhatsApp to complete the link.",
     "whatsappStep1": "1) Generate the code.",
-    "whatsappStep2": "2) Send it to SimplifiQA's number.",
+    "whatsappStep2": "2) Send it to FinSight's number.",
     "whatsappStep3": "3) Wait for automatic confirmation.",
     "whatsappCurrentStatus": "Current status",
     "whatsappYourCode": "Your code",
@@ -241,7 +241,7 @@
       "whatsapp": "WhatsApp"
     },
     "welcome": {
-      "title": "Welcome to SimplifiQA!",
+      "title": "Welcome to FinSight!",
       "description": "This flow is for businesses that want to organize their finances with more clarity.",
       "profileLabel": "Business profile",
       "profileDescription": "Set up your account, register your company details, and add recurring costs."
@@ -314,7 +314,7 @@
     },
     "whatsapp": {
       "title": "Connect WhatsApp",
-      "description": "Generate a pairing code and send it to SimplifiQA's WhatsApp to complete the connection.",
+      "description": "Generate a pairing code and send it to FinSight's WhatsApp to complete the connection.",
       "step1": "1) Click \"Generate code\".",
       "step2": "2) Send the code to our WhatsApp:",
       "step3": "3) Wait for automatic confirmation.",

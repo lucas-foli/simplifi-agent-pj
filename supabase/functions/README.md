@@ -1,6 +1,6 @@
-# Edge Functions - SimplifiQA
+# Edge Functions - FinSight
 
-Este diretório contém as Edge Functions do Supabase para o SimplifiQA Agent.
+Este diretório contém as Edge Functions do Supabase para o FinSight Agent.
 
 ## 📋 Funções Disponíveis
 

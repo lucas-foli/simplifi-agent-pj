@@ -245,7 +245,7 @@ async function handleInboundMessage(supabase: any, message: WhatsAppMessage) {
     if (isImage || isAudio || isDocument) {
       await sendWhatsAppText(
         from,
-        'Para conectar seu WhatsApp ao SimplifiQA, gere um código no app e envie aqui.'
+        'Para conectar seu WhatsApp ao FinSight, gere um código no app e envie aqui.'
       );
     } else {
       await handleUnlinkedMessage(supabase, from, body);
@@ -338,7 +338,7 @@ async function handleUnlinkedMessage(supabase: any, from: string, body: string) 
   if (!pairingCode) {
     await sendWhatsAppText(
       from,
-      'Para conectar seu WhatsApp ao SimplifiQA, gere um código no app e envie aqui.'
+      'Para conectar seu WhatsApp ao FinSight, gere um código no app e envie aqui.'
     );
     return;
   }
@@ -380,7 +380,7 @@ async function handleUnlinkedMessage(supabase: any, from: string, body: string) 
     return;
   }
 
-  await sendWhatsAppText(from, 'Tudo certo! Seu WhatsApp foi conectado ao SimplifiQA.');
+  await sendWhatsAppText(from, 'Tudo certo! Seu WhatsApp foi conectado ao FinSight.');
 }
 
 async function findLinkedAccount(supabase: any, phone: string) {

@@ -3,7 +3,7 @@ export const branding = {
 	 * Nome mostrado em textos, títulos e meta tags.
 	 * Altere aqui para personalizar o white label.
 	 */
-	brandName: 'SimplifiQA',
+	brandName: 'FinSight',
 
 	/**
 	 * Caminhos das logos. Troque os arquivos em /public/branding
@@ -52,7 +52,7 @@ export const branding = {
 	 * Favicon utilizado pelo Vite. Substitua o arquivo em /public
 	 * se precisar customizar.
 	 */
-	favicon: '/favicon.ico',
+	favicon: '/favicon.svg',
 	/**
 	 * Imagens opcionais usadas em telas específicas.
 	 */

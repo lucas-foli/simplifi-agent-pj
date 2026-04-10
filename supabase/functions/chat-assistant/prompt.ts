@@ -1,4 +1,4 @@
-// Prompt System para o Assistente Financeiro SimplifiQA
+// Prompt System para o Assistente Financeiro FinSight
 // Edite este arquivo para customizar o comportamento da IA
 
 export interface BaseTransaction {
@@ -33,7 +33,7 @@ export interface CompanyFinancialContext {
 export type FinancialContext = PersonalFinancialContext | CompanyFinancialContext;
 
 function buildPersonalPrompt(context: PersonalFinancialContext): string {
-  return `Você é o assistente financeiro SimplifiQA. Ajude o usuário com suas finanças pessoais.
+  return `Você é o assistente financeiro FinSight. Ajude o usuário com suas finanças pessoais.
 
 Contexto financeiro do usuário (mês atual):
 - Receita mensal: R$ ${context.monthlyIncome.toFixed(2)}
@@ -64,7 +64,7 @@ EXEMPLOS DE BOM COMPORTAMENTO:
 }
 
 function buildCompanyPrompt(context: CompanyFinancialContext): string {
-  return `Você é o assistente financeiro SimplifiQA para empresas. Ajude a gestão financeira da empresa.
+  return `Você é o assistente financeiro FinSight para empresas. Ajude a gestão financeira da empresa.
 
 Contexto financeiro da empresa (mês atual):
 - Faturamento base: R$ ${context.monthlyRevenue.toFixed(2)}
