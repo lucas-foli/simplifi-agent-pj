@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, ArrowLeft, ArrowRight, Building2, Check, MessageCircle, Receipt, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import InputMask from "react-input-mask";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -10,27 +11,34 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { translateAuthError } from "@/lib/authErrors";
 import { createWhatsAppLink, type WhatsAppLinkResponse } from "@/lib/whatsapp";
-// import { branding } from "@/config/branding";
 
 const ONBOARDING_STORAGE_KEY = "simplifiqa_pj_onboarding";
 
-const steps = [
-  { number: 1, title: "Bem-vindo" },
-  { number: 2, title: "Responsável" },
-  { number: 3, title: "Empresa" },
-  { number: 4, title: "Custos Fixos" },
-  { number: 5, title: "WhatsApp" },
-];
+type BusinessCountry = "BR" | "US";
+
+const STEP_KEYS = ["welcome", "responsible", "company", "fixedCosts", "whatsapp"] as const;
+
+const TAX_ID_CONFIG: Record<BusinessCountry, { key: string; mask: string; digits: number } | null> = {
+  BR: { key: "cnpj", mask: "99.999.999/9999-99", digits: 14 },
+  US: { key: "ein", mask: "99-9999999", digits: 9 },
+};
 
 type FixedCost = { id: string; name: string; value: string };
 
 const Onboarding = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { user, companyMemberships, loading: authLoading_, signUp, refreshCompanyMemberships } = useAuth();
+
+  const steps = STEP_KEYS.map((key, i) => ({
+    number: i + 1,
+    title: t(`onboarding.steps.${key}`),
+  }));
 
   const savedState = (() => {
     try {
@@ -45,7 +53,7 @@ const Onboarding = () => {
   const [loading, setLoading] = useState(false);
 
   const [emailError, setEmailError] = useState("");
-  const [cnpjError, setCnpjError] = useState("");
+  const [taxIdError, setTaxIdError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [verificationError, setVerificationError] = useState("");
@@ -64,16 +72,17 @@ const Onboarding = () => {
     password: "",
     confirmPassword: "",
     companyName: savedState?.companyName ?? "",
-    cnpj: savedState?.cnpj ?? "",
+    country: (savedState?.country as BusinessCountry) ?? ("BR" as BusinessCountry),
+    taxId: savedState?.taxId ?? "",
     monthlyRevenue: savedState?.monthlyRevenue ?? "",
     fixedCosts: [] as FixedCost[],
   });
 
   useEffect(() => {
-    if (!authLoading_ && user && companyMemberships.length > 0) {
+    if (!authLoading_ && user && companyMemberships.length > 0 && step === 1) {
       navigate("/company/dashboard", { replace: true });
     }
-  }, [authLoading_, user, companyMemberships, navigate]);
+  }, [authLoading_, user, companyMemberships, navigate, step]);
 
   // Validate restored step: if step >= 3, verify session exists
   useEffect(() => {
@@ -96,27 +105,42 @@ const Onboarding = () => {
           name: formData.name,
           email: formData.email,
           companyName: formData.companyName,
-          cnpj: formData.cnpj,
+          country: formData.country,
+          taxId: formData.taxId,
           monthlyRevenue: formData.monthlyRevenue,
         }),
       );
     } catch {
       // sessionStorage full or unavailable
     }
-  }, [step, formData.name, formData.email, formData.companyName, formData.cnpj, formData.monthlyRevenue]);
+  }, [step, formData.name, formData.email, formData.companyName, formData.country, formData.taxId, formData.monthlyRevenue]);
 
   const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const handleEmailChange = (value: string) => {
     setFormData((prev) => ({ ...prev, email: value }));
-    setEmailError(value && !validateEmail(value) ? "Email inválido" : "");
+    setEmailError(value && !validateEmail(value) ? t("onboarding.responsible.emailInvalid") : "");
     if (verificationSent) resetVerification();
   };
 
-  const handleCNPJChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, cnpj: value }));
+  const handleCountryChange = (value: BusinessCountry) => {
+    setFormData((prev) => ({ ...prev, country: value, taxId: "" }));
+    setTaxIdError("");
+  };
+
+  const handleTaxIdChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, taxId: value }));
+    const config = TAX_ID_CONFIG[formData.country];
+    if (!config) {
+      setTaxIdError("");
+      return;
+    }
     const clean = value.replace(/\D/g, "");
-    setCnpjError(clean && clean.length !== 14 ? "CNPJ deve conter 14 dígitos" : "");
+    if (clean && clean.length !== config.digits) {
+      setTaxIdError(t(`onboarding.company.${config.key}Invalid`));
+    } else {
+      setTaxIdError("");
+    }
   };
 
   const parseCurrencyToDecimal = (value: string) => {
@@ -175,12 +199,12 @@ const Onboarding = () => {
 
   const validatePassword = () => {
     if (formData.password.length < 6) {
-      setPasswordError("A senha deve ter pelo menos 6 caracteres");
+      setPasswordError(t("onboarding.responsible.passwordMinLength"));
       return false;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setPasswordError("As senhas não coincidem");
+      setPasswordError(t("onboarding.responsible.passwordMismatch"));
       return false;
     }
 
@@ -200,7 +224,7 @@ const Onboarding = () => {
     if (!validatePassword()) return;
 
     if (!formData.email || !validateEmail(formData.email)) {
-      setEmailError("Email inválido");
+      setEmailError(t("onboarding.responsible.emailInvalid"));
       return;
     }
 
@@ -213,7 +237,7 @@ const Onboarding = () => {
           email: formData.email,
         });
         if (error) throw error;
-        toast.success("Código reenviado para seu email.");
+        toast.success(t("onboarding.responsible.codeResent"));
         return;
       }
 
@@ -231,14 +255,14 @@ const Onboarding = () => {
 
       if (result?.session) {
         setAuthVerified(true);
-        toast.success("Autenticação concluída!");
+        toast.success(t("onboarding.responsible.authComplete"));
         return;
       }
 
-      toast.success("Enviamos um código para seu email.");
+      toast.success(t("onboarding.responsible.codeSent"));
     } catch (error) {
-      console.error("Erro ao enviar código:", error);
-      const errorMessage = error instanceof Error ? error.message : "Erro ao enviar código";
+      console.error("Verification send error:", error);
+      const errorMessage = error instanceof Error ? error.message : t("onboarding.responsible.codeSendError");
       toast.error(translateAuthError(errorMessage));
     } finally {
       setAuthLoading(false);
@@ -248,7 +272,7 @@ const Onboarding = () => {
   const handleVerifyCode = async () => {
     if (authLoading) return;
     if (!verificationCode.trim()) {
-      setVerificationError("Informe o código recebido");
+      setVerificationError(t("onboarding.responsible.verificationCodeRequired"));
       return;
     }
 
@@ -265,13 +289,13 @@ const Onboarding = () => {
 
       if (data?.session) {
         setAuthVerified(true);
-        toast.success("Conta confirmada com sucesso!");
+        toast.success(t("onboarding.responsible.accountConfirmed"));
       } else {
-        throw new Error("Não foi possível confirmar o código.");
+        throw new Error(t("onboarding.responsible.codeValidationError"));
       }
     } catch (error) {
-      console.error("Erro ao validar código:", error);
-      const errorMessage = error instanceof Error ? error.message : "Erro ao validar código";
+      console.error("Code validation error:", error);
+      const errorMessage = error instanceof Error ? error.message : t("onboarding.responsible.codeValidationError");
       const translated = translateAuthError(errorMessage);
       setVerificationError(translated);
       toast.error(translated);
@@ -286,11 +310,11 @@ const Onboarding = () => {
     }
     if (step === 2) {
       if (!formData.email || emailError) {
-        setEmailError("Email inválido");
+        setEmailError(t("onboarding.responsible.emailInvalid"));
         return;
       }
       if (!authVerified) {
-        toast.error("Confirme o código enviado para continuar.");
+        toast.error(t("onboarding.responsible.confirmCodeToContinue"));
         return;
       }
     }
@@ -305,11 +329,12 @@ const Onboarding = () => {
     setLoading(true);
     try {
       if (!authVerified) {
-        toast.error("Confirme o código de autenticação antes de continuar.");
+        toast.error(t("onboarding.common.confirmCodeFirst"));
         return;
       }
 
-      const cleanedCnpj = formData.cnpj ? formData.cnpj.replace(/\D/g, "") : undefined;
+      const cleanedTaxId = formData.taxId ? formData.taxId.replace(/\D/g, "") : undefined;
+      const taxIdConfig = TAX_ID_CONFIG[formData.country];
       const monthlyRevenueValue = parseFloat(formData.monthlyRevenue || "0") || 0;
 
       const {
@@ -317,7 +342,7 @@ const Onboarding = () => {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        toast.error("Sessão inválida. Confirme o código novamente.");
+        toast.error(t("onboarding.common.sessionInvalid"));
         return;
       }
 
@@ -327,12 +352,12 @@ const Onboarding = () => {
         company_name: formData.companyName,
       };
 
-      if (cleanedCnpj) {
-        const { data: encryptedCnpj, error: encryptError } = await supabase.rpc("encrypt_sensitive", {
-          data: cleanedCnpj,
+      if (cleanedTaxId && taxIdConfig) {
+        const { data: encryptedTaxId, error: encryptError } = await supabase.rpc("encrypt_sensitive", {
+          data: cleanedTaxId,
         });
         if (encryptError) throw encryptError;
-        profileUpdate.cnpj_encrypted = encryptedCnpj;
+        profileUpdate.cnpj_encrypted = encryptedTaxId;
       }
 
       const { error: profileError } = await supabase
@@ -345,7 +370,7 @@ const Onboarding = () => {
       const { data: ensuredCompanyId, error: ensureError } = await supabase.rpc("pg_ensure_company_for_user", {
         payload: {
           company_name: formData.companyName || formData.name,
-          cnpj: cleanedCnpj || null,
+          cnpj: (formData.country === "BR" && cleanedTaxId) ? cleanedTaxId : null,
           monthly_revenue: monthlyRevenueValue,
         },
       });
@@ -358,7 +383,7 @@ const Onboarding = () => {
         if (browserTz) {
           await supabase
             .from('companies')
-            .update({ timezone: browserTz })
+            .update({ timezone: browserTz, monthly_revenue: monthlyRevenueValue })
             .eq('id', ensuredCompanyId);
         }
 
@@ -375,19 +400,19 @@ const Onboarding = () => {
           });
 
           if (companyCostError) {
-            console.error("Erro ao criar custo fixo empresarial:", companyCostError);
+            console.error("Fixed cost creation error:", companyCostError);
           }
         }
       }
 
       await refreshCompanyMemberships();
-      toast.success("Conta criada com sucesso!");
+      toast.success(t("onboarding.common.accountCreated"));
       sessionStorage.removeItem(ONBOARDING_STORAGE_KEY);
       setCompletedCompanyId(ensuredCompanyId ?? null);
       setStep(5);
     } catch (error) {
-      console.error("Erro ao criar conta:", error);
-      const errorMessage = error instanceof Error ? error.message : "Erro ao criar conta";
+      console.error("Account creation error:", error);
+      const errorMessage = error instanceof Error ? error.message : t("onboarding.common.accountCreateError");
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -400,28 +425,26 @@ const Onboarding = () => {
     setWhatsappError("");
     try {
       if (!completedCompanyId) {
-        throw new Error("Não foi possível identificar a empresa para vincular o WhatsApp.");
+        throw new Error(t("onboarding.whatsapp.companyNotFound"));
       }
 
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData?.session) {
         const { data: refreshed } = await supabase.auth.refreshSession();
         if (!refreshed?.session) {
-          throw new Error("Sessão expirada. Faça login novamente.");
+          throw new Error(t("onboarding.common.sessionExpired"));
         }
       }
 
       const link = await createWhatsAppLink(completedCompanyId);
       setWhatsappLink(link);
-      toast.success("Código gerado! Envie no WhatsApp para concluir o vínculo.");
+      toast.success(t("onboarding.whatsapp.codeGenerated"));
     } catch (error) {
-      console.error("Erro ao gerar código WhatsApp:", error);
-      const errorMessage = error instanceof Error ? error.message : "Erro ao gerar código";
+      console.error("WhatsApp code generation error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Error";
       if (isInvalidJwtError(error)) {
-        const message = error instanceof Error ? error.message : "JWT inválido";
-        setWhatsappError(
-          "JWT inválido para este projeto. Verifique VITE_SUPABASE_URL/ANON_KEY do PJ."
-        );
+        const message = error instanceof Error ? error.message : "Invalid JWT";
+        setWhatsappError(t("onboarding.whatsapp.invalidJwt"));
         toast.error(message);
         return;
       }
@@ -442,7 +465,7 @@ const Onboarding = () => {
 
   const handleAuthExpired = async () => {
     await supabase.auth.signOut();
-    toast.error("Sessão expirada. Faça login novamente.");
+    toast.error(t("onboarding.common.sessionExpired"));
     navigate("/login");
   };
 
@@ -478,8 +501,9 @@ const Onboarding = () => {
 
   const isPasswordValid = formData.password.length >= 6 && formData.password === formData.confirmPassword;
   const isContactValid = Boolean(formData.email) && !emailError;
+  const taxIdConfig = TAX_ID_CONFIG[formData.country];
   const whatsappExpiryLabel = whatsappLink?.expiresAt
-    ? new Date(whatsappLink.expiresAt).toLocaleString("pt-BR")
+    ? new Date(whatsappLink.expiresAt).toLocaleString(formData.country === "BR" ? "pt-BR" : "en-US")
     : null;
 
   return (
@@ -521,25 +545,24 @@ const Onboarding = () => {
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                <h2 className="text-2xl font-bold text-foreground mb-2">Bem-vindo ao FinSight!</h2>
-                {/* <h2 className="text-2xl font-bold text-foreground mb-2">Bem-vindo ao {branding.brandName}!</h2> */}
+                <h2 className="text-2xl font-bold text-foreground mb-2">{t("onboarding.welcome.title")}</h2>
                 <p className="text-muted-foreground mb-6">
-                  Este fluxo é dedicado a negócios que desejam organizar suas finanças com mais clareza.
+                  {t("onboarding.welcome.description")}
                 </p>
 
                 <div className="flex items-center gap-4 p-4 rounded-lg border-2 border-primary bg-primary/5">
                   <Building2 className="h-8 w-8 text-primary" />
                   <div>
-                    <div className="font-semibold text-foreground">Perfil empresarial</div>
+                    <div className="font-semibold text-foreground">{t("onboarding.welcome.profileLabel")}</div>
                     <div className="text-sm text-muted-foreground">
-                      Configure o acesso do responsável, cadastre os dados da empresa e seus custos recorrentes.
+                      {t("onboarding.welcome.profileDescription")}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex justify-end mt-8">
                   <Button onClick={goToNextStep} className="gap-2">
-                    Continuar
+                    {t("onboarding.common.continue")}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -554,28 +577,28 @@ const Onboarding = () => {
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                <h2 className="text-2xl font-bold text-foreground mb-2">Dados do responsável</h2>
-                <p className="text-muted-foreground mb-6">Essas informações serão usadas para o acesso ao sistema.</p>
+                <h2 className="text-2xl font-bold text-foreground mb-2">{t("onboarding.responsible.title")}</h2>
+                <p className="text-muted-foreground mb-6">{t("onboarding.responsible.description")}</p>
 
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="name">Nome completo</Label>
+                    <Label htmlFor="name">{t("onboarding.responsible.fullName")}</Label>
                     <Input
                       id="name"
                       value={formData.name}
                       onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                      placeholder="Seu nome"
+                      placeholder={t("onboarding.responsible.fullNamePlaceholder")}
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">{t("onboarding.responsible.email")}</Label>
                     <Input
                       id="email"
                       type="email"
                       value={formData.email}
                       onChange={(e) => handleEmailChange(e.target.value)}
-                      placeholder="seu@email.com"
+                      placeholder={t("onboarding.responsible.emailPlaceholder")}
                       className={emailError ? "border-danger" : ""}
                     />
                     {emailError && (
@@ -588,21 +611,21 @@ const Onboarding = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="password">Senha</Label>
+                      <Label htmlFor="password">{t("onboarding.responsible.password")}</Label>
                       <PasswordInput
                         id="password"
                         value={formData.password}
                         onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
-                        placeholder="********"
+                        placeholder={t("onboarding.responsible.passwordPlaceholder")}
                       />
                     </div>
                     <div>
-                      <Label htmlFor="confirmPassword">Confirme a senha</Label>
+                      <Label htmlFor="confirmPassword">{t("onboarding.responsible.confirmPassword")}</Label>
                       <PasswordInput
                         id="confirmPassword"
                         value={formData.confirmPassword}
                         onChange={(e) => setFormData((prev) => ({ ...prev, confirmPassword: e.target.value }))}
-                        placeholder="********"
+                        placeholder={t("onboarding.responsible.passwordPlaceholder")}
                       />
                     </div>
                   </div>
@@ -620,21 +643,21 @@ const Onboarding = () => {
                       disabled={!isPasswordValid || !isContactValid || authVerified || authLoading}
                       className="sm:w-auto"
                     >
-                      {verificationSent ? "Reenviar código" : "Enviar código"}
+                      {verificationSent ? t("onboarding.responsible.resendCode") : t("onboarding.responsible.sendCode")}
                     </Button>
                     {authVerified && (
-                      <span className="text-sm text-success">Código confirmado ✔</span>
+                      <span className="text-sm text-success">{t("onboarding.responsible.codeConfirmed")} ✔</span>
                     )}
                   </div>
 
                   {verificationSent && !authVerified && (
                     <div className="space-y-2">
-                      <Label htmlFor="verificationCode">Código de autenticação</Label>
+                      <Label htmlFor="verificationCode">{t("onboarding.responsible.verificationCode")}</Label>
                       <Input
                         id="verificationCode"
                         value={verificationCode}
                         onChange={(e) => setVerificationCode(e.target.value)}
-                        placeholder="Digite o código recebido"
+                        placeholder={t("onboarding.responsible.verificationCodePlaceholder")}
                       />
                       {verificationError && (
                         <div className="flex items-center gap-2 text-xs text-danger">
@@ -643,7 +666,7 @@ const Onboarding = () => {
                         </div>
                       )}
                       <Button type="button" variant="secondary" onClick={handleVerifyCode} disabled={authLoading}>
-                        Validar código
+                        {t("onboarding.responsible.validateCode")}
                       </Button>
                     </div>
                   )}
@@ -652,10 +675,10 @@ const Onboarding = () => {
                 <div className="flex justify-between mt-8">
                   <Button variant="outline" onClick={goToPreviousStep} className="gap-2">
                     <ArrowLeft className="h-4 w-4" />
-                    Voltar
+                    {t("onboarding.common.back")}
                   </Button>
                   <Button onClick={goToNextStep} className="gap-2" disabled={!authVerified}>
-                    Avançar
+                    {t("onboarding.common.next")}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -670,57 +693,77 @@ const Onboarding = () => {
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                <h2 className="text-2xl font-bold text-foreground mb-2">Informações da empresa</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-2">{t("onboarding.company.title")}</h2>
                 <p className="text-muted-foreground mb-6">
-                  Preencha os dados básicos do negócio para personalizar a experiência.
+                  {t("onboarding.company.description")}
                 </p>
 
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="companyName">Nome da empresa</Label>
+                    <Label htmlFor="companyName">{t("onboarding.company.companyName")}</Label>
                     <Input
                       id="companyName"
                       value={formData.companyName}
                       onChange={(e) => setFormData((prev) => ({ ...prev, companyName: e.target.value }))}
-                      placeholder="Minha Empresa LTDA"
+                      placeholder={t("onboarding.company.companyNamePlaceholder")}
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="cnpj">CNPJ</Label>
-                    <InputMask
-                      mask="99.999.999/9999-99"
-                      value={formData.cnpj}
-                      onChange={(e) => handleCNPJChange(e.target.value)}
-                    >
-                      {(inputProps: any) => (
-                        <Input
-                          {...inputProps}
-                          id="cnpj"
-                          placeholder="00.000.000/0000-00"
-                          className={cnpjError ? "border-danger" : ""}
-                        />
-                      )}
-                    </InputMask>
-                    {cnpjError && (
-                      <div className="flex items-center gap-2 text-xs text-danger mt-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {cnpjError}
-                      </div>
-                    )}
+                    <Label htmlFor="country">{t("onboarding.company.country")}</Label>
+                    <Select value={formData.country} onValueChange={(v) => handleCountryChange(v as BusinessCountry)}>
+                      <SelectTrigger id="country">
+                        <SelectValue placeholder={t("onboarding.company.countryPlaceholder")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="BR">{t("onboarding.company.countryBR")}</SelectItem>
+                        <SelectItem value="US">{t("onboarding.company.countryUS")}</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
+                  {taxIdConfig && (
+                    <div>
+                      <Label htmlFor="taxId">
+                        {t(`onboarding.company.${taxIdConfig.key}`)}{" "}
+                        <span className="text-muted-foreground font-normal">{t("onboarding.company.taxIdOptional")}</span>
+                      </Label>
+                      <InputMask
+                        mask={taxIdConfig.mask}
+                        value={formData.taxId}
+                        onChange={(e) => handleTaxIdChange(e.target.value)}
+                      >
+                        {(inputProps: any) => (
+                          <Input
+                            {...inputProps}
+                            id="taxId"
+                            placeholder={t(`onboarding.company.${taxIdConfig.key}Placeholder`)}
+                            className={taxIdError ? "border-danger" : ""}
+                          />
+                        )}
+                      </InputMask>
+                      {taxIdError && (
+                        <div className="flex items-center gap-2 text-xs text-danger mt-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {taxIdError}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div>
-                    <Label htmlFor="monthlyRevenue">Faturamento médio mensal (R$)</Label>
+                    <Label htmlFor="monthlyRevenue">
+                      {t("onboarding.company.monthlyRevenue")} ({formData.country === "BR" ? "R$" : "$"})
+                    </Label>
                     <Input
                       id="monthlyRevenue"
                       type="text"
                       value={formatDecimalToDisplay(formData.monthlyRevenue)}
                       onChange={(e) => handleMonthlyRevenueChange(e.target.value)}
-                      placeholder="10.000,00"
+                      placeholder={t("onboarding.company.monthlyRevenuePlaceholder")}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      Usamos essa informação para estimar metas e projeções financeiras.
+                      {t("onboarding.company.monthlyRevenueHint")}
                     </p>
                   </div>
                 </div>
@@ -728,10 +771,10 @@ const Onboarding = () => {
                 <div className="flex justify-between mt-8">
                   <Button variant="outline" onClick={goToPreviousStep} className="gap-2">
                     <ArrowLeft className="h-4 w-4" />
-                    Voltar
+                    {t("onboarding.common.back")}
                   </Button>
                   <Button onClick={goToNextStep} className="gap-2">
-                    Avançar
+                    {t("onboarding.common.next")}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -746,15 +789,15 @@ const Onboarding = () => {
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                <h2 className="text-2xl font-bold text-foreground mb-2">Custos fixos</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-2">{t("onboarding.fixedCosts.title")}</h2>
                 <p className="text-muted-foreground mb-4">
-                  Adicione os compromissos recorrentes da empresa. Você pode importar de um CSV com colunas{" "}
-                  <span className="font-semibold">descrição</span> e <span className="font-semibold">valor</span>.
+                  {t("onboarding.fixedCosts.description")}{" "}
+                  <span className="font-semibold">{t("onboarding.fixedCosts.descriptionCol")}</span> e <span className="font-semibold">{t("onboarding.fixedCosts.valueCol")}</span>.
                 </p>
 
                 <div className="mb-4 p-4 border border-border rounded-lg bg-muted/30">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium">Importar de CSV</p>
+                    <p className="text-sm font-medium">{t("onboarding.fixedCosts.importCsv")}</p>
                     <input
                       type="file"
                       accept=".csv"
@@ -775,7 +818,7 @@ const Onboarding = () => {
                           const amountIdx = header.findIndex((h) => h.includes("valor") || h.includes("amount"));
 
                           if (descIdx === -1 || amountIdx === -1) {
-                            toast.error("CSV inválido. Use colunas descrição e valor.");
+                            toast.error(t("onboarding.fixedCosts.importCsvInvalid"));
                             return;
                           }
 
@@ -793,7 +836,7 @@ const Onboarding = () => {
                             ...prev,
                             fixedCosts: [...prev.fixedCosts, ...newCosts],
                           }));
-                          toast.success(`${newCosts.length} custo(s) importado(s)!`);
+                          toast.success(t("onboarding.fixedCosts.importCsvSuccess", { count: newCosts.length }));
                         };
                         reader.readAsText(file);
                         event.target.value = "";
@@ -806,10 +849,10 @@ const Onboarding = () => {
                       onClick={() => document.getElementById("onboarding-csv-upload")?.click()}
                     >
                       <Upload className="h-3 w-3 mr-2" />
-                      Importar CSV
+                      {t("onboarding.fixedCosts.importCsvButton")}
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">Formato: descrição,valor (ex: Aluguel,1500.00)</p>
+                  <p className="text-xs text-muted-foreground">{t("onboarding.fixedCosts.importCsvFormat")}</p>
                 </div>
 
                 <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 -mr-2 scrollbar-thin">
@@ -819,7 +862,7 @@ const Onboarding = () => {
                         <Input
                           value={cost.name}
                           onChange={(e) => updateFixedCost(index, "name", e.target.value)}
-                          placeholder="Nome (ex: Aluguel)"
+                          placeholder={t("onboarding.fixedCosts.costNamePlaceholder")}
                         />
                       </div>
                       <div className="w-32">
@@ -827,7 +870,7 @@ const Onboarding = () => {
                           type="text"
                           value={formatDecimalToDisplay(cost.value)}
                           onChange={(e) => updateFixedCost(index, "value", e.target.value)}
-                          placeholder="0,00"
+                          placeholder={t("onboarding.fixedCosts.costValuePlaceholder")}
                         />
                       </div>
                       <Button variant="outline" size="icon" onClick={() => removeFixedCost(index)} className="flex-shrink-0">
@@ -839,17 +882,17 @@ const Onboarding = () => {
 
                 <Button variant="outline" onClick={addFixedCost} className="w-full mt-4 gap-2">
                   <Receipt className="h-4 w-4" />
-                  Adicionar custo fixo
+                  {t("onboarding.fixedCosts.addFixedCost")}
                 </Button>
 
                 <div className="flex justify-between mt-8">
                   <Button variant="outline" onClick={goToPreviousStep} className="gap-2">
                     <ArrowLeft className="h-4 w-4" />
-                    Voltar
+                    {t("onboarding.common.back")}
                   </Button>
                   <div className="flex gap-2">
                     <Button variant="outline" onClick={handleComplete} className="gap-2" disabled={loading}>
-                      {loading ? "Criando conta..." : "Pular e finalizar"}
+                      {loading ? t("onboarding.fixedCosts.creatingAccount") : t("onboarding.fixedCosts.skipAndFinish")}
                     </Button>
                     <Button
                       onClick={handleComplete}
@@ -862,7 +905,7 @@ const Onboarding = () => {
                         )
                       }
                     >
-                      {loading ? "Criando conta..." : "Finalizar"}
+                      {loading ? t("onboarding.fixedCosts.creatingAccount") : t("onboarding.fixedCosts.finish")}
                       {!loading && <Check className="h-4 w-4" />}
                     </Button>
                   </div>
@@ -878,18 +921,18 @@ const Onboarding = () => {
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                <h2 className="text-2xl font-bold text-foreground mb-2">Conectar WhatsApp</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-2">{t("onboarding.whatsapp.title")}</h2>
                 <p className="text-muted-foreground mb-6">
-                  Gere um código de pareamento e envie no WhatsApp do FinSight para concluir a conexão.
+                  {t("onboarding.whatsapp.description")}
                 </p>
 
                 <div className="p-4 rounded-lg border border-border bg-muted/30">
                   <div className="flex items-start gap-3">
                     <MessageCircle className="h-6 w-6 text-primary mt-1" />
                     <div className="space-y-1 text-sm text-muted-foreground">
-                      <p>1) Clique em “Gerar código”.</p>
+                      <p>{t("onboarding.whatsapp.step1")}</p>
                       <p>
-                        2) Envie o código para o nosso WhatsApp:{' '}
+                        {t("onboarding.whatsapp.step2")}{' '}
                         <a
                           href="https://wa.me/556132462163"
                           target="_blank"
@@ -899,7 +942,7 @@ const Onboarding = () => {
                           +55 61 3246-2163
                         </a>
                       </p>
-                      <p>3) Aguarde a confirmação automática.</p>
+                      <p>{t("onboarding.whatsapp.step3")}</p>
                     </div>
                   </div>
                 </div>
@@ -907,19 +950,19 @@ const Onboarding = () => {
                 <div className="mt-6 space-y-2">
                   {whatsappLink ? (
                     <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
-                      <p className="text-xs text-muted-foreground mb-1">Seu código</p>
+                      <p className="text-xs text-muted-foreground mb-1">{t("onboarding.whatsapp.yourCode")}</p>
                       <div className="text-2xl font-mono tracking-widest text-primary">
                         {whatsappLink.code}
                       </div>
                       {whatsappExpiryLabel && (
                         <p className="text-xs text-muted-foreground mt-2">
-                          Expira em {whatsappExpiryLabel}.
+                          {t("onboarding.whatsapp.expiresAt", { time: whatsappExpiryLabel })}
                         </p>
                       )}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Nenhum código gerado ainda.
+                      {t("onboarding.whatsapp.noCodeYet")}
                     </p>
                   )}
 
@@ -937,10 +980,10 @@ const Onboarding = () => {
                     disabled={whatsappLoading}
                     className="gap-2"
                   >
-                    {whatsappLoading ? "Gerando..." : whatsappLink ? "Gerar novo código" : "Gerar código"}
+                    {whatsappLoading ? t("onboarding.whatsapp.generating") : whatsappLink ? t("onboarding.whatsapp.generateNew") : t("onboarding.whatsapp.generate")}
                   </Button>
                   <Button variant="outline" onClick={handleFinishOnboarding}>
-                    Ir para o painel
+                    {t("onboarding.whatsapp.goToDashboard")}
                   </Button>
                 </div>
               </motion.div>

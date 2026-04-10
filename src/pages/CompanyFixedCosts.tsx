@@ -42,6 +42,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { formatAmountLive, formatAmountForInput, parseAmountFromInput } from '@/lib/currency';
 
 const CompanyFixedCosts = () => {
   const navigate = useNavigate();
@@ -94,7 +95,7 @@ const CompanyFixedCosts = () => {
       return;
     }
 
-    const amount = Number(formState.amount);
+    const amount = parseAmountFromInput(formState.amount);
     if (Number.isNaN(amount) || amount <= 0) {
       toast.error(t('common.invalidValue'));
       return;
@@ -253,7 +254,7 @@ const CompanyFixedCosts = () => {
                           setEditingId(cost.id);
                           setFormState({
                             description: cost.description,
-                            amount: convertAmount(Number(cost.amount)).toString(),
+                            amount: formatAmountForInput(convertAmount(Number(cost.amount)), currencyConfig.locale),
                             category_id: cost.category_id ?? '',
                             due_day: cost.due_day != null ? cost.due_day.toString() : '',
                           });
@@ -325,14 +326,14 @@ const CompanyFixedCosts = () => {
               <Label htmlFor="amount">{t('fixedCosts.monthlyValueLabel', { symbol: currencyConfig.symbol })}</Label>
               <Input
                 id="amount"
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="numeric"
                 value={formState.amount}
-                onChange={(event) => setFormState((prev) => ({
-                  ...prev,
-                  amount: event.target.value,
-                }))}
-                placeholder="5000.00"
+                onChange={(event) => {
+                  const formatted = formatAmountLive(event.target.value, currencyConfig.locale);
+                  setFormState((prev) => ({ ...prev, amount: formatted }));
+                }}
+                placeholder="0,00"
               />
             </div>
 
