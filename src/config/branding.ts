@@ -3,7 +3,7 @@ export const branding = {
 	 * Nome mostrado em textos, títulos e meta tags.
 	 * Altere aqui para personalizar o white label.
 	 */
-	brandName: 'SimplifiQA',
+	brandName: 'EasyNumbers',
 
 	/**
 	 * Caminhos das logos. Troque os arquivos em /public/branding
@@ -21,31 +21,31 @@ export const branding = {
 	 * e aplicadas nas variáveis do design system.
 	 */
 	colors: {
-		primary: '#0a64a9',
-		primaryForeground: '#ffffff',
-		primaryLight: '#0d80d9',
-		primaryDark: '#074778',
+		primary: '#00F0A8',
+		primaryForeground: '#000000',
+		primaryLight: '#33f3b9',
+		primaryDark: '#00c086',
 
-		secondary: '#eaedf0',
-		secondaryForeground: '#2b3d4f',
+		secondary: '#0F172A',
+		secondaryForeground: '#f8fafc',
 
-		success: '#2ecc70',
-		warning: '#f39c12',
-		destructive: '#e74d3c',
+		success: '#00F0A8',
+		warning: '#F59E0B',
+		destructive: '#EF4444',
 
-		muted: '#eaedf0',
-		mutedForeground: '#7e8c9a',
+		muted: '#1E293B',
+		mutedForeground: '#94A3B8',
 
-		accent: '#2ecc70',
-		accentForeground: '#ffffff',
+		accent: '#00F0A8',
+		accentForeground: '#000000',
 
-		chart1: '#0a64a9',
-		chart2: '#2ecc70',
-		chart3: '#f39c12',
-		chart4: '#e74d3c',
-		chart5: '#995cd6',
+		chart1: '#00F0A8',
+		chart2: '#3B82F6',
+		chart3: '#8B5CF6',
+		chart4: '#F43F5E',
+		chart5: '#F59E0B',
 
-		shadowPrimary: '0 10px 30px -10px hsl(206 89% 35% / 0.3)',
+		shadowPrimary: '0 10px 30px -10px rgba(0, 240, 168, 0.3)',
 	},
 
 	/**
@@ -66,7 +66,17 @@ export const branding = {
 	 * CSS variables adicionais (sem o prefixo --).
 	 * Ex.: { background: '210 16% 98%', foreground: '210 29% 24%' }
 	 */
-	cssVars: {},
+	cssVars: {
+		background: '222 47% 4%',
+		foreground: '210 40% 98%',
+		card: '222 47% 4%',
+		'card-foreground': '210 40% 98%',
+		popover: '222 47% 4%',
+		'popover-foreground': '210 40% 98%',
+		border: '217 32% 17%',
+		input: '217 32% 17%',
+		ring: '162 100% 47%',
+	},
 	/**
 	 * Paleta opcional para telas específicas (ex.: dashboard).
 	 */

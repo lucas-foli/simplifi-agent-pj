@@ -283,35 +283,7 @@ const Chat = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-4">
-            <Link to="/company/dashboard">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">{t('common.back')}</span>
-              </Button>
-            </Link>
-            <div className="flex items-center gap-3">
-              <img
-                src={branding.logo.horizontal}
-                alt={`${branding.brandName} assistente`}
-                className="h-8 w-auto object-contain"
-              />
-              <span className="sr-only">{branding.brandName}</span>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold">{t('chat.title', { brand: branding.brandName })}</h1>
-                <p className="text-xs text-muted-foreground hidden sm:block">
-                  {t('chat.subtitle')}
-                </p>
-              </div>
-            </div>
-          </div>
-          <LogoutButton />
-        </div>
-      </header>
+    <div className="flex flex-col h-[calc(100vh-12rem)]">
 
       {/* Chat Area */}
       <div className="flex-1 overflow-hidden flex flex-col">

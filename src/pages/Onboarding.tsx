@@ -507,35 +507,46 @@ const Onboarding = () => {
     : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20 flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl">
-        <div className="mb-8">
+  return (
+    <div className="min-h-screen bg-[#06070D] flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Grid & Glow from Original Process */}
+      <div className="absolute inset-0 pointer-events-none opacity-20">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(28,32,53,1)_1px,transparent_1px),linear-gradient(90deg,rgba(28,32,53,1)_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:radial-gradient(ellipse_70%_70%_at_50%_50%,#000_30%,transparent_100%)]" />
+      </div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] pointer-events-none bg-[radial-gradient(ellipse,rgba(0,240,168,0.08)_0%,transparent_70%)]" />
+
+      <div className="w-full max-w-2xl relative z-10">
+        <div className="mb-10">
           <div className="flex items-center justify-between">
             {steps.map((item, index) => (
               <div key={item.number} className="flex items-center flex-1">
                 <div className="flex flex-col items-center flex-1">
                   <div
-                    className={`h-10 w-10 rounded-full flex items-center justify-center font-semibold transition-smooth ${
+                    className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold transition-all duration-300 shadow-lg ${
                       step > item.number
-                        ? "bg-success text-success-foreground"
+                        ? "bg-primary text-black"
                         : step === item.number
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground"
+                          ? "bg-slate-800 text-white border border-slate-700 ring-2 ring-primary/20"
+                          : "bg-slate-900 text-slate-600 border border-slate-800"
                     }`}
                   >
                     {step > item.number ? <Check className="h-5 w-5" /> : item.number}
                   </div>
-                  <span className="text-xs mt-2 text-center hidden sm:block">{item.title}</span>
+                  <span className={`text-[10px] mt-2 font-bold uppercase tracking-widest hidden sm:block ${
+                    step === item.number ? "text-primary" : "text-slate-600"
+                  }`}>
+                    {item.title}
+                  </span>
                 </div>
                 {index < steps.length - 1 && (
-                  <div className={`h-1 flex-1 mx-2 transition-smooth ${step > item.number ? "bg-success" : "bg-muted"}`} />
+                  <div className={`h-[1px] flex-1 mx-2 transition-smooth ${step > item.number ? "bg-primary" : "bg-slate-800"}`} />
                 )}
               </div>
             ))}
           </div>
         </div>
 
-        <Card className="p-8 shadow-lg">
+        <Card className="p-10 bg-[#0B0D16] border-slate-800/60 shadow-[0_40px_100px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.04)] rounded-[22px]">
           <AnimatePresence mode="wait">
             {step === 1 && (
               <motion.div

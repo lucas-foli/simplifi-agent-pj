@@ -338,19 +338,12 @@ const CompanyTransactions = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border/60 bg-card/80 backdrop-blur-sm sticky top-0 z-30">
-        <div className="container mx-auto px-4 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-card p-4 rounded-xl border border-border/50">
           <div className="flex flex-wrap items-center gap-3">
-            <Link to="/company/dashboard">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline"></span>
-              </Button>
-            </Link>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">{t('transactions.title')}</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-xl font-bold text-foreground">{t('transactions.title')}</h1>
+              <p className="text-xs text-muted-foreground">
                 {activeCompany.company.name} • {monthLabel}
               </p>
             </div>
@@ -359,12 +352,12 @@ const CompanyTransactions = () => {
             <button
               type="button"
               onClick={goToPreviousMonth}
-              className="inline-flex items-center justify-center rounded-md border border-border bg-card px-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-smooth"
+              className="inline-flex items-center justify-center rounded-md border border-border bg-background px-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-smooth"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
 
-            <div className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground">
+            <div className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm text-foreground">
               <Calendar className="h-4 w-4" />
               {monthLabel}
             </div>
@@ -372,16 +365,16 @@ const CompanyTransactions = () => {
             <button
               type="button"
               onClick={goToNextMonth}
-              className="inline-flex items-center justify-center rounded-md border border-border bg-card px-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-smooth"
+              className="inline-flex items-center justify-center rounded-md border border-border bg-background px-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-smooth"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
 
-            <Button variant="outline" onClick={goToCurrentMonth}>
+            <Button variant="outline" size="sm" onClick={goToCurrentMonth}>
               {t('common.today')}
             </Button>
 
-            <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
+            <Button size="sm" onClick={() => setIsDialogOpen(true)} className="gap-2">
               <Plus className="h-4 w-4" />
               {t('transactions.newTransaction')}
             </Button>
@@ -392,15 +385,10 @@ const CompanyTransactions = () => {
                 <span>{t('transactions.viaWhatsApp')}</span>
               </a>
             </Button>
-
-            <LanguageSelector />
-            <CurrencySelector />
-            <LogoutButton />
           </div>
-        </div>
-      </header>
+      </div>
 
-      <main className="container mx-auto px-4 py-6 space-y-6">
+      <div className="space-y-6">
         <Card className="border-border/60">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] divide-y divide-border/60">
@@ -609,7 +597,7 @@ const CompanyTransactions = () => {
             </div>
           )}
         </Card>
-      </main>
+      </div>
 
       <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
         <DialogContent>

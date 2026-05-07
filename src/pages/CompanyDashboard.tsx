@@ -383,51 +383,7 @@ const CompanyDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
-              {logoSrc ? (
-                <img
-                  src={logoSrc}
-                  alt={`${logoAlt} logotipo`}
-                  className="h-6 w-auto max-w-[120px] object-contain"
-                />
-              ) : (
-                <Building2 className="h-6 w-6 text-primary" />
-              )}
-              {activeCompany.company.name}
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              {t('dashboard.companyOverview')}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {companyMemberships.length > 1 && (
-              <Select
-                value={activeCompany.company_id}
-                onValueChange={(value) => setActiveCompany(value)}
-              >
-                <SelectTrigger className="w-full md:w-72">
-                  <SelectValue placeholder={t('common.selectCompany')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {companyMemberships.map((company) => (
-                    <SelectItem key={company.company_id} value={company.company_id}>
-                      {company.company.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <LanguageSelector />
-            <CurrencySelector />
-            <LogoutButton />
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-6 space-y-6">
+    <div className="space-y-6">
         <section className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-foreground">{t('dashboard.monthlySummary')}</h2>
@@ -760,7 +716,7 @@ const CompanyDashboard = () => {
             </CardContent>
           </Card>
         </section>
-      </main>
+      </div>
 
       <Dialog open={isRevenueDialogOpen} onOpenChange={setIsRevenueDialogOpen}>
         <DialogContent>

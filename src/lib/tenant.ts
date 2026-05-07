@@ -39,11 +39,24 @@ export function resolveTenantSlug(options?: { allowDefault?: boolean }) {
   if (typeof window === "undefined") return null;
   const allowDefault = options?.allowDefault !== false;
   const url = new URL(window.location.href);
+  
+  // 1. Check query parameter
   const queryTenant = url.searchParams.get("tenant");
   if (queryTenant) return queryTenant.trim();
 
+  // 2. Check path parameter (first segment)
+  // For routes like /pointdoacai/dashboard, the first segment is the slug
+  const pathParts = url.pathname.split('/').filter(Boolean);
+  const knownPages = ['login', 'forgot-password', 'reset-password', 'onboarding', 'auth', 'termos', 'privacidade', 'delete-data', 'company'];
+  if (pathParts.length > 0 && !knownPages.includes(pathParts[0])) {
+    return pathParts[0];
+  }
+
+  // 3. Check subdomain
   const subdomain = resolveSubdomainSlug();
   if (subdomain) return subdomain;
+  
+  // 4. Default fallback
   if (!allowDefault) return null;
   return DEFAULT_TENANT_SLUG || null;
 }

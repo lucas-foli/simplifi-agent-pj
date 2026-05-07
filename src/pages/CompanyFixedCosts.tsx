@@ -172,36 +172,25 @@ const CompanyFixedCosts = () => {
   const dateLocale = i18n.resolvedLanguage === 'en-US' ? 'en-US' : 'pt-BR';
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border/60 bg-card/80 backdrop-blur-sm sticky top-0 z-30">
-        <div className="container mx-auto px-4 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-card p-4 rounded-xl border border-border/50">
           <div className="flex items-center gap-3">
-            <Link to="/company/dashboard">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline"></span>
-              </Button>
-            </Link>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">{t('fixedCosts.title')}</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-xl font-bold text-foreground">{t('fixedCosts.title')}</h1>
+              <p className="text-xs text-muted-foreground">
                 {t('fixedCosts.subtitle', { company: activeCompany.company.name })}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
+            <Button size="sm" onClick={() => setIsDialogOpen(true)} className="gap-2">
               <Plus className="h-4 w-4" />
               {t('fixedCosts.newFixedCost')}
             </Button>
-            <LanguageSelector />
-            <CurrencySelector />
-            <LogoutButton />
           </div>
-        </div>
-      </header>
+      </div>
 
-      <main className="container mx-auto px-4 py-6 space-y-6">
+      <div className="space-y-6">
         <Card className="p-4 md:p-6 border-border/60 space-y-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="relative md:w-96">
@@ -294,7 +283,8 @@ const CompanyFixedCosts = () => {
             )}
           </div>
         </Card>
-      </main>
+      </div>
+    </div>
 
       <Dialog
         open={isDialogOpen}

@@ -25,6 +25,7 @@ import AdminLogin from "./pages/AdminLogin";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RootDomainOnly from "./components/RootDomainOnly";
+import MainLayout from "./components/MainLayout";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,22 +56,42 @@ const App = () => (
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/company/dashboard" element={
             <ProtectedRoute>
-              <CompanyDashboard />
+              <MainLayout><CompanyDashboard /></MainLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/:clientSlug/dashboard" element={
+            <ProtectedRoute>
+              <MainLayout><CompanyDashboard /></MainLayout>
             </ProtectedRoute>
           } />
           <Route path="/company/transactions" element={
             <ProtectedRoute>
-              <CompanyTransactions />
+              <MainLayout><CompanyTransactions /></MainLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/:clientSlug/bancos" element={
+            <ProtectedRoute>
+              <MainLayout><CompanyTransactions /></MainLayout>
             </ProtectedRoute>
           } />
           <Route path="/company/fixed-costs" element={
             <ProtectedRoute>
-              <CompanyFixedCosts />
+              <MainLayout><CompanyFixedCosts /></MainLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/:clientSlug/caixa" element={
+            <ProtectedRoute>
+              <MainLayout><CompanyFixedCosts /></MainLayout>
             </ProtectedRoute>
           } />
           <Route path="/chat" element={
             <ProtectedRoute>
-              <Chat />
+              <MainLayout><Chat /></MainLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/:clientSlug/chat" element={
+            <ProtectedRoute>
+              <MainLayout><Chat /></MainLayout>
             </ProtectedRoute>
           } />
           <Route path="/debug" element={
